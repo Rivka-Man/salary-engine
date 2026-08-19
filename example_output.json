@@ -1,0 +1,94 @@
+{
+  "teacher_id": "T001",
+  "calc_date": "2022-01-01",
+  "H_unit": 112,
+  "U_cap_applied": 19,
+  "U_base_from_transition": 17,
+  "U_regular_earned_before_cap": 19,
+  "U_regular": 19,
+  "U_dd_or_mid": 0.0,
+  "U_total": 19.0,
+  "pct_salary_addition": 22.8,
+  "advanced_degree_hours_accumulated": 150.0,
+  "advanced_degree_units_available": 1.339,
+  "delta_u_by_year": {
+    "תשע\"ג": 0,
+    "תשע\"ד": 0,
+    "תשע\"ו": 1,
+    "תש\"פ": 1
+  },
+  "carry_remaining": 86.0,
+  "rejected_courses": [
+    {
+      "course_id": 5,
+      "reason": "אין אישור מוקדם מהמפקח (R17)"
+    }
+  ],
+  "trace": [
+    {
+      "rule_id": "R01_UNIT_HOURS",
+      "message": "יחידת גמול = 112 שעות",
+      "value": 112
+    },
+    {
+      "rule_id": "R21_PRIORITY_OVERRIDE",
+      "message": "מורה בתנאי עוז לתמורה - הסכם עוז לתמורה גובר על החוזר הכללי",
+      "value": null
+    },
+    {
+      "rule_id": "R03_REFORM_CAP",
+      "message": "תקרה מעודכנת (מתש\"פ ואילך)",
+      "value": 19
+    },
+    {
+      "rule_id": "R08_TRANSITION_UNIT",
+      "message": "זוהתה יתרת שעות מעל 16 יחידות (H_pre=1900.0) - הוכרה יחידה 17-ית",
+      "value": 17
+    },
+    {
+      "rule_id": "R13_SCHOOL_HOURS_CAP",
+      "message": "קורס 2 - נחתך מ-40.0 ל-30 שעות (תקרת 30/שנה)",
+      "value": null
+    },
+    {
+      "rule_id": "R13_SCHOOL_HOURS_CAP",
+      "message": "קורס 3 - נחתך מ-20.0 ל-0 שעות (תקרת 30/שנה)",
+      "value": null
+    },
+    {
+      "rule_id": "R17_NO_PREAPPROVAL",
+      "message": "קורס 5 נפסל - אין אישור מוקדם",
+      "value": null
+    },
+    {
+      "rule_id": "R14_ADVANCED_DEGREE",
+      "message": "קורס 7 - מסלול תואר מתקדם, 150.0 שעות",
+      "value": 150.0
+    },
+    {
+      "rule_id": "R11_ANNUAL_CAP",
+      "message": "שנה תשע\"ג - עד יחידה 1: 0 יח' (זמין: 60 שעות)",
+      "value": 0
+    },
+    {
+      "rule_id": "R11_ANNUAL_CAP",
+      "message": "שנה תשע\"ד - עד יחידה 1: 0 יח' (זמין: 90 שעות)",
+      "value": 0
+    },
+    {
+      "rule_id": "R12_SABBATICAL_EXEMPT",
+      "message": "שנה תשע\"ו (סטטוס=שבתון) - ללא תקרת 1/שנה: 1 יח'",
+      "value": 1
+    },
+    {
+      "rule_id": "R11_ANNUAL_CAP",
+      "message": "שנה תש\"פ - עד יחידה 1: 1 יח' (זמין: 198 שעות)",
+      "value": 1
+    },
+    {
+      "rule_id": "R07_PCT_RATE",
+      "message": "19.0 יח' × 1.2% ליחידה",
+      "value": 22.8
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+salary.db
+salary.db-journal
+.venv/
+env/

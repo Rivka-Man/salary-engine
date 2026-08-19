@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}פנקס הגמול{% endblock %}</title>
+<style>
+  :root {
+    --ink: #1c2622;
+    --ink-soft: #4c584f;
+    --paper: #eef0e9;
+    --paper-raised: #f8f9f4;
+    --line: rgba(28,38,34,0.14);
+    --line-strong: rgba(28,38,34,0.26);
+    --accent: #1f6f63;
+    --accent-ink: #123f38;
+    --accent-soft: rgba(31,111,99,0.12);
+    --good: #3c7d4f;
+    --good-soft: rgba(60,125,79,0.14);
+    --warn: #9c6f1f;
+    --warn-soft: rgba(156,111,31,0.14);
+    --critical: #a3392c;
+    --critical-soft: rgba(163,57,44,0.13);
+    --shadow: 0 1px 2px rgba(28,38,34,0.05), 0 10px 28px -16px rgba(28,38,34,0.22);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    direction: rtl;
+    font-family: "Segoe UI", "Heebo", "Arial Hebrew", Arial, sans-serif;
+  }
+  a { color: var(--accent-ink); }
+  .mono { font-family: Consolas, "SF Mono", "Courier New", monospace; font-variant-numeric: tabular-nums; }
+  .display { font-family: "David Libre", "Frank Ruhl Libre", Georgia, "Times New Roman", serif; }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 2.5rem 1.75rem 5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .masthead { display: flex; flex-direction: column; gap: 0.9rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line-strong); }
+  .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent-ink); text-transform: uppercase; font-weight: 600; }
+  .masthead-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+  .brand { font-size: 1.6rem; font-weight: 600; text-decoration: none; color: var(--ink); }
+  .top-nav a {
+    text-decoration: none; font-size: 0.85rem; font-weight: 600; color: var(--accent-ink);
+    background: var(--accent-soft); padding: 0.5rem 0.9rem; border-radius: 6px;
+  }
+
+  .flash-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .flash { padding: 0.65rem 0.9rem; border-radius: 7px; font-size: 0.88rem; border: 1px solid var(--line); }
+  .flash.error { background: var(--critical-soft); color: var(--critical); border-color: transparent; }
+  .flash.success { background: var(--good-soft); color: var(--good); border-color: transparent; }
+
+  .panel { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+  .panel-head { padding: 0.9rem 1.15rem; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+  .panel-title { font-weight: 600; font-size: 0.95rem; }
+  .panel-note { font-size: 0.75rem; color: var(--ink-soft); }
+  .panel-body { padding: 1.15rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .stat-tile { background: var(--paper-raised); padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.35rem; }
+  .stat-tile.emphasis { background: var(--accent-soft); }
+  .stat-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); font-weight: 600; }
+  .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--ink); }
+  .stat-tile.emphasis .stat-value { color: var(--accent-ink); }
+  .stat-sub { font-size: 0.74rem; color: var(--ink-soft); }
+
+  .body-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 860px) { .body-grid { grid-template-columns: 1fr; } .masthead-row { flex-direction: column; align-items: flex-start; } }
+
+  .table-wrap { overflow-x: auto; }
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  table.ledger th { text-align: right; font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); font-weight: 600; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+  table.ledger td { padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  table.ledger tbody tr:last-child td { border-bottom: none; }
+
+  .chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 999px; white-space: nowrap; }
+  .chip.good { background: var(--good-soft); color: var(--good); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.critical { background: var(--critical-soft); color: var(--critical); }
+  .chip.accent { background: var(--accent-soft); color: var(--accent-ink); }
+  .chip.neutral { background: var(--line); color: var(--ink-soft); }
+  .chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+
+  .kv-list { display: flex; flex-direction: column; gap: 0.55rem; }
+  .kv-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.86rem; }
+  .kv-row dt { color: var(--ink-soft); }
+  .kv-row dd { margin: 0; font-weight: 600; text-align: left; }
+
+  /* forms */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem 1.2rem; }
+  .field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .field.span-2 { grid-column: span 2; }
+  .field label { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
+  .field input[type=text], .field input[type=date], .field input[type=number], .field select {
+    font: inherit; font-size: 0.9rem; padding: 0.5rem 0.65rem; border: 1px solid var(--line-strong);
+    border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .checkbox-row { display: flex; align-items: center; gap: 0.5rem; flex-direction: row-reverse; justify-content: flex-end; }
+  .checkbox-row label { font-size: 0.86rem; font-weight: 500; color: var(--ink); }
+  .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem 1.2rem; }
+
+  .btn { font: inherit; font-size: 0.86rem; font-weight: 600; padding: 0.6rem 1.1rem; border-radius: 7px; border: 1px solid transparent; cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #fdfdf9; }
+  .btn-primary:hover { background: var(--accent-ink); }
+  .btn-ghost { background: var(--paper); color: var(--ink); border-color: var(--line-strong); }
+  .btn-ghost:hover { background: var(--line); }
+  .btn-danger { background: transparent; color: var(--critical); border-color: transparent; padding: 0.3rem 0.5rem; font-size: 0.78rem; }
+  .btn-danger:hover { text-decoration: underline; }
+  .actions-row { display: flex; gap: 0.6rem; justify-content: flex-start; flex-direction: row-reverse; }
+
+  details.trail summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1.15rem; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 0.95rem; }
+  details.trail summary::-webkit-details-marker { display: none; }
+  .caret { color: var(--ink-soft); font-size: 0.8rem; transition: transform 0.15s ease; }
+  details.trail[open] summary .caret { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .caret { transition: none; } }
+  .trail-row { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; padding: 0.55rem 1.15rem; border-bottom: 1px solid var(--line); font-size: 0.82rem; }
+  .trail-row:last-child { border-bottom: none; }
+  .rule-code { font-size: 0.72rem; background: var(--accent-soft); color: var(--accent-ink); padding: 0.18rem 0.45rem; border-radius: 4px; white-space: nowrap; }
+  .trail-val { color: var(--ink-soft); white-space: nowrap; }
+  .trail-val b { color: var(--ink); font-weight: 600; }
+
+  .empty-state { padding: 2.5rem 1.5rem; text-align: center; color: var(--ink-soft); display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <div class="eyebrow">מנוע חישוב גמול השתלמות · הסכם עוז לתמורה</div>
+    <div class="masthead-row">
+      <a href="{{ url_for('index') }}" class="brand display">פנקס הגמול</a>
+      <nav class="top-nav"><a href="{{ url_for('new_teacher') }}">+ מורה חדשה</a></nav>
+    </div>
+  </header>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-list">
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+</body>
+</html>

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ teacher.full_name }} — פנקס הגמול{% endblock %}
+{% block content %}
+
+<div class="masthead-row" style="border-bottom:none; padding-bottom:0;">
+  <div class="teacher-id-block" style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap;">
+    <div class="display" style="font-size:1.9rem; font-weight:600;">{{ teacher.full_name }}</div>
+    <span class="chip neutral mono">{{ teacher.teacher_id }}</span>
+    {% if teacher.in_reform %}<span class="chip accent">עוז לתמורה{% if teacher.reform_start_year %} · מ{{ teacher.reform_start_year }}{% endif %}</span>{% endif %}
+    {% if teacher.is_pensioner %}<span class="chip warn">גמלאית</span>{% endif %}
+  </div>
+  <form method="post" action="{{ url_for('delete_teacher', teacher_id=teacher.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלה לצמיתות?');">
+    <button type="submit" class="btn-danger">מחיקת מורה</button>
+  </form>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><span class="panel-title">הרצת חישוב גמול השתלמות</span></div>
+  <form class="panel-body" method="post" action="{{ url_for('calculate', teacher_id=teacher.teacher_id) }}" style="flex-direction:row; align-items:flex-end; flex-wrap:wrap; gap:1rem;">
+    <div class="field" style="max-width:220px;">
+      <label for="calc_date">תאריך חישוב</label>
+      <input type="date" id="calc_date" name="calc_date" required value="{{ today }}">
+    </div>
+    <button type="submit" class="btn btn-primary">הרצת המנוע</button>
+  </form>
+</section>
+
+<div class="body-grid">
+  <div style="display:flex; flex-direction:column; gap:1.5rem;">
+
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">פנקס קורסים</span>
+        <span class="panel-note">{{ courses|length }} רשומות</span>
+      </div>
+      {% if courses %}
+      <div class="table-wrap">
+        <table class="ledger">
+          <thead>
+            <tr><th>שנה"ל</th><th>תאריך</th><th>סוג</th><th>שעות</th><th>ציון</th><th>אישור מוקדם</th><th>תואר מתקדם</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for c in courses %}
+            <tr>
+              <td>{{ c.school_year or "—" }}</td>
+              <td class="mono">{{ c.start_date }}</td>
+              <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
+              <td class="mono">{{ c.hours }}</td>
+              <td class="mono">{{ c.grade if c.grade is not none else "—" }}</td>
+              <td>{% if c.pre_approved %}<span class="chip good">כן</span>{% else %}<span class="chip critical">לא</span>{% endif %}</td>
+              <td>{% if c.is_advanced_degree_track %}<span class="chip accent">כן</span>{% else %}<span class="chip neutral">לא</span>{% endif %}</td>
+              <td>
+                <form method="post" action="{{ url_for('delete_course', teacher_id=teacher.teacher_id, course_id=c.course_id) }}">
+                  <button type="submit" class="btn-danger">מחיקה</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state"><p>עדיין לא הוזנו קורסים למורה זו.</p></div>
+      {% endif %}
+
+      <form class="panel-body" method="post" action="{{ url_for('add_course', teacher_id=teacher.teacher_id) }}">
+        <div class="form-grid">
+          <div class="field">
+            <label for="start_date">תאריך תחילה *</label>
+            <input type="date" id="start_date" name="start_date" required>
+          </div>
+          <div class="field">
+            <label for="hours">שעות *</label>
+            <input type="number" step="0.01" id="hours" name="hours" required>
+          </div>
+          <div class="field">
+            <label for="source_type">סוג מקור</label>
+            <select id="source_type" name="source_type">
+              {% for val, label in source_type_labels.items() %}
+              <option value="{{ val }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="grade">ציון (אם עם ציון)</label>
+            <input type="number" step="0.01" id="grade" name="grade">
+          </div>
+        </div>
+        <div class="checkbox-grid">
+          <div class="checkbox-row"><input type="checkbox" id="graded" name="graded"><label for="graded">קורס עם ציון</label></div>
+          <div class="checkbox-row"><input type="checkbox" id="pre_approved" name="pre_approved" checked><label for="pre_approved">אושר מראש ע"י המפקח</label></div>
+          <div class="checkbox-row"><input type="checkbox" id="is_advanced_degree_track" name="is_advanced_degree_track"><label for="is_advanced_degree_track">מסלול תואר מתקדם</label></div>
+        </div>
+        <div class="actions-row"><button type="submit" class="btn btn-ghost">הוספת קורס</button></div>
+      </form>
+    </section>
+
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:1.5rem;">
+
+    <section class="panel">
+      <div class="panel-head"><span class="panel-title">פרופיל מורה</span></div>
+      <div class="panel-body">
+        <dl class="kv-list">
+          <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובדת הוראה פעילה{% else %}לא פעילה{% endif %}</dd></div>
+          <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
+          <div class="kv-row"><dt>אופק חדש (כפול)</dt><dd>{% if teacher.dual_reform_ofek_hadash %}כן{% else %}לא{% endif %}</dd></div>
+          <div class="kv-row"><dt>יחידות לפני (U_pre)</dt><dd class="mono">{{ teacher.U_pre }}</dd></div>
+          <div class="kv-row"><dt>שעות לפני (H_pre)</dt><dd class="mono">{{ teacher.H_pre }}</dd></div>
+          <div class="kv-row"><dt>גמול כפל תואר בעבר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
+          <div class="kv-row"><dt>גמול ביניים בעבר</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><span class="panel-title">סטטוס תעסוקתי לפי שנה</span></div>
+      <div class="panel-body">
+        {% if statuses %}
+        <div class="year-timeline" style="display:flex; flex-direction:column; gap:0.5rem;">
+          {% for s in statuses %}
+          <div class="year-row" style="display:flex; align-items:center; justify-content:space-between; gap:0.6rem; padding:0.5rem 0.65rem; background:var(--paper); border:1px solid var(--line); border-radius:7px;">
+            <span style="font-weight:600; font-size:0.85rem;">{{ s.school_year }}</span>
+            <span class="chip {% if s.status=='שבתון' %}warn{% else %}neutral{% endif %}">{{ s.status }}</span>
+            <form method="post" action="{{ url_for('delete_status', teacher_id=teacher.teacher_id, school_year=s.school_year) }}">
+              <button type="submit" class="btn-danger">מחיקה</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:var(--ink-soft); font-size:0.86rem; margin:0;">לא הוזן סטטוס תעסוקתי עדיין (יטופל כברירת מחדל "רגיל").</p>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('add_status', teacher_id=teacher.teacher_id) }}" style="display:flex; gap:0.6rem; align-items:flex-end; flex-wrap:wrap;">
+          <div class="field" style="max-width:160px;">
+            <label for="school_year">שנת לימודים</label>
+            <select id="school_year" name="school_year" required>
+              {% for sy in school_years %}<option value="{{ sy }}">{{ sy }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field" style="max-width:160px;">
+            <label for="status">סטטוס</label>
+            <select id="status" name="status">
+              <option value="רגיל">רגיל</option>
+              <option value="שבתון">שבתון</option>
+              <option value="חצי-שבתון">חצי-שבתון</option>
+              <option value="חלת">חל"ת</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-ghost">הוספה</button>
+        </form>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+{% if runs %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">הרצות קודמות</span>
+    <span class="panel-note">{{ runs|length }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>תאריך חישוב</th><th>הורץ בשעה</th><th>יחידות סה"כ</th><th>תוספת %</th><th></th></tr></thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td class="mono">{{ r.calc_date }}</td>
+          <td class="mono">{{ r.run_timestamp[:16] }}</td>
+          <td class="mono">{{ r.U_total }}</td>
+          <td class="mono">{{ r.pct_addition }}%</td>
+          <td><a href="{{ url_for('view_run', run_id=r.run_id) }}">צפייה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

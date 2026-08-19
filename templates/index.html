@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}פנקס הגמול — מורות{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">מורות במערכת</span>
+    <span class="panel-note">{{ teachers|length }} רשומות</span>
+  </div>
+  {% if teachers %}
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>מזהה</th>
+          <th>שם מלא</th>
+          <th>עוז לתמורה</th>
+          <th>שנת תחילה ברפורמה</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in teachers %}
+        <tr>
+          <td class="mono">{{ t.teacher_id }}</td>
+          <td><a href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">{{ t.full_name }}</a></td>
+          <td>
+            {% if t.in_reform %}<span class="chip accent">כן</span>{% else %}<span class="chip neutral">לא</span>{% endif %}
+          </td>
+          <td>{{ t.reform_start_year or "—" }}</td>
+          <td><a href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">פתיחה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <p>עדיין לא הוזנו מורות למערכת.</p>
+    <a href="{{ url_for('new_teacher') }}" class="btn btn-primary">הזנת מורה ראשונה</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

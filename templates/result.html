@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}תוצאת חישוב — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="masthead-row" style="border-bottom:none; padding-bottom:0;">
+  <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap;">
+    <div class="display" style="font-size:1.9rem; font-weight:600;">{{ teacher.full_name }}</div>
+    <span class="chip neutral mono">{{ teacher.teacher_id }}</span>
+  </div>
+  <div style="text-align:left; color:var(--ink-soft); font-size:0.85rem;">
+    <span>תאריך חישוב</span>
+    <strong class="mono" style="display:block; color:var(--ink); font-size:0.95rem;">{{ result.calc_date }}</strong>
+  </div>
+</div>
+
+<section class="hero-stats">
+  <div class="stat-tile emphasis">
+    <span class="stat-label">תוספת שכר</span>
+    <span class="stat-value mono">{{ result.pct_salary_addition }}%</span>
+    <span class="stat-sub">{{ result.U_total }} יח' × 1.2%</span>
+  </div>
+  <div class="stat-tile emphasis">
+    <span class="stat-label">סה"כ יחידות</span>
+    <span class="stat-value mono">{{ result.U_total }}</span>
+    <span class="stat-sub">U_total</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-label">תקרה שחלה</span>
+    <span class="stat-value mono">{{ result.U_cap_applied }}</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-label">בסיס יחידת מעבר</span>
+    <span class="stat-value mono">{{ result.U_base_from_transition }}</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-label">תואר מתקדם</span>
+    <span class="stat-value mono">{{ result.advanced_degree_hours_accumulated }}<span style="font-size:0.85rem; font-weight:500;"> ש'</span></span>
+    <span class="stat-sub">~{{ result.advanced_degree_units_available }} יח' · 1/שנה</span>
+  </div>
+</section>
+
+<div class="body-grid">
+  <div style="display:flex; flex-direction:column; gap:1.5rem;">
+
+    <section class="panel">
+      <details class="trail" open>
+        <summary><span>Trace מלא — כל חוק שהופעל</span><span class="caret">◂</span></summary>
+        <div>
+          {% for step in result.trace %}
+          <div class="trail-row">
+            <span class="rule-code mono">{{ step.rule_id }}</span>
+            <span>{{ step.message }}</span>
+            <span class="trail-val mono">{% if step.value is not none %}→ <b>{{ step.value }}</b>{% else %}—{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+    </section>
+
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:1.5rem;">
+
+    {% if result.rejected_courses %}
+    <section class="panel">
+      <div class="panel-head"><span class="panel-title">קורסים שנפסלו</span></div>
+      <div class="panel-body">
+        {% for rc in result.rejected_courses %}
+        <div class="kv-row"><dt>קורס #{{ rc.course_id }}</dt><dd style="color:var(--critical);">{{ rc.reason }}</dd></div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="panel">
+      <div class="panel-head"><span class="panel-title">יחידות חדשות לפי שנה</span></div>
+      <div class="panel-body">
+        <dl class="kv-list">
+          {% for sy, delta in result.delta_u_by_year.items() %}
+          <div class="kv-row"><dt>{{ sy }}</dt><dd class="mono">+{{ delta }} יח'</dd></div>
+          {% endfor %}
+        </dl>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="actions-row">
+  <a href="{{ url_for('teacher_detail', teacher_id=teacher.teacher_id) }}" class="btn btn-ghost">חזרה לפרופיל המורה</a>
+</div>
+
+{% endblock %}

@@ -1,0 +1,342 @@
+"""
+מנוע חישוב גמול השתלמות - עוז לתמורה
+=======================================
+שכבות:
+1. DB (SQLite) - שומר את "ספר החוקים" (מטא-דאטה: מקור, סעיף, תוקף, סדר הרצה),
+   נתוני מורים, קורסים, וסטטוס תעסוקתי שנתי.
+2. rules_registry (בפייתון) - הלוגיקה בפועל של כל חוק, מקושרת ל-rule_id
+   שמופיע בטבלת rules ב-DB. זו ההפרדה בין "מה החוק אומר" (DB, קריא לאדם)
+   לבין "איך הוא מתבצע" (קוד, ניתן להרצה).
+3. Engine - מריץ את החוקים לפי סדר עדיפות על קלט מורה נתון, ומפיק
+   פלט + trace מלא (audit trail) שמסביר איזה חוק תרם מה לתוצאה הסופית.
+"""
+
+import sqlite3
+import json
+import math
+from datetime import date, datetime
+from dataclasses import dataclass, field
+
+import os
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "salary.db")
+
+# ----------------------------------------------------------------
+# מיפוי שנות לימודים עבריות לתאריך תחילה משוער (1 בספטמבר)
+# ----------------------------------------------------------------
+SCHOOL_YEAR_START = {
+    'תשע"ב': "2011-09-01", 'תשע"ג': "2012-09-01", 'תשע"ד': "2013-09-01",
+    'תשע"ה': "2014-09-01", 'תשע"ו': "2015-09-01", 'תשע"ז': "2016-09-01",
+    'תשע"ח': "2017-09-01", 'תשע"ט': "2018-09-01", 'תש"פ': "2019-09-01",
+    'תשפ"א': "2020-09-01", 'תשפ"ב': "2021-09-01", 'תשפ"ג': "2022-09-01",
+    'תשפ"ד': "2023-09-01", 'תשפ"ה': "2024-09-01", 'תשפ"ו': "2025-09-01",
+}
+
+
+def school_year_of(d: str) -> str:
+    """מחזיר את שנת הלימודים העברית המקבילה לתאריך ISO נתון (קירוב לפי 1.9)."""
+    dt = datetime.fromisoformat(d).date()
+    years = sorted(SCHOOL_YEAR_START.items(), key=lambda x: x[1])
+    result = years[0][0]
+    for name, start in years:
+        if dt >= datetime.fromisoformat(start).date():
+            result = name
+        else:
+            break
+    return result
+
+
+# ==================================================================
+# שלב 1: יצירת ה-DB וזריעת טבלת החוקים (המטא-דאטה)
+# ==================================================================
+
+RULES_METADATA = [
+    dict(rule_id="R01_UNIT_HOURS", topic="גמול_השתלמות", title="יחידת גמול = שעות לימוד",
+         description="יחידת גמול השתלמות אחת = 112 שעות לימוד; אם עם ציון, לפחות 56 מהן בציון 60+.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=10, applies_when="תמיד"),
+    dict(rule_id="R15_PENSIONER_RATE", topic="גמול_השתלמות", title="יחידת גמול לגמלאי = 168 שעות",
+         description="עבור מורה גמלאי/העומד לפרוש, יחידת גמול = 168 שעות (במקום 112).",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="6.9.2", priority=11,
+         applies_when="is_pensioner = 1", overrides="R01_UNIT_HOURS"),
+    dict(rule_id="R02_BASE_CAP", topic="גמול_השתלמות", title="תקרה כללית - 16 יחידות",
+         description="תקרת יחידות גמול רגילות (ללא כפל תואר/ביניים) = 16, לפני עדכון עוז לתמורה.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=20, applies_when="in_reform = 0"),
+    dict(rule_id="R03_REFORM_CAP", topic="גמול_השתלמות", title="עדכון תקרה - עוז לתמורה",
+         description="למורה בתנאי עוז לתמורה: תקרה=18 עד תש\"פ, ו-19 מתש\"פ (1.9.2019) ואילך.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(א) + נוהל תש\"פ", priority=21,
+         applies_when="in_reform = 1", overrides="R02_BASE_CAP"),
+    dict(rule_id="R04_DOUBLE_DEGREE", topic="גמול_השתלמות", title="גמול כפל תואר",
+         description="8.75 יחידות, פעם אחת בקריירה, לא נספר בתוך התקרה הרגילה.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.3.2", priority=30, applies_when="has_double_degree_gimul flag"),
+    dict(rule_id="R05_BEINAYIM", topic="גמול_השתלמות", title="גמול ביניים",
+         description="4 יחידות, פעם אחת, לא ניתן במקביל לכפל תואר.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.1", priority=31, applies_when="has_beinayim_gimul flag"),
+    dict(rule_id="R06_TOTAL_MAX", topic="גמול_השתלמות", title="תקרה כוללת 24.75",
+         description="סך כל היחידות (רגילות + כפל תואר/ביניים) לא יעלה על 24.75 בכל מקרה.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=90, applies_when="תמיד"),
+    dict(rule_id="R07_PCT_RATE", topic="גמול_השתלמות", title="שיעור תשלום ליחידה",
+         description="כל יחידת גמול = 1.2% מהשכר המשולב.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 סוף", priority=91, applies_when="תמיד"),
+    dict(rule_id="R08_TRANSITION_UNIT", topic="גמול_השתלמות", title="יחידת מעבר לרפורמה",
+         description="אם U_pre=16 ויש יתרת שעות מעבר ל-16 יחידות, מוכרת יחידה נוספת מ-R_reform.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ב)", priority=22, applies_when="in_reform=1 and U_pre=16"),
+    dict(rule_id="R09_THRESH_18", topic="גמול_השתלמות", title="סף הכרה קורסים ליחידה 18",
+         description="קורס מוכר ליחידה ה-18 רק אם תחילתו לא לפני max(תשע\"ב, R_reform).",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ג)-(ד)", priority=40, applies_when="in_reform=1"),
+    dict(rule_id="R10_THRESH_19", topic="גמול_השתלמות", title="סף הכרה קורסים ליחידה 19",
+         description="קורס מוכר ליחידה ה-19 רק אם תחילתו לא לפני max(תשע\"ט, R_reform) וגם calc_date>=תש\"פ.",
+         source_doc="נוהל_עוז_לתמורה_תשפ", source_ref="סעיפים 5-6", priority=41, applies_when="in_reform=1"),
+    dict(rule_id="R11_ANNUAL_CAP", topic="גמול_השתלמות", title="תקרה שנתית 1 יחידה + carry",
+         description="בכל שנה נוצרת לכל היותר יחידה 1 חדשה; שעות עודפות עוברות (carry) לשנה הבאה.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ד)", priority=50, applies_when="תמיד"),
+    dict(rule_id="R12_SABBATICAL_EXEMPT", topic="גמול_השתלמות", title="פטור שבתון/חצי-שבתון/חלת",
+         description="בשנה בה המורה בשבתון/חצי-שבתון/חל\"ת, לא חלה תקרת 1 יחידה/שנה.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ה)", priority=51,
+         applies_when="status in (שבתון,חצי-שבתון,חלת)", overrides="R11_ANNUAL_CAP"),
+    dict(rule_id="R13_SCHOOL_HOURS_CAP", topic="גמול_השתלמות", title="תקרת שעות השתלמות בית-ספרית",
+         description="עד 30 שעות בשנה מהשתלמות בית-ספרית נספרות; שאר השעות מאותו מקור לא נספרות.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ו)", priority=45, applies_when="source_type=school_based"),
+    dict(rule_id="R14_ADVANCED_DEGREE", topic="גמול_השתלמות", title="צבירה בלתי מוגבלת - תואר מתקדם",
+         description="לימודי תואר מתקדם/הרחבת הוראה/תואר נוסף: צבירה ללא הגבלה, תשלום גמול אחד בשנה.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="6.9.1 / הסכם עוז לתמורה", priority=46,
+         applies_when="course.is_advanced_degree_track = 1"),
+    dict(rule_id="R16_DUAL_REFORM", topic="גמול_השתלמות", title="הכרה כפולה אופק חדש",
+         description="שעות מוכרות במקביל לשתי הרפורמות אם המורה מועסק בשתיהן.",
+         source_doc="נוהל_עוז_לתמורה", source_ref="סעיף 12", priority=95,
+         applies_when="dual_reform_ofek_hadash = 1"),
+    dict(rule_id="R17_NO_PREAPPROVAL", topic="גמול_השתלמות", title="פסילה - אין אישור מוקדם",
+         description="קורס שדרש אישור מפקח מראש ולא קיבל - שעותיו לא מוכרות כלל.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="5.2.5.3", priority=15, applies_when="course.pre_approved=0"),
+    dict(rule_id="R21_PRIORITY_OVERRIDE", topic="גמול_השתלמות", title="עדיפות עוז לתמורה על חוזר כללי",
+         description="למורים בתנאי הרפורמה, הסכם עוז לתמורה גובר על חוזר המנכ\"ל הכללי בכל סתירה.",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סינתזה", priority=1, applies_when="in_reform=1"),
+]
+
+
+def init_db(reset: bool = True):
+    conn = sqlite3.connect(DB_PATH)
+    if reset:
+        conn.executescript("""
+            DROP TABLE IF EXISTS rules;
+            DROP TABLE IF EXISTS teachers;
+            DROP TABLE IF EXISTS courses;
+            DROP TABLE IF EXISTS employment_status_by_year;
+            DROP TABLE IF EXISTS calculation_runs;
+        """)
+    schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
+    with open(schema_path, encoding="utf-8") as f:
+        conn.executescript(f.read())
+    cur = conn.cursor()
+    for r in RULES_METADATA:
+        params = {
+            "rule_id": r["rule_id"], "topic": r["topic"], "title": r["title"],
+            "description": r["description"], "source_doc": r["source_doc"],
+            "source_ref": r.get("source_ref"), "priority": r["priority"],
+            "applies_when": r.get("applies_when"), "valid_from": r.get("valid_from"),
+            "overrides": r.get("overrides"),
+        }
+        cur.execute("""
+            INSERT OR REPLACE INTO rules
+            (rule_id, topic, title, description, source_doc, source_ref, priority,
+             applies_when, valid_from, valid_to, overrides, active)
+            VALUES (:rule_id, :topic, :title, :description, :source_doc, :source_ref,
+                    :priority, :applies_when, :valid_from, NULL, :overrides, 1)
+        """, params)
+    conn.commit()
+    conn.close()
+    print(f"DB initialized at {DB_PATH} with {len(RULES_METADATA)} rules.")
+
+
+# ==================================================================
+# שלב 2: מנוע החישוב
+# ==================================================================
+
+@dataclass
+class Trace:
+    steps: list = field(default_factory=list)
+
+    def log(self, rule_id, message, value=None):
+        self.steps.append({"rule_id": rule_id, "message": message, "value": value})
+
+
+def get_teacher(conn, teacher_id):
+    row = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    cols = [d[0] for d in conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).description]
+    return dict(zip(cols, row)) if row else None
+
+
+def get_courses(conn, teacher_id):
+    cur = conn.execute("SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher_id,))
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def get_status_by_year(conn, teacher_id):
+    cur = conn.execute("SELECT school_year, status FROM employment_status_by_year WHERE teacher_id=?", (teacher_id,))
+    return {row[0]: row[1] for row in cur.fetchall()}
+
+
+def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
+    """
+    מריץ את מנוע חוקי גמול ההשתלמות על מורה נתון, עד לתאריך calc_date.
+    מחזיר dict עם הפלט המלא + trace (audit trail).
+    """
+    conn = sqlite3.connect(DB_PATH)
+    trace = Trace()
+
+    teacher = get_teacher(conn, teacher_id)
+    if teacher is None:
+        raise ValueError(f"Teacher {teacher_id} not found")
+
+    courses = get_courses(conn, teacher_id)
+    status_by_year = get_status_by_year(conn, teacher_id)
+
+    # --- R01/R15: קביעת H_unit ---
+    if teacher["is_pensioner"]:
+        H_unit = 168
+        trace.log("R15_PENSIONER_RATE", "מורה גמלאי - יחידת גמול = 168 שעות", H_unit)
+    else:
+        H_unit = 112
+        trace.log("R01_UNIT_HOURS", "יחידת גמול = 112 שעות", H_unit)
+
+    # --- R02/R03/R21: קביעת התקרה החלה ---
+    calc_dt = datetime.fromisoformat(calc_date).date()
+    tashpa = datetime.fromisoformat(SCHOOL_YEAR_START['תש"פ']).date()
+    if teacher["in_reform"]:
+        trace.log("R21_PRIORITY_OVERRIDE", "מורה בתנאי עוז לתמורה - הסכם עוז לתמורה גובר על החוזר הכללי")
+        if calc_dt >= tashpa:
+            U_cap = 19
+            trace.log("R03_REFORM_CAP", "תקרה מעודכנת (מתש\"פ ואילך)", U_cap)
+        else:
+            U_cap = 18
+            trace.log("R03_REFORM_CAP", "תקרה מעודכנת (לפני תש\"פ)", U_cap)
+    else:
+        U_cap = 16
+        trace.log("R02_BASE_CAP", "תקרה כללית (לא ברפורמה)", U_cap)
+
+    # --- R08: יחידת מעבר לרפורמה ---
+    U_base = teacher["U_pre"] or 0
+    if teacher["in_reform"] and teacher["U_pre"] == 16 and (teacher["H_pre"] or 0) > 16 * H_unit:
+        U_base = 17
+        trace.log("R08_TRANSITION_UNIT",
+                   f"זוהתה יתרת שעות מעל 16 יחידות (H_pre={teacher['H_pre']}) - הוכרה יחידה 17-ית",
+                   U_base)
+    else:
+        trace.log("R08_TRANSITION_UNIT", f"אין זכאות ליחידת מעבר - בסיס נשאר {U_base}", U_base)
+
+    # --- R09/R10/R17/R13: סינון קורסים ---
+    reform_start = SCHOOL_YEAR_START.get(teacher["reform_start_year"]) if teacher["reform_start_year"] else None
+    thresh_18 = max(filter(None, [SCHOOL_YEAR_START.get('תשע"ב'), reform_start])) if teacher["in_reform"] else None
+    thresh_19 = max(filter(None, [SCHOOL_YEAR_START.get('תשע"ט'), reform_start])) if teacher["in_reform"] else None
+
+    accepted_hours_by_year = {}
+    school_hours_by_year = {}
+    advanced_degree_hours = 0.0
+    rejected = []
+
+    for c in courses:
+        if not c["pre_approved"]:
+            rejected.append({"course_id": c["course_id"], "reason": "אין אישור מוקדם מהמפקח (R17)"})
+            trace.log("R17_NO_PREAPPROVAL", f"קורס {c['course_id']} נפסל - אין אישור מוקדם")
+            continue
+
+        hours = c["hours"]
+        sy = school_year_of(c["start_date"])
+
+        if c["is_advanced_degree_track"]:
+            advanced_degree_hours += hours
+            trace.log("R14_ADVANCED_DEGREE", f"קורס {c['course_id']} - מסלול תואר מתקדם, {hours} שעות", hours)
+            continue  # לא נכנס לחישוב הרגיל - יש לו מסלול נפרד
+
+        if c["source_type"] == "school_based":
+            prev = school_hours_by_year.get(sy, 0)
+            allowed = max(0, 30 - prev)
+            counted = min(hours, allowed)
+            if counted < hours:
+                trace.log("R13_SCHOOL_HOURS_CAP",
+                          f"קורס {c['course_id']} - נחתך מ-{hours} ל-{counted} שעות (תקרת 30/שנה)")
+            school_hours_by_year[sy] = prev + counted
+            hours = counted
+
+        accepted_hours_by_year[sy] = accepted_hours_by_year.get(sy, 0) + hours
+
+    # --- R11/R12: חישוב שנתי עם carry ופטור שבתון ---
+    delta_u_by_year = {}
+    carry = 0.0
+    for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
+        available = accepted_hours_by_year[sy] + carry
+        status = status_by_year.get(sy, "רגיל")
+        if status in ("שבתון", "חצי-שבתון", "חלת"):
+            delta = math.floor(available / H_unit)
+            trace.log("R12_SABBATICAL_EXEMPT", f"שנה {sy} (סטטוס={status}) - ללא תקרת 1/שנה: {delta} יח'", delta)
+        else:
+            delta = min(1, math.floor(available / H_unit))
+            trace.log("R11_ANNUAL_CAP", f"שנה {sy} - עד יחידה 1: {delta} יח' (זמין: {available:.0f} שעות)", delta)
+        carry = available - delta * H_unit
+        delta_u_by_year[sy] = delta
+
+    U_regular_earned = U_base + sum(delta_u_by_year.values())
+    U_regular = min(U_regular_earned, U_cap)
+    if U_regular_earned > U_cap:
+        trace.log("R03_REFORM_CAP" if teacher["in_reform"] else "R02_BASE_CAP",
+                  f"נצברו {U_regular_earned} יחידות אך נחתך לתקרה {U_cap}", U_regular)
+
+    # תואר מתקדם - גמול אחד בשנה, ללא הגבלת צבירה (מוצג בנפרד, לא בתקרה)
+    advanced_units_available = advanced_degree_hours / H_unit if advanced_degree_hours else 0
+
+    # --- R04/R05: כפל תואר / ביניים ---
+    U_dd_or_mid = 0.0
+    if teacher["has_double_degree_gimul"]:
+        U_dd_or_mid = 8.75
+        trace.log("R04_DOUBLE_DEGREE", "מוכר גמול כפל תואר", 8.75)
+    elif teacher["has_beinayim_gimul"]:
+        U_dd_or_mid = 4.0
+        trace.log("R05_BEINAYIM", "מוכר גמול ביניים", 4.0)
+
+    # --- R06: תקרה כוללת ---
+    U_total = min(U_regular + U_dd_or_mid, 24.75)
+    if U_regular + U_dd_or_mid > 24.75:
+        trace.log("R06_TOTAL_MAX", "נחתך לתקרה הכוללת המקסימלית", 24.75)
+
+    # --- R07: שיעור תשלום ---
+    pct_addition = round(U_total * 1.2, 4)
+    trace.log("R07_PCT_RATE", f"{U_total} יח' × 1.2% ליחידה", pct_addition)
+
+    # --- R16: הכרה כפולה ---
+    if teacher["dual_reform_ofek_hadash"]:
+        trace.log("R16_DUAL_REFORM", "המורה מועסק גם באופק חדש - הכרה כפולה בשעות ההשתלמות")
+
+    result = {
+        "teacher_id": teacher_id,
+        "calc_date": calc_date,
+        "H_unit": H_unit,
+        "U_cap_applied": U_cap,
+        "U_base_from_transition": U_base,
+        "U_regular_earned_before_cap": round(U_regular_earned, 3),
+        "U_regular": round(U_regular, 3),
+        "U_dd_or_mid": U_dd_or_mid,
+        "U_total": round(U_total, 3),
+        "pct_salary_addition": pct_addition,
+        "advanced_degree_hours_accumulated": advanced_degree_hours,
+        "advanced_degree_units_available": round(advanced_units_available, 3),
+        "delta_u_by_year": delta_u_by_year,
+        "carry_remaining": round(carry, 2),
+        "rejected_courses": rejected,
+        "trace": trace.steps,
+    }
+
+    conn.execute("""
+        INSERT INTO calculation_runs
+        (teacher_id, run_timestamp, calc_date, U_regular, U_dd_or_mid, U_total, pct_addition,
+         U_cap_applied, result_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (teacher_id, datetime.now().isoformat(), calc_date, result["U_regular"],
+          result["U_dd_or_mid"], result["U_total"], result["pct_salary_addition"],
+          result["U_cap_applied"], json.dumps(result, ensure_ascii=False)))
+    conn.commit()
+    conn.close()
+
+    return result
+
+
+if __name__ == "__main__":
+    init_db(reset=True)
