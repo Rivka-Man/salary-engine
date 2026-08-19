@@ -100,7 +100,10 @@
   <div style="display:flex; flex-direction:column; gap:1.5rem;">
 
     <section class="panel">
-      <div class="panel-head"><span class="panel-title">פרופיל מורה</span></div>
+      <div class="panel-head">
+        <span class="panel-title">פרופיל מורה</span>
+        <a href="{{ url_for('edit_teacher', teacher_id=teacher.teacher_id) }}" class="panel-note">עריכה ←</a>
+      </div>
       <div class="panel-body">
         <dl class="kv-list">
           <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובדת הוראה פעילה{% else %}לא פעילה{% endif %}</dd></div>

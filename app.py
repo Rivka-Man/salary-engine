@@ -115,6 +115,53 @@ def teacher_detail(teacher_id):
     )
 
 
+@app.route("/teachers/<teacher_id>/edit", methods=["GET", "POST"])
+def edit_teacher(teacher_id):
+    conn = get_conn()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    if not teacher:
+        conn.close()
+        flash("מורה לא נמצאה.", "error")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        if not full_name:
+            conn.close()
+            flash("יש למלא שם מלא.", "error")
+            return redirect(url_for("edit_teacher", teacher_id=teacher_id))
+        conn.execute(
+            """
+            UPDATE teachers SET
+                full_name=?, is_active_teacher=?, has_seniority_year=?, is_pensioner=?,
+                in_reform=?, reform_start_year=?, dual_reform_ofek_hadash=?, U_pre=?, H_pre=?,
+                has_double_degree_gimul=?, has_beinayim_gimul=?
+            WHERE teacher_id=?
+            """,
+            (
+                full_name,
+                1 if request.form.get("is_active_teacher") else 0,
+                1 if request.form.get("has_seniority_year") else 0,
+                1 if request.form.get("is_pensioner") else 0,
+                1 if request.form.get("in_reform") else 0,
+                request.form.get("reform_start_year") or None,
+                1 if request.form.get("dual_reform_ofek_hadash") else 0,
+                float(request.form.get("U_pre") or 0),
+                float(request.form.get("H_pre") or 0),
+                1 if request.form.get("has_double_degree_gimul") else 0,
+                1 if request.form.get("has_beinayim_gimul") else 0,
+                teacher_id,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        flash("הפרופיל עודכן.", "success")
+        return redirect(url_for("teacher_detail", teacher_id=teacher_id))
+
+    conn.close()
+    return render_template("edit_teacher.html", teacher=teacher, school_years=SCHOOL_YEARS)
+
+
 @app.route("/teachers/<teacher_id>/courses", methods=["POST"])
 def add_course(teacher_id):
     start_date = request.form.get("start_date")
