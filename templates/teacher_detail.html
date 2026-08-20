@@ -7,9 +7,9 @@
     <div class="display" style="font-size:1.9rem; font-weight:600;">{{ teacher.full_name }}</div>
     <span class="chip neutral mono">{{ teacher.teacher_id }}</span>
     {% if teacher.in_reform %}<span class="chip accent">עוז לתמורה{% if teacher.reform_start_year %} · מ{{ teacher.reform_start_year }}{% endif %}</span>{% endif %}
-    {% if teacher.is_pensioner %}<span class="chip warn">גמלאית</span>{% endif %}
+    {% if teacher.is_pensioner %}<span class="chip warn">גמלאי</span>{% endif %}
   </div>
-  <form method="post" action="{{ url_for('delete_teacher', teacher_id=teacher.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלה לצמיתות?');">
+  <form method="post" action="{{ url_for('delete_teacher', teacher_id=teacher.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלו לצמיתות?');">
     <button type="submit" class="btn-danger">מחיקת מורה</button>
   </form>
 </div>
@@ -106,7 +106,7 @@
       </div>
       <div class="panel-body">
         <dl class="kv-list">
-          <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובדת הוראה פעילה{% else %}לא פעילה{% endif %}</dd></div>
+          <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובד הוראה פעיל{% else %}לא פעיל{% endif %}</dd></div>
           <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
           <div class="kv-row"><dt>אופק חדש (כפול)</dt><dd>{% if teacher.dual_reform_ofek_hadash %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>יחידות לפני (U_pre)</dt><dd class="mono">{{ teacher.U_pre }}</dd></div>

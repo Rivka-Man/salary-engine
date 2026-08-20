@@ -3,6 +3,7 @@
 מריץ מעל אותו salary.db שמשתמש בו engine.py.
 """
 import json
+import re
 import sqlite3
 from datetime import date
 
@@ -32,6 +33,16 @@ def get_conn():
     return conn
 
 
+def next_teacher_id(conn):
+    rows = conn.execute("SELECT teacher_id FROM teachers").fetchall()
+    max_n = 0
+    for r in rows:
+        m = re.match(r"^T(\d+)$", r["teacher_id"])
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    return f"T{max_n + 1:03d}"
+
+
 @app.route("/")
 def index():
     conn = get_conn()
@@ -43,42 +54,38 @@ def index():
 @app.route("/teachers/new", methods=["GET", "POST"])
 def new_teacher():
     if request.method == "POST":
-        teacher_id = request.form.get("teacher_id", "").strip()
         full_name = request.form.get("full_name", "").strip()
-        if not teacher_id or not full_name:
-            flash("יש למלא מזהה מורה ושם מלא.", "error")
+        if not full_name:
+            flash("יש למלא שם מלא.", "error")
             return render_template("new_teacher.html", school_years=SCHOOL_YEARS, form=request.form)
-        try:
-            conn = get_conn()
-            conn.execute(
-                """
-                INSERT INTO teachers
-                (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
-                 in_reform, reform_start_year, dual_reform_ofek_hadash, U_pre, H_pre,
-                 has_double_degree_gimul, has_beinayim_gimul)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    teacher_id,
-                    full_name,
-                    1 if request.form.get("is_active_teacher") else 0,
-                    1 if request.form.get("has_seniority_year") else 0,
-                    1 if request.form.get("is_pensioner") else 0,
-                    1 if request.form.get("in_reform") else 0,
-                    request.form.get("reform_start_year") or None,
-                    1 if request.form.get("dual_reform_ofek_hadash") else 0,
-                    float(request.form.get("U_pre") or 0),
-                    float(request.form.get("H_pre") or 0),
-                    1 if request.form.get("has_double_degree_gimul") else 0,
-                    1 if request.form.get("has_beinayim_gimul") else 0,
-                ),
-            )
-            conn.commit()
-            conn.close()
-        except sqlite3.IntegrityError:
-            flash(f"מזהה מורה '{teacher_id}' כבר קיים במערכת.", "error")
-            return render_template("new_teacher.html", school_years=SCHOOL_YEARS, form=request.form)
-        flash(f"המורה {full_name} נוצרה בהצלחה.", "success")
+        conn = get_conn()
+        teacher_id = next_teacher_id(conn)
+        conn.execute(
+            """
+            INSERT INTO teachers
+            (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
+             in_reform, reform_start_year, dual_reform_ofek_hadash, U_pre, H_pre,
+             has_double_degree_gimul, has_beinayim_gimul)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                teacher_id,
+                full_name,
+                1 if request.form.get("is_active_teacher") else 0,
+                1 if request.form.get("has_seniority_year") else 0,
+                1 if request.form.get("is_pensioner") else 0,
+                1 if request.form.get("in_reform") else 0,
+                request.form.get("reform_start_year") or None,
+                1 if request.form.get("dual_reform_ofek_hadash") else 0,
+                float(request.form.get("U_pre") or 0),
+                float(request.form.get("H_pre") or 0),
+                1 if request.form.get("has_double_degree_gimul") else 0,
+                1 if request.form.get("has_beinayim_gimul") else 0,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        flash(f"המורה {full_name} נוצר בהצלחה.", "success")
         return redirect(url_for("teacher_detail", teacher_id=teacher_id))
 
     return render_template("new_teacher.html", school_years=SCHOOL_YEARS, form=None)
@@ -90,7 +97,7 @@ def teacher_detail(teacher_id):
     teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
     if not teacher:
         conn.close()
-        flash("מורה לא נמצאה.", "error")
+        flash("מורה לא נמצא.", "error")
         return redirect(url_for("index"))
     courses = conn.execute(
         "SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher_id,)
@@ -121,7 +128,7 @@ def edit_teacher(teacher_id):
     teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
     if not teacher:
         conn.close()
-        flash("מורה לא נמצאה.", "error")
+        flash("מורה לא נמצא.", "error")
         return redirect(url_for("index"))
 
     if request.method == "POST":
@@ -250,7 +257,7 @@ def delete_teacher(teacher_id):
     conn.execute("DELETE FROM teachers WHERE teacher_id=?", (teacher_id,))
     conn.commit()
     conn.close()
-    flash("המורה נמחקה.", "success")
+    flash("המורה נמחק.", "success")
     return redirect(url_for("index"))
 
 

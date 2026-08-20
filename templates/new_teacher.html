@@ -1,16 +1,12 @@
 {% extends "base.html" %}
-{% block title %}הזנת מורה חדשה{% endblock %}
+{% block title %}הזנת מורה חדש{% endblock %}
 {% block content %}
 <section class="panel">
   <div class="panel-head">
-    <span class="panel-title">הזנת מורה חדשה</span>
+    <span class="panel-title">הזנת מורה חדש</span>
   </div>
   <form class="panel-body" method="post" action="{{ url_for('new_teacher') }}">
     <div class="form-grid">
-      <div class="field">
-        <label for="teacher_id">מזהה מורה (ת"ז / מספר עובד) *</label>
-        <input type="text" id="teacher_id" name="teacher_id" required value="{{ form.teacher_id if form else '' }}">
-      </div>
       <div class="field">
         <label for="full_name">שם מלא *</label>
         <input type="text" id="full_name" name="full_name" required value="{{ form.full_name if form else '' }}">
@@ -35,13 +31,13 @@
     </div>
 
     <div class="checkbox-grid">
-      <div class="checkbox-row"><input type="checkbox" id="in_reform" name="in_reform" {% if not form or form.in_reform %}checked{% endif %}><label for="in_reform">מועסקת בתנאי עוז לתמורה</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="is_active_teacher" name="is_active_teacher" {% if not form or form.is_active_teacher %}checked{% endif %}><label for="is_active_teacher">עובדת הוראה בפועל ומוסמכת</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="has_seniority_year" name="has_seniority_year" {% if not form or form.has_seniority_year %}checked{% endif %}><label for="has_seniority_year">השלימה שנת ותק אחת</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="is_pensioner" name="is_pensioner" {% if form and form.is_pensioner %}checked{% endif %}><label for="is_pensioner">גמלאית</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="dual_reform_ofek_hadash" name="dual_reform_ofek_hadash" {% if form and form.dual_reform_ofek_hadash %}checked{% endif %}><label for="dual_reform_ofek_hadash">מועסקת גם באופק חדש (הכרה כפולה)</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="has_double_degree_gimul" name="has_double_degree_gimul" {% if form and form.has_double_degree_gimul %}checked{% endif %}><label for="has_double_degree_gimul">כבר קיבלה גמול כפל תואר בעבר</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="has_beinayim_gimul" name="has_beinayim_gimul" {% if form and form.has_beinayim_gimul %}checked{% endif %}><label for="has_beinayim_gimul">כבר קיבלה גמול ביניים בעבר</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="in_reform" name="in_reform" {% if not form or form.in_reform %}checked{% endif %}><label for="in_reform">מועסק בתנאי עוז לתמורה</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="is_active_teacher" name="is_active_teacher" {% if not form or form.is_active_teacher %}checked{% endif %}><label for="is_active_teacher">עובד הוראה בפועל ומוסמך</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="has_seniority_year" name="has_seniority_year" {% if not form or form.has_seniority_year %}checked{% endif %}><label for="has_seniority_year">השלים שנת ותק אחת</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="is_pensioner" name="is_pensioner" {% if form and form.is_pensioner %}checked{% endif %}><label for="is_pensioner">גמלאי</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="dual_reform_ofek_hadash" name="dual_reform_ofek_hadash" {% if form and form.dual_reform_ofek_hadash %}checked{% endif %}><label for="dual_reform_ofek_hadash">מועסק גם באופק חדש (הכרה כפולה)</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="has_double_degree_gimul" name="has_double_degree_gimul" {% if form and form.has_double_degree_gimul %}checked{% endif %}><label for="has_double_degree_gimul">כבר קיבל גמול כפל תואר בעבר</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="has_beinayim_gimul" name="has_beinayim_gimul" {% if form and form.has_beinayim_gimul %}checked{% endif %}><label for="has_beinayim_gimul">כבר קיבל גמול ביניים בעבר</label></div>
     </div>
 
     <div class="actions-row">

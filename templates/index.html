@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}פנקס הגמול — מורות{% endblock %}
+{% block title %}פנקס הגמול — מורים{% endblock %}
 {% block content %}
 <section class="panel">
   <div class="panel-head">
-    <span class="panel-title">מורות במערכת</span>
+    <span class="panel-title">מורים במערכת</span>
     <span class="panel-note">{{ teachers|length }} רשומות</span>
   </div>
   {% if teachers %}
@@ -35,8 +35,8 @@
   </div>
   {% else %}
   <div class="empty-state">
-    <p>עדיין לא הוזנו מורות למערכת.</p>
-    <a href="{{ url_for('new_teacher') }}" class="btn btn-primary">הזנת מורה ראשונה</a>
+    <p>עדיין לא הוזנו מורים למערכת.</p>
+    <a href="{{ url_for('new_teacher') }}" class="btn btn-primary">הזנת מורה ראשון</a>
   </div>
   {% endif %}
 </section>
