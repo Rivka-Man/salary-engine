@@ -111,12 +111,44 @@ RULES_METADATA = [
          source_doc="הסכם_עוז_לתמורה", source_ref="סינתזה", priority=1, applies_when="in_reform=1"),
 ]
 
+# ==================================================================
+# פרמטרים מספריים - הערכים הסופיים שהחוקים משתמשים בהם (שעות ליחידה,
+# תקרות, אחוזים). התנאי (מי זכאי לאיזה ערך) נשאר בקוד; רק המספר עצמו
+# כאן, כדי שאפשר יהיה לעדכן אותו בלי לגעת ב-engine.py.
+# ==================================================================
+
+PARAMETERS_METADATA = [
+    dict(rule_id="R01_UNIT_HOURS", param_name="unit_hours", param_value=112,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R15_PENSIONER_RATE", param_name="unit_hours", param_value=168,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R02_BASE_CAP", param_name="units_cap", param_value=16,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R03_REFORM_CAP", param_name="units_cap", param_value=18,
+         valid_from=None, valid_to=SCHOOL_YEAR_START['תש"פ']),
+    dict(rule_id="R03_REFORM_CAP", param_name="units_cap", param_value=19,
+         valid_from=SCHOOL_YEAR_START['תש"פ'], valid_to=None),
+    dict(rule_id="R11_ANNUAL_CAP", param_name="units_per_year_cap", param_value=1,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R13_SCHOOL_HOURS_CAP", param_name="school_based_annual_hours_cap", param_value=30,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R04_DOUBLE_DEGREE", param_name="units", param_value=8.75,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R05_BEINAYIM", param_name="units", param_value=4.0,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R06_TOTAL_MAX", param_name="total_units_cap", param_value=24.75,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R07_PCT_RATE", param_name="pct_per_unit", param_value=1.2,
+         valid_from=None, valid_to=None),
+]
+
 
 def init_db(reset: bool = True):
     conn = sqlite3.connect(DB_PATH)
     if reset:
         conn.executescript("""
             DROP TABLE IF EXISTS rules;
+            DROP TABLE IF EXISTS rule_parameters;
             DROP TABLE IF EXISTS teachers;
             DROP TABLE IF EXISTS courses;
             DROP TABLE IF EXISTS employment_status_by_year;
@@ -141,9 +173,31 @@ def init_db(reset: bool = True):
             VALUES (:rule_id, :topic, :title, :description, :source_doc, :source_ref,
                     :priority, :applies_when, :valid_from, NULL, :overrides, 1)
         """, params)
+
+    cur.execute("DELETE FROM rule_parameters")
+    for p in PARAMETERS_METADATA:
+        cur.execute("""
+            INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to)
+            VALUES (:rule_id, :param_name, :param_value, :valid_from, :valid_to)
+        """, p)
+
     conn.commit()
     conn.close()
-    print(f"DB initialized at {DB_PATH} with {len(RULES_METADATA)} rules.")
+    print(f"DB initialized at {DB_PATH} with {len(RULES_METADATA)} rules and {len(PARAMETERS_METADATA)} parameters.")
+
+
+def get_param(conn, rule_id, param_name, calc_date):
+    row = conn.execute("""
+        SELECT param_value FROM rule_parameters
+        WHERE rule_id=? AND param_name=?
+          AND (valid_from IS NULL OR valid_from <= ?)
+          AND (valid_to IS NULL OR valid_to > ?)
+        ORDER BY valid_from DESC
+        LIMIT 1
+    """, (rule_id, param_name, calc_date, calc_date)).fetchone()
+    if row is None:
+        raise ValueError(f"Missing parameter {rule_id}.{param_name} for calc_date={calc_date}")
+    return row[0]
 
 
 # ==================================================================
@@ -192,25 +246,22 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
     # --- R01/R15: קביעת H_unit ---
     if teacher["is_pensioner"]:
-        H_unit = 168
-        trace.log("R15_PENSIONER_RATE", "מורה גמלאי - יחידת גמול = 168 שעות", H_unit)
+        H_unit = int(get_param(conn, "R15_PENSIONER_RATE", "unit_hours", calc_date))
+        trace.log("R15_PENSIONER_RATE", f"מורה גמלאי - יחידת גמול = {H_unit} שעות", H_unit)
     else:
-        H_unit = 112
-        trace.log("R01_UNIT_HOURS", "יחידת גמול = 112 שעות", H_unit)
+        H_unit = int(get_param(conn, "R01_UNIT_HOURS", "unit_hours", calc_date))
+        trace.log("R01_UNIT_HOURS", f"יחידת גמול = {H_unit} שעות", H_unit)
 
     # --- R02/R03/R21: קביעת התקרה החלה ---
     calc_dt = datetime.fromisoformat(calc_date).date()
     tashpa = datetime.fromisoformat(SCHOOL_YEAR_START['תש"פ']).date()
     if teacher["in_reform"]:
         trace.log("R21_PRIORITY_OVERRIDE", "מורה בתנאי עוז לתמורה - הסכם עוז לתמורה גובר על החוזר הכללי")
-        if calc_dt >= tashpa:
-            U_cap = 19
-            trace.log("R03_REFORM_CAP", "תקרה מעודכנת (מתש\"פ ואילך)", U_cap)
-        else:
-            U_cap = 18
-            trace.log("R03_REFORM_CAP", "תקרה מעודכנת (לפני תש\"פ)", U_cap)
+        U_cap = int(get_param(conn, "R03_REFORM_CAP", "units_cap", calc_date))
+        note = "מתש\"פ ואילך" if calc_dt >= tashpa else "לפני תש\"פ"
+        trace.log("R03_REFORM_CAP", f"תקרה מעודכנת ({note})", U_cap)
     else:
-        U_cap = 16
+        U_cap = int(get_param(conn, "R02_BASE_CAP", "units_cap", calc_date))
         trace.log("R02_BASE_CAP", "תקרה כללית (לא ברפורמה)", U_cap)
 
     # --- R08: יחידת מעבר לרפורמה ---
@@ -227,6 +278,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     reform_start = SCHOOL_YEAR_START.get(teacher["reform_start_year"]) if teacher["reform_start_year"] else None
     thresh_18 = max(filter(None, [SCHOOL_YEAR_START.get('תשע"ב'), reform_start])) if teacher["in_reform"] else None
     thresh_19 = max(filter(None, [SCHOOL_YEAR_START.get('תשע"ט'), reform_start])) if teacher["in_reform"] else None
+
+    school_hours_cap = get_param(conn, "R13_SCHOOL_HOURS_CAP", "school_based_annual_hours_cap", calc_date)
 
     accepted_hours_by_year = {}
     school_hours_by_year = {}
@@ -249,17 +302,18 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
         if c["source_type"] == "school_based":
             prev = school_hours_by_year.get(sy, 0)
-            allowed = max(0, 30 - prev)
+            allowed = max(0, school_hours_cap - prev)
             counted = min(hours, allowed)
             if counted < hours:
                 trace.log("R13_SCHOOL_HOURS_CAP",
-                          f"קורס {c['course_id']} - נחתך מ-{hours} ל-{counted} שעות (תקרת 30/שנה)")
+                          f"קורס {c['course_id']} - נחתך מ-{hours} ל-{counted} שעות (תקרת {school_hours_cap:.0f}/שנה)")
             school_hours_by_year[sy] = prev + counted
             hours = counted
 
         accepted_hours_by_year[sy] = accepted_hours_by_year.get(sy, 0) + hours
 
     # --- R11/R12: חישוב שנתי עם carry ופטור שבתון ---
+    units_per_year_cap = int(get_param(conn, "R11_ANNUAL_CAP", "units_per_year_cap", calc_date))
     delta_u_by_year = {}
     carry = 0.0
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
@@ -267,10 +321,10 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         status = status_by_year.get(sy, "רגיל")
         if status in ("שבתון", "חצי-שבתון", "חלת"):
             delta = math.floor(available / H_unit)
-            trace.log("R12_SABBATICAL_EXEMPT", f"שנה {sy} (סטטוס={status}) - ללא תקרת 1/שנה: {delta} יח'", delta)
+            trace.log("R12_SABBATICAL_EXEMPT", f"שנה {sy} (סטטוס={status}) - ללא תקרת {units_per_year_cap}/שנה: {delta} יח'", delta)
         else:
-            delta = min(1, math.floor(available / H_unit))
-            trace.log("R11_ANNUAL_CAP", f"שנה {sy} - עד יחידה 1: {delta} יח' (זמין: {available:.0f} שעות)", delta)
+            delta = min(units_per_year_cap, math.floor(available / H_unit))
+            trace.log("R11_ANNUAL_CAP", f"שנה {sy} - עד יחידה {units_per_year_cap}: {delta} יח' (זמין: {available:.0f} שעות)", delta)
         carry = available - delta * H_unit
         delta_u_by_year[sy] = delta
 
@@ -286,20 +340,22 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     # --- R04/R05: כפל תואר / ביניים ---
     U_dd_or_mid = 0.0
     if teacher["has_double_degree_gimul"]:
-        U_dd_or_mid = 8.75
-        trace.log("R04_DOUBLE_DEGREE", "מוכר גמול כפל תואר", 8.75)
+        U_dd_or_mid = get_param(conn, "R04_DOUBLE_DEGREE", "units", calc_date)
+        trace.log("R04_DOUBLE_DEGREE", "מוכר גמול כפל תואר", U_dd_or_mid)
     elif teacher["has_beinayim_gimul"]:
-        U_dd_or_mid = 4.0
-        trace.log("R05_BEINAYIM", "מוכר גמול ביניים", 4.0)
+        U_dd_or_mid = get_param(conn, "R05_BEINAYIM", "units", calc_date)
+        trace.log("R05_BEINAYIM", "מוכר גמול ביניים", U_dd_or_mid)
 
     # --- R06: תקרה כוללת ---
-    U_total = min(U_regular + U_dd_or_mid, 24.75)
-    if U_regular + U_dd_or_mid > 24.75:
-        trace.log("R06_TOTAL_MAX", "נחתך לתקרה הכוללת המקסימלית", 24.75)
+    total_units_cap = get_param(conn, "R06_TOTAL_MAX", "total_units_cap", calc_date)
+    U_total = min(U_regular + U_dd_or_mid, total_units_cap)
+    if U_regular + U_dd_or_mid > total_units_cap:
+        trace.log("R06_TOTAL_MAX", "נחתך לתקרה הכוללת המקסימלית", total_units_cap)
 
     # --- R07: שיעור תשלום ---
-    pct_addition = round(U_total * 1.2, 4)
-    trace.log("R07_PCT_RATE", f"{U_total} יח' × 1.2% ליחידה", pct_addition)
+    pct_per_unit = get_param(conn, "R07_PCT_RATE", "pct_per_unit", calc_date)
+    pct_addition = round(U_total * pct_per_unit, 4)
+    trace.log("R07_PCT_RATE", f"{U_total} יח' × {pct_per_unit}% ליחידה", pct_addition)
 
     # --- R16: הכרה כפולה ---
     if teacher["dual_reform_ofek_hadash"]:

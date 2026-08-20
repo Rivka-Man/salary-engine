@@ -21,6 +21,18 @@ CREATE TABLE IF NOT EXISTS rules (
     active        INTEGER NOT NULL DEFAULT 1
 );
 
+-- פרמטרים מספריים של החוקים (התקרות/אחוזים/שעות עצמם) - נפרד מהלוגיקה
+-- שקובעת איזה חוק חל על מי. הלוגיקה (התנאים) נשארת בקוד engine.py; הערכים
+-- הסופיים (למשל 112 שעות ליחידה, 1.2% ליחידה) נשלפים מכאן לפי תאריך.
+CREATE TABLE IF NOT EXISTS rule_parameters (
+    param_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id       TEXT NOT NULL REFERENCES rules(rule_id),
+    param_name    TEXT NOT NULL,
+    param_value   REAL NOT NULL,
+    valid_from    TEXT,                   -- תאריך תחילת תוקף (ISO), NULL = מאז ומתמיד
+    valid_to      TEXT                    -- תאריך סיום תוקף, NULL = עדיין בתוקף
+);
+
 -- טבלת קלט: נתוני מורה (snapshot של הקלט לחישוב)
 CREATE TABLE IF NOT EXISTS teachers (
     teacher_id        TEXT PRIMARY KEY,
