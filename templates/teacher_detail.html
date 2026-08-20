@@ -60,7 +60,7 @@
         </table>
       </div>
       {% else %}
-      <div class="empty-state"><p>עדיין לא הוזנו קורסים למורה זו.</p></div>
+      <div class="empty-state"><p>עדיין לא הוזנו קורסים למורה.</p></div>
       {% endif %}
 
       <form class="panel-body" method="post" action="{{ url_for('add_course', teacher_id=teacher.teacher_id) }}">
