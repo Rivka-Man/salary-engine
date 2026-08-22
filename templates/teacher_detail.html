@@ -31,7 +31,10 @@
     <section class="panel">
       <div class="panel-head">
         <span class="panel-title">פנקס קורסים</span>
-        <span class="panel-note">{{ courses|length }} רשומות</span>
+        <span style="display:flex; align-items:center; gap:0.9rem;">
+          <a href="{{ url_for('import_courses_form', teacher_id=teacher.teacher_id) }}" class="panel-note">טעינת קובץ מהפורטל ←</a>
+          <span class="panel-note">{{ courses|length }} רשומות</span>
+        </span>
       </div>
       {% if courses %}
       <div class="table-wrap">

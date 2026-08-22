@@ -2,6 +2,7 @@
 ממשק ווב מקומי להזנת נתוני מורים והרצת מנוע גמול ההשתלמות.
 מריץ מעל אותו salary.db שמשתמש בו engine.py.
 """
+import io
 import json
 import re
 import sqlite3
@@ -10,6 +11,7 @@ from datetime import date
 from flask import Flask, flash, redirect, render_template, request, url_for
 
 from engine import DB_PATH, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
+from pdf_import import parse_courses_pdf
 
 app = Flask(__name__)
 app.secret_key = "salary-engine-local-dev"
@@ -205,6 +207,92 @@ def add_course(teacher_id):
     conn.commit()
     conn.close()
     flash("הקורס נוסף.", "success")
+    return redirect(url_for("teacher_detail", teacher_id=teacher_id))
+
+
+@app.route("/teachers/<teacher_id>/import-pdf", methods=["GET"])
+def import_courses_form(teacher_id):
+    conn = get_conn()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    conn.close()
+    if not teacher:
+        flash("מורה לא נמצא.", "error")
+        return redirect(url_for("index"))
+    return render_template("import_courses.html", teacher=teacher)
+
+
+@app.route("/teachers/<teacher_id>/import-pdf", methods=["POST"])
+def import_courses_parse(teacher_id):
+    conn = get_conn()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    conn.close()
+    if not teacher:
+        flash("מורה לא נמצא.", "error")
+        return redirect(url_for("index"))
+
+    uploaded = request.files.get("pdf_file")
+    if not uploaded or not uploaded.filename:
+        flash("יש לבחור קובץ PDF.", "error")
+        return redirect(url_for("import_courses_form", teacher_id=teacher_id))
+    if not uploaded.filename.lower().endswith(".pdf"):
+        flash("הקובץ חייב להיות PDF.", "error")
+        return redirect(url_for("import_courses_form", teacher_id=teacher_id))
+
+    try:
+        rows = parse_courses_pdf(io.BytesIO(uploaded.read()))
+    except Exception as exc:
+        flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
+        return redirect(url_for("import_courses_form", teacher_id=teacher_id))
+
+    if not rows:
+        flash("לא זוהו קורסים בקובץ. ודאי שזה קובץ PDF שהופק מ\"הקורסים שלי\" בפורטל עו\"ה.", "error")
+        return redirect(url_for("import_courses_form", teacher_id=teacher_id))
+
+    return render_template(
+        "import_preview.html",
+        teacher=teacher,
+        rows=rows,
+        source_type_labels=SOURCE_TYPE_LABELS,
+    )
+
+
+@app.route("/teachers/<teacher_id>/import-pdf/confirm", methods=["POST"])
+def import_courses_confirm(teacher_id):
+    count = int(request.form.get("row_count", 0))
+    conn = get_conn()
+    added = 0
+    for i in range(count):
+        if not request.form.get(f"include_{i}"):
+            continue
+        start_date = request.form.get(f"start_date_{i}")
+        hours = request.form.get(f"hours_{i}")
+        if not start_date or not hours:
+            continue
+        try:
+            sy = school_year_of(start_date)
+        except Exception:
+            sy = None
+        conn.execute(
+            """
+            INSERT INTO courses
+            (teacher_id, start_date, school_year, hours, source_type, graded, grade,
+             pre_approved, is_advanced_degree_track)
+            VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?)
+            """,
+            (
+                teacher_id,
+                start_date,
+                sy,
+                float(hours),
+                request.form.get(f"source_type_{i}", "other"),
+                1 if request.form.get(f"pre_approved_{i}") else 0,
+                1 if request.form.get(f"advanced_degree_{i}") else 0,
+            ),
+        )
+        added += 1
+    conn.commit()
+    conn.close()
+    flash(f"נוספו {added} קורסים מהקובץ.", "success")
     return redirect(url_for("teacher_detail", teacher_id=teacher_id))
 
 
