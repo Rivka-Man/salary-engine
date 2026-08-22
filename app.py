@@ -66,9 +66,9 @@ def new_teacher():
             """
             INSERT INTO teachers
             (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
-             in_reform, reform_start_year, dual_reform_ofek_hadash, U_pre, H_pre,
+             in_reform, reform_start_year, U_pre, H_pre,
              has_double_degree_gimul, has_beinayim_gimul)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 teacher_id,
@@ -78,7 +78,6 @@ def new_teacher():
                 1 if request.form.get("is_pensioner") else 0,
                 1 if request.form.get("in_reform") else 0,
                 request.form.get("reform_start_year") or None,
-                1 if request.form.get("dual_reform_ofek_hadash") else 0,
                 float(request.form.get("U_pre") or 0),
                 float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
@@ -143,7 +142,7 @@ def edit_teacher(teacher_id):
             """
             UPDATE teachers SET
                 full_name=?, is_active_teacher=?, has_seniority_year=?, is_pensioner=?,
-                in_reform=?, reform_start_year=?, dual_reform_ofek_hadash=?, U_pre=?, H_pre=?,
+                in_reform=?, reform_start_year=?, U_pre=?, H_pre=?,
                 has_double_degree_gimul=?, has_beinayim_gimul=?
             WHERE teacher_id=?
             """,
@@ -154,7 +153,6 @@ def edit_teacher(teacher_id):
                 1 if request.form.get("is_pensioner") else 0,
                 1 if request.form.get("in_reform") else 0,
                 request.form.get("reform_start_year") or None,
-                1 if request.form.get("dual_reform_ofek_hadash") else 0,
                 float(request.form.get("U_pre") or 0),
                 float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
