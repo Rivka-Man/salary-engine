@@ -248,11 +248,22 @@ def import_courses_parse(teacher_id):
         flash("לא זוהו קורסים בקובץ. ודאי שזה קובץ PDF שהופק מ\"הקורסים שלי\" בפורטל עו\"ה.", "error")
         return redirect(url_for("import_courses_form", teacher_id=teacher_id))
 
+    earliest_school_year = None
+    if not teacher["reform_start_year"]:
+        try:
+            earliest_school_year = min(
+                (school_year_of(r["start_date"]) for r in rows),
+                key=lambda sy: SCHOOL_YEAR_START.get(sy, "9999"),
+            )
+        except Exception:
+            earliest_school_year = None
+
     return render_template(
         "import_preview.html",
         teacher=teacher,
         rows=rows,
         source_type_labels=SOURCE_TYPE_LABELS,
+        earliest_school_year=earliest_school_year,
     )
 
 
@@ -277,7 +288,7 @@ def import_courses_confirm(teacher_id):
             INSERT INTO courses
             (teacher_id, start_date, school_year, hours, source_type, graded, grade,
              pre_approved, is_advanced_degree_track)
-            VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?)
+            VALUES (?, ?, ?, ?, ?, 0, NULL, 1, 0)
             """,
             (
                 teacher_id,
@@ -285,8 +296,6 @@ def import_courses_confirm(teacher_id):
                 sy,
                 float(hours),
                 request.form.get(f"source_type_{i}", "other"),
-                1 if request.form.get(f"pre_approved_{i}") else 0,
-                1 if request.form.get(f"advanced_degree_{i}") else 0,
             ),
         )
         added += 1

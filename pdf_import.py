@@ -6,9 +6,11 @@
 על הקובץ הזה).
 
 מה שכן ניתן לשלוף באמינות: תאריך תחילה/סיום, שעות, וסטטוס ההכרה
-כפי שמופיע בפורטל (עוז לתמורה / לא ברפורמה). שם הקורס והמוסד נשמרים
-כטקסט חופשי ("label") לצורך תצוגה בלבד בתצוגה המקדימה - הסכמה של
-courses לא כוללת שדה שם/מוסד ממילא.
+כפי שמופיע בפורטל (עמודת "משתתף בחישוב גמולים"). שם הקורס והמוסד
+מפוצלים על בסיס מילות-מפתח של מוסדות מוכרים (מרכז פסג"ה / מכללה /
+מכון / השתלמות בית ספרית) - ניחוש סביר אך לא מובטח, ולכן ניתנים
+לעריכה בתצוגה המקדימה לפני שמירה. הסכמה של courses לא כוללת שדה
+מוסד בכלל, כך שהוא מוצג לצורך זיהוי בלבד ולא נשמר.
 """
 import re
 
@@ -16,7 +18,8 @@ import pdfplumber
 
 HEBREW_RE = re.compile(r"[֐-׿]")
 DATE_RE = re.compile(r"^\d{2}/\d{2}/\d{4}$")
-HEADER_MARKERS = ("שם וסמל", "היקף", "משתתף", "תאריך", "מוסד", "הקורסים", "נתונים", "פיתוח")
+HEADER_MARKERS = ("שם וסמל", "היקף", "משתתף", "תאריך", "מוסד", "הקורסים", "נתונים", "פיתוח", "לפירוט")
+INSTITUTION_MARKERS = ("מרכז", "פסג", "מכללה", "מכון", "השתלמות")
 
 
 def _fix_word(w):
@@ -37,6 +40,13 @@ def _lines_for_page(page):
     return lines
 
 
+def _split_name_institution(tokens):
+    for i, t in enumerate(tokens):
+        if any(t.startswith(m) or m in t for m in INSTITUTION_MARKERS):
+            return " ".join(tokens[:i]).strip(), " ".join(tokens[i:]).strip()
+    return " ".join(tokens).strip(), ""
+
+
 def _to_iso_date(ddmmyyyy):
     d, m, y = ddmmyyyy.split("/")
     return f"{y}-{m}-{d}"
@@ -44,12 +54,15 @@ def _to_iso_date(ddmmyyyy):
 
 def parse_courses_pdf(file_path_or_buffer):
     """
-    מחזיר רשימת dict-ים, אחד לכל קורס שזוהה:
-    {label, start_date (ISO), end_date (ISO, לתצוגה בלבד), hours,
-     source_type_guess, pre_approved_guess}
+    מחזיר רשימת dict-ים, אחד לכל קורס שמסומן בקובץ כמשתתף בחישוב
+    גמולים (עמודת "משתתף בחישוב גמולים" = כן). קורסים שמסומנים שם
+    כ"לא" לא מוחזרים כלל - הם לא נספרים ממילא לפי הפורטל עצמו.
+
+    כל item: {name, institution, start_date (ISO), end_date (ISO,
+    לתצוגה בלבד - אין בסכמה שדה כזה), hours, source_type_guess}
     """
     rows = []
-    pending_label = []
+    pending_tokens = []
     seen_header = False
 
     with pdfplumber.open(file_path_or_buffer) as pdf:
@@ -64,13 +77,13 @@ def parse_courses_pdf(file_path_or_buffer):
 
                 if len(dates) == 2:
                     idx1 = tokens.index(dates[0])
-                    idx2 = tokens.index(dates[1])
                     before = tokens[:idx1]
-                    after = tokens[idx2 + 1:]
+                    after = tokens[tokens.index(dates[1]) + 1:]
 
-                    # שני "משבצות השעות" (עם ציון / בלי ציון) יושבות תמיד צמוד לתאריך
-                    # התחלה - לא מספיק לחפש כל טוקן שנראה כמו מספר בכל השורה, כי שם
-                    # הקורס עצמו יכול להכיל מספר (למשל "הכשרת המחנך החדש-5643").
+                    # שני "משבצות השעות" (עם ציון / בלי ציון) יושבות תמיד צמוד
+                    # לתאריך התחלה - לא מספיק לחפש כל טוקן שנראה כמו מספר בכל
+                    # השורה, כי שם הקורס עצמו יכול להכיל מספר (למשל קורס
+                    # "הכשרת המחנך החדש-5643").
                     hour_slot_size = 0
                     for t in reversed(before):
                         if t == "--" or t.replace(".", "", 1).isdigit():
@@ -87,24 +100,23 @@ def parse_courses_pdf(file_path_or_buffer):
                             break
 
                     label_tail = before[: len(before) - hour_slot_size]
-                    label = " ".join((pending_label + [" ".join(label_tail)]))[-200:].strip()
-                    pending_label = []
+                    name, institution = _split_name_institution(pending_tokens + label_tail)
+                    pending_tokens = []
 
-                    oz_letmura_flag = after[1] if len(after) > 1 else None
-                    source_type_guess = "school_based" if ("בית ספרית" in label or "בית-ספרית" in label) else "other"
-                    pre_approved_guess = bool(oz_letmura_flag and oz_letmura_flag != "--")
+                    not_reform_flag = after[0] if len(after) > 0 else None
 
-                    if hours is not None:
+                    if hours is not None and not_reform_flag == "כן":
+                        source_type_guess = "school_based" if "השתלמות" in institution else "other"
                         rows.append({
-                            "label": label,
+                            "name": name,
+                            "institution": institution,
                             "start_date": _to_iso_date(dates[0]),
                             "end_date": _to_iso_date(dates[1]),
                             "hours": hours,
                             "source_type_guess": source_type_guess,
-                            "pre_approved_guess": pre_approved_guess,
                         })
                 elif seen_header:
-                    pending_label.append(joined)
-                    pending_label = pending_label[-3:]
+                    pending_tokens.extend(tokens)
+                    pending_tokens = pending_tokens[-15:]
 
     return rows
