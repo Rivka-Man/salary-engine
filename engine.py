@@ -14,6 +14,7 @@
 import sqlite3
 import json
 import math
+import secrets
 from datetime import date, datetime
 from dataclasses import dataclass, field
 
@@ -157,6 +158,15 @@ def init_db(reset: bool = True):
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
     with open(schema_path, encoding="utf-8") as f:
         conn.executescript(f.read())
+
+    # מיגרציה קלה: DB ישן (לפני שנוסף access_token) לא יקבל את העמודה
+    # דרך CREATE TABLE IF NOT EXISTS - צריך להוסיף אותה ולמלא לשורות קיימות.
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(teachers)").fetchall()]
+    if "access_token" not in cols:
+        conn.execute("ALTER TABLE teachers ADD COLUMN access_token TEXT")
+    for (tid,) in conn.execute("SELECT teacher_id FROM teachers WHERE access_token IS NULL").fetchall():
+        conn.execute("UPDATE teachers SET access_token=? WHERE teacher_id=?", (secrets.token_urlsafe(16), tid))
+
     cur = conn.cursor()
     for r in RULES_METADATA:
         params = {

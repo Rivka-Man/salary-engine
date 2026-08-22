@@ -15,6 +15,21 @@
 </div>
 
 <section class="panel">
+  <div class="panel-head"><span class="panel-title">קישור אישי למורה</span></div>
+  <div class="panel-body" style="flex-direction:row; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+    <input class="mono" type="text" readonly value="{{ request.host_url.rstrip('/') }}{{ url_for('my_dashboard', token=teacher.access_token) }}"
+           style="flex:1; min-width:260px; padding:0.5rem 0.65rem; border:1px solid var(--line-strong); border-radius:6px; background:var(--paper); color:var(--ink); font-size:0.85rem;"
+           onclick="this.select();">
+    <form method="post" action="{{ url_for('regenerate_link', teacher_id=teacher.teacher_id) }}" onsubmit="return confirm('לחדש את הקישור? הקישור הישן שאולי כבר שיתפת יפסיק לעבוד.');">
+      <button type="submit" class="btn btn-ghost">חידוש קישור</button>
+    </form>
+  </div>
+  <p style="color:var(--ink-soft); font-size:0.78rem; padding:0 1.15rem 1rem; margin:0;">
+    מי שמחזיק בקישור הזה יכול להוסיף למורה קורסים/סטטוס תעסוקתי, להריץ חישוב ולראות תוצאה — בלי לראות מורות אחרות ובלי login.
+  </p>
+</section>
+
+<section class="panel">
   <div class="panel-head"><span class="panel-title">הרצת חישוב גמול השתלמות</span></div>
   <form class="panel-body" method="post" action="{{ url_for('calculate', teacher_id=teacher.teacher_id) }}" style="flex-direction:row; align-items:flex-end; flex-wrap:wrap; gap:1rem;">
     <div class="field" style="max-width:220px;">

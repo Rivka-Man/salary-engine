@@ -27,11 +27,11 @@
 
     {% if earliest_school_year %}
     <div style="background:var(--warn-soft); border-radius:8px; padding:0.75rem 1rem; font-size:0.85rem; margin-top:0.75rem;">
-      לפרופיל המורה עדיין לא הוגדרה "שנת תחילה ברפורמת עוז לתמורה". הקורס המוקדם ביותר בקובץ הזה הוא משנת <strong>{{ earliest_school_year }}</strong> — זה לא בהכרח שנת התחילה בפועל (יכול להיות שהיו לה קורסים לפני כן שלא בקובץ), אבל אם זו כן שנת ההתחלה, אפשר להזין אותה ידנית ב<a href="{{ url_for('edit_teacher', teacher_id=teacher.teacher_id) }}">עריכת הפרופיל</a>.
+      לפרופיל המורה עדיין לא הוגדרה "שנת תחילה ברפורמת עוז לתמורה". הקורס המוקדם ביותר בקובץ הזה הוא משנת <strong>{{ earliest_school_year }}</strong> — זה לא בהכרח שנת התחילה בפועל (יכול להיות שהיו לה קורסים לפני כן שלא בקובץ){% if edit_profile_url %}, אבל אם זו כן שנת ההתחלה, אפשר להזין אותה ידנית ב<a href="{{ edit_profile_url }}">עריכת הפרופיל</a>{% endif %}.
     </div>
     {% endif %}
 
-    <form method="post" action="{{ url_for('import_courses_confirm', teacher_id=teacher.teacher_id) }}">
+    <form method="post" action="{{ form_action }}">
       <input type="hidden" name="row_count" value="{{ rows|length }}">
       <div class="table-wrap" style="margin-top:1rem;">
         <table class="ledger">
@@ -70,7 +70,7 @@
 
       <div class="actions-row" style="margin-top:1.1rem;">
         <button type="submit" class="btn btn-primary">אישור והוספת הקורסים המסומנים</button>
-        <a href="{{ url_for('teacher_detail', teacher_id=teacher.teacher_id) }}" class="btn btn-ghost">ביטול</a>
+        <a href="{{ cancel_url }}" class="btn btn-ghost">ביטול</a>
       </div>
     </form>
   </div>

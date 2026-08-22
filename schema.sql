@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS teachers (
     U_pre             REAL DEFAULT 0,     -- יחידות שהוכרו ערב הרפורמה
     H_pre             REAL DEFAULT 0,     -- שעות שנצברו ערב הרפורמה
     has_double_degree_gimul INTEGER DEFAULT 0,  -- כבר קיבל גמול כפל תואר בעבר
-    has_beinayim_gimul       INTEGER DEFAULT 0  -- כבר קיבל גמול ביניים בעבר
+    has_beinayim_gimul       INTEGER DEFAULT 0, -- כבר קיבל גמול ביניים בעבר
+    access_token             TEXT UNIQUE        -- קישור אישי למורה לצפייה/הזנה עצמית, בלי login
 );
 
 -- טבלת קורסים/לימודים לכל מורה

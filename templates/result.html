@@ -87,7 +87,7 @@
 </div>
 
 <div class="actions-row">
-  <a href="{{ url_for('teacher_detail', teacher_id=teacher.teacher_id) }}" class="btn btn-ghost">חזרה לפרופיל המורה</a>
+  <a href="{{ back_url or url_for('teacher_detail', teacher_id=teacher.teacher_id) }}" class="btn btn-ghost">חזרה</a>
 </div>
 
 {% endblock %}

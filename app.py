@@ -5,6 +5,7 @@
 import io
 import json
 import re
+import secrets
 import sqlite3
 from datetime import date
 
@@ -33,6 +34,12 @@ def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def get_teacher_by_token(conn, token):
+    if not token:
+        return None
+    return conn.execute("SELECT * FROM teachers WHERE access_token=?", (token,)).fetchone()
 
 
 def next_teacher_id(conn):
@@ -67,8 +74,8 @@ def new_teacher():
             INSERT INTO teachers
             (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
              in_reform, reform_start_year, U_pre, H_pre,
-             has_double_degree_gimul, has_beinayim_gimul)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             has_double_degree_gimul, has_beinayim_gimul, access_token)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 teacher_id,
@@ -82,6 +89,7 @@ def new_teacher():
                 float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
                 1 if request.form.get("has_beinayim_gimul") else 0,
+                secrets.token_urlsafe(16),
             ),
         )
         conn.commit()
@@ -216,7 +224,12 @@ def import_courses_form(teacher_id):
     if not teacher:
         flash("מורה לא נמצא.", "error")
         return redirect(url_for("index"))
-    return render_template("import_courses.html", teacher=teacher)
+    return render_template(
+        "import_courses.html",
+        teacher=teacher,
+        form_action=url_for("import_courses_parse", teacher_id=teacher_id),
+        cancel_url=url_for("teacher_detail", teacher_id=teacher_id),
+    )
 
 
 @app.route("/teachers/<teacher_id>/import-pdf", methods=["POST"])
@@ -262,6 +275,9 @@ def import_courses_parse(teacher_id):
         rows=rows,
         source_type_labels=SOURCE_TYPE_LABELS,
         earliest_school_year=earliest_school_year,
+        form_action=url_for("import_courses_confirm", teacher_id=teacher_id),
+        cancel_url=url_for("teacher_detail", teacher_id=teacher_id),
+        edit_profile_url=url_for("edit_teacher", teacher_id=teacher_id),
     )
 
 
@@ -384,6 +400,255 @@ def view_run(run_id):
     conn.close()
     result = json.loads(run["result_json"])
     return render_template("result.html", teacher=teacher, result=result)
+
+
+@app.route("/teachers/<teacher_id>/regenerate-link", methods=["POST"])
+def regenerate_link(teacher_id):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE teachers SET access_token=? WHERE teacher_id=?",
+        (secrets.token_urlsafe(16), teacher_id),
+    )
+    conn.commit()
+    conn.close()
+    flash("הקישור האישי חודש — הקישור הקודם כבר לא עובד.", "success")
+    return redirect(url_for("teacher_detail", teacher_id=teacher_id))
+
+
+# ==================================================================
+# ממשק עצמאי למורה: קישור אישי, בלי login. מאפשר רק הוספת נתונים
+# (קורסים/סטטוס/קובץ), הרצת חישוב וצפייה בתוצאה - לא עריכת פרופיל,
+# לא מחיקה, לא צפייה במורים אחרים.
+# ==================================================================
+
+@app.route("/my/<token>")
+def my_dashboard(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    courses = conn.execute(
+        "SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher["teacher_id"],)
+    ).fetchall()
+    statuses = conn.execute(
+        "SELECT * FROM employment_status_by_year WHERE teacher_id=?", (teacher["teacher_id"],)
+    ).fetchall()
+    statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
+    runs = conn.execute(
+        "SELECT * FROM calculation_runs WHERE teacher_id=? ORDER BY run_timestamp DESC", (teacher["teacher_id"],)
+    ).fetchall()
+    conn.close()
+    return render_template(
+        "my_dashboard.html",
+        token=token,
+        teacher=teacher,
+        courses=courses,
+        statuses=statuses,
+        runs=runs,
+        school_years=SCHOOL_YEARS,
+        source_type_labels=SOURCE_TYPE_LABELS,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/my/<token>/courses", methods=["POST"])
+def my_add_course(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    start_date = request.form.get("start_date")
+    hours = request.form.get("hours")
+    if not start_date or not hours:
+        flash("יש למלא תאריך תחילה ושעות.", "error")
+        return redirect(url_for("my_dashboard", token=token))
+    try:
+        sy = school_year_of(start_date)
+    except Exception:
+        sy = None
+    graded = 1 if request.form.get("graded") else 0
+    grade = request.form.get("grade") or None
+    conn = get_conn()
+    conn.execute(
+        """
+        INSERT INTO courses
+        (teacher_id, start_date, school_year, hours, source_type, graded, grade,
+         pre_approved, is_advanced_degree_track)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            teacher["teacher_id"],
+            start_date,
+            sy,
+            float(hours),
+            request.form.get("source_type", "academic"),
+            graded,
+            float(grade) if grade else None,
+            1 if request.form.get("pre_approved") else 0,
+            1 if request.form.get("is_advanced_degree_track") else 0,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    flash("הקורס נוסף.", "success")
+    return redirect(url_for("my_dashboard", token=token))
+
+
+@app.route("/my/<token>/status", methods=["POST"])
+def my_add_status(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    school_year = request.form.get("school_year")
+    status = request.form.get("status", "רגיל")
+    conn.execute(
+        """
+        INSERT INTO employment_status_by_year (teacher_id, school_year, status)
+        VALUES (?, ?, ?)
+        ON CONFLICT(teacher_id, school_year) DO UPDATE SET status=excluded.status
+        """,
+        (teacher["teacher_id"], school_year, status),
+    )
+    conn.commit()
+    conn.close()
+    flash("סטטוס תעסוקתי עודכן.", "success")
+    return redirect(url_for("my_dashboard", token=token))
+
+
+@app.route("/my/<token>/calculate", methods=["POST"])
+def my_calculate(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    calc_date = request.form.get("calc_date") or date.today().isoformat()
+    try:
+        result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
+    except Exception as exc:
+        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
+        return redirect(url_for("my_dashboard", token=token))
+    return render_template(
+        "result.html", teacher=teacher, result=result, back_url=url_for("my_dashboard", token=token)
+    )
+
+
+@app.route("/my/<token>/import-pdf", methods=["GET"])
+def my_import_form(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    return render_template(
+        "import_courses.html",
+        teacher=teacher,
+        form_action=url_for("my_import_parse", token=token),
+        cancel_url=url_for("my_dashboard", token=token),
+    )
+
+
+@app.route("/my/<token>/import-pdf", methods=["POST"])
+def my_import_parse(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    uploaded = request.files.get("pdf_file")
+    if not uploaded or not uploaded.filename:
+        flash("יש לבחור קובץ PDF.", "error")
+        return redirect(url_for("my_import_form", token=token))
+    if not uploaded.filename.lower().endswith(".pdf"):
+        flash("הקובץ חייב להיות PDF.", "error")
+        return redirect(url_for("my_import_form", token=token))
+
+    try:
+        rows = parse_courses_pdf(io.BytesIO(uploaded.read()))
+    except Exception as exc:
+        flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
+        return redirect(url_for("my_import_form", token=token))
+
+    if not rows:
+        flash("לא זוהו קורסים בקובץ. ודאי שזה קובץ PDF שהופק מ\"הקורסים שלי\" בפורטל עו\"ה.", "error")
+        return redirect(url_for("my_import_form", token=token))
+
+    earliest_school_year = None
+    if not teacher["reform_start_year"]:
+        try:
+            earliest_school_year = min(
+                (school_year_of(r["start_date"]) for r in rows),
+                key=lambda sy: SCHOOL_YEAR_START.get(sy, "9999"),
+            )
+        except Exception:
+            earliest_school_year = None
+
+    return render_template(
+        "import_preview.html",
+        teacher=teacher,
+        rows=rows,
+        source_type_labels=SOURCE_TYPE_LABELS,
+        earliest_school_year=earliest_school_year,
+        form_action=url_for("my_import_confirm", token=token),
+        cancel_url=url_for("my_dashboard", token=token),
+        edit_profile_url=None,
+    )
+
+
+@app.route("/my/<token>/import-pdf/confirm", methods=["POST"])
+def my_import_confirm(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    count = int(request.form.get("row_count", 0))
+    added = 0
+    for i in range(count):
+        if not request.form.get(f"include_{i}"):
+            continue
+        start_date = request.form.get(f"start_date_{i}")
+        hours = request.form.get(f"hours_{i}")
+        if not start_date or not hours:
+            continue
+        try:
+            sy = school_year_of(start_date)
+        except Exception:
+            sy = None
+        conn.execute(
+            """
+            INSERT INTO courses
+            (teacher_id, start_date, school_year, hours, source_type, graded, grade,
+             pre_approved, is_advanced_degree_track)
+            VALUES (?, ?, ?, ?, ?, 0, NULL, 1, 0)
+            """,
+            (
+                teacher["teacher_id"],
+                start_date,
+                sy,
+                float(hours),
+                request.form.get(f"source_type_{i}", "other"),
+            ),
+        )
+        added += 1
+    conn.commit()
+    conn.close()
+    flash(f"נוספו {added} קורסים מהקובץ.", "success")
+    return redirect(url_for("my_dashboard", token=token))
 
 
 if __name__ == "__main__":
