@@ -4,3 +4,5 @@ salary.db
 salary.db-journal
 .venv/
 env/
+db.env
+*.env
