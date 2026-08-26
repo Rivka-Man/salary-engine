@@ -2,22 +2,22 @@
 דוגמה מלאה: מורה 'רונית כהן' - מועסקת בתנאי עוז לתמורה משנת תשע"ג,
 עם היסטוריית לימודים על פני כמה שנים, כולל שנת שבתון אחת.
 """
-import sqlite3
 import json
 import os
-from engine import init_db, compute_gimul_hishtalmut, DB_PATH
+from db import get_connection
+from engine import init_db, compute_gimul_hishtalmut
 
 # 1. אתחול DB (יוצר את הטבלאות + זורע את טבלת החוקים)
 init_db(reset=True)
 
-conn = sqlite3.connect(DB_PATH)
+conn = get_connection()
 
 # 2. הזנת נתוני המורה
 conn.execute("""
     INSERT INTO teachers (teacher_id, full_name, is_active_teacher, has_seniority_year,
-        is_pensioner, in_reform, reform_start_year, dual_reform_ofek_hadash,
+        is_pensioner, in_reform, reform_start_year,
         U_pre, H_pre, has_double_degree_gimul, has_beinayim_gimul)
-    VALUES ('T001', 'רונית כהן', 1, 1, 0, 1, 'תשע"ג', 0, 16, 1900, 0, 0)
+    VALUES ('T001', 'רונית כהן', 1, 1, 0, 1, 'תשע"ג', 16, 1900, 0, 0)
 """)
 # הסבר: U_pre=16, H_pre=1900 שעות (מעל 16*112=1792) --> אמורה לזכות ביחידת מעבר (R08)
 
@@ -36,7 +36,7 @@ for c in courses:
     conn.execute("""
         INSERT INTO courses (teacher_id, start_date, hours, source_type, graded, grade,
                               pre_approved, is_advanced_degree_track)
-        VALUES ('T001', ?, ?, ?, ?, ?, ?, ?)
+        VALUES ('T001', %s, %s, %s, %s, %s, %s, %s)
     """, c)
 
 # 4. סטטוס תעסוקתי שנתי
@@ -47,7 +47,7 @@ statuses = [
 for sy, status in statuses:
     conn.execute("""
         INSERT INTO employment_status_by_year (teacher_id, school_year, status)
-        VALUES ('T001', ?, ?)
+        VALUES ('T001', %s, %s)
     """, (sy, status))
 
 conn.commit()

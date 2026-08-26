@@ -2,7 +2,7 @@
 מנוע חישוב גמול השתלמות - עוז לתמורה
 =======================================
 שכבות:
-1. DB (SQLite) - שומר את "ספר החוקים" (מטא-דאטה: מקור, סעיף, תוקף, סדר הרצה),
+1. DB (PostgreSQL) - שומר את "ספר החוקים" (מטא-דאטה: מקור, סעיף, תוקף, סדר הרצה),
    נתוני מורים, קורסים, וסטטוס תעסוקתי שנתי.
 2. rules_registry (בפייתון) - הלוגיקה בפועל של כל חוק, מקושרת ל-rule_id
    שמופיע בטבלת rules ב-DB. זו ההפרדה בין "מה החוק אומר" (DB, קריא לאדם)
@@ -11,15 +11,14 @@
    פלט + trace מלא (audit trail) שמסביר איזה חוק תרם מה לתוצאה הסופית.
 """
 
-import sqlite3
 import json
 import math
+import os
 import secrets
 from datetime import date, datetime
 from dataclasses import dataclass, field
 
-import os
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "salary.db")
+from db import get_connection
 
 # ----------------------------------------------------------------
 # מיפוי שנות לימודים עבריות לתאריך תחילה משוער (1 בספטמבר)
@@ -145,15 +144,15 @@ PARAMETERS_METADATA = [
 
 
 def init_db(reset: bool = True):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     if reset:
         conn.executescript("""
-            DROP TABLE IF EXISTS rules;
-            DROP TABLE IF EXISTS rule_parameters;
-            DROP TABLE IF EXISTS teachers;
-            DROP TABLE IF EXISTS courses;
-            DROP TABLE IF EXISTS employment_status_by_year;
-            DROP TABLE IF EXISTS calculation_runs;
+            DROP TABLE IF EXISTS calculation_runs CASCADE;
+            DROP TABLE IF EXISTS employment_status_by_year CASCADE;
+            DROP TABLE IF EXISTS courses CASCADE;
+            DROP TABLE IF EXISTS rule_parameters CASCADE;
+            DROP TABLE IF EXISTS teachers CASCADE;
+            DROP TABLE IF EXISTS rules CASCADE;
         """)
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
     with open(schema_path, encoding="utf-8") as f:
@@ -161,11 +160,14 @@ def init_db(reset: bool = True):
 
     # מיגרציה קלה: DB ישן (לפני שנוסף access_token) לא יקבל את העמודה
     # דרך CREATE TABLE IF NOT EXISTS - צריך להוסיף אותה ולמלא לשורות קיימות.
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(teachers)").fetchall()]
+    cols = [r["column_name"] for r in conn.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='teachers'"
+    ).fetchall()]
     if "access_token" not in cols:
-        conn.execute("ALTER TABLE teachers ADD COLUMN access_token TEXT")
-    for (tid,) in conn.execute("SELECT teacher_id FROM teachers WHERE access_token IS NULL").fetchall():
-        conn.execute("UPDATE teachers SET access_token=? WHERE teacher_id=?", (secrets.token_urlsafe(16), tid))
+        conn.execute("ALTER TABLE teachers ADD COLUMN access_token TEXT UNIQUE")
+    for r in conn.execute("SELECT teacher_id FROM teachers WHERE access_token IS NULL").fetchall():
+        conn.execute("UPDATE teachers SET access_token=%s WHERE teacher_id=%s",
+                      (secrets.token_urlsafe(16), r["teacher_id"]))
 
     cur = conn.cursor()
     for r in RULES_METADATA:
@@ -177,37 +179,42 @@ def init_db(reset: bool = True):
             "overrides": r.get("overrides"),
         }
         cur.execute("""
-            INSERT OR REPLACE INTO rules
+            INSERT INTO rules
             (rule_id, topic, title, description, source_doc, source_ref, priority,
              applies_when, valid_from, valid_to, overrides, active)
-            VALUES (:rule_id, :topic, :title, :description, :source_doc, :source_ref,
-                    :priority, :applies_when, :valid_from, NULL, :overrides, 1)
+            VALUES (%(rule_id)s, %(topic)s, %(title)s, %(description)s, %(source_doc)s, %(source_ref)s,
+                    %(priority)s, %(applies_when)s, %(valid_from)s, NULL, %(overrides)s, 1)
+            ON CONFLICT (rule_id) DO UPDATE SET
+                topic=EXCLUDED.topic, title=EXCLUDED.title, description=EXCLUDED.description,
+                source_doc=EXCLUDED.source_doc, source_ref=EXCLUDED.source_ref,
+                priority=EXCLUDED.priority, applies_when=EXCLUDED.applies_when,
+                valid_from=EXCLUDED.valid_from, overrides=EXCLUDED.overrides, active=1
         """, params)
 
     cur.execute("DELETE FROM rule_parameters")
     for p in PARAMETERS_METADATA:
         cur.execute("""
             INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to)
-            VALUES (:rule_id, :param_name, :param_value, :valid_from, :valid_to)
+            VALUES (%(rule_id)s, %(param_name)s, %(param_value)s, %(valid_from)s, %(valid_to)s)
         """, p)
 
     conn.commit()
     conn.close()
-    print(f"DB initialized at {DB_PATH} with {len(RULES_METADATA)} rules and {len(PARAMETERS_METADATA)} parameters.")
+    print(f"DB initialized with {len(RULES_METADATA)} rules and {len(PARAMETERS_METADATA)} parameters.")
 
 
 def get_param(conn, rule_id, param_name, calc_date):
     row = conn.execute("""
         SELECT param_value FROM rule_parameters
-        WHERE rule_id=? AND param_name=?
-          AND (valid_from IS NULL OR valid_from <= ?)
-          AND (valid_to IS NULL OR valid_to > ?)
+        WHERE rule_id=%s AND param_name=%s
+          AND (valid_from IS NULL OR valid_from <= %s)
+          AND (valid_to IS NULL OR valid_to > %s)
         ORDER BY valid_from DESC
         LIMIT 1
     """, (rule_id, param_name, calc_date, calc_date)).fetchone()
     if row is None:
         raise ValueError(f"Missing parameter {rule_id}.{param_name} for calc_date={calc_date}")
-    return row[0]
+    return row["param_value"]
 
 
 # ==================================================================
@@ -223,20 +230,18 @@ class Trace:
 
 
 def get_teacher(conn, teacher_id):
-    row = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
-    cols = [d[0] for d in conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).description]
-    return dict(zip(cols, row)) if row else None
+    row = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def get_courses(conn, teacher_id):
-    cur = conn.execute("SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher_id,))
-    cols = [d[0] for d in cur.description]
-    return [dict(zip(cols, r)) for r in cur.fetchall()]
+    cur = conn.execute("SELECT * FROM courses WHERE teacher_id=%s ORDER BY start_date", (teacher_id,))
+    return [dict(r) for r in cur.fetchall()]
 
 
 def get_status_by_year(conn, teacher_id):
-    cur = conn.execute("SELECT school_year, status FROM employment_status_by_year WHERE teacher_id=?", (teacher_id,))
-    return {row[0]: row[1] for row in cur.fetchall()}
+    cur = conn.execute("SELECT school_year, status FROM employment_status_by_year WHERE teacher_id=%s", (teacher_id,))
+    return {row["school_year"]: row["status"] for row in cur.fetchall()}
 
 
 def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
@@ -244,7 +249,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     מריץ את מנוע חוקי גמול ההשתלמות על מורה נתון, עד לתאריך calc_date.
     מחזיר dict עם הפלט המלא + trace (audit trail).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     trace = Trace()
 
     teacher = get_teacher(conn, teacher_id)
@@ -275,11 +280,11 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         trace.log("R02_BASE_CAP", "תקרה כללית (לא ברפורמה)", U_cap)
 
     # --- R08: יחידת מעבר לרפורמה ---
-    U_base = teacher["U_pre"] or 0
-    if teacher["in_reform"] and teacher["U_pre"] == 16 and (teacher["H_pre"] or 0) > 16 * H_unit:
+    U_base = teacher["u_pre"] or 0
+    if teacher["in_reform"] and teacher["u_pre"] == 16 and (teacher["h_pre"] or 0) > 16 * H_unit:
         U_base = 17
         trace.log("R08_TRANSITION_UNIT",
-                   f"זוהתה יתרת שעות מעל 16 יחידות (H_pre={teacher['H_pre']}) - הוכרה יחידה 17-ית",
+                   f"זוהתה יתרת שעות מעל 16 יחידות (H_pre={teacher['h_pre']}) - הוכרה יחידה 17-ית",
                    U_base)
     else:
         trace.log("R08_TRANSITION_UNIT", f"אין זכאות ליחידת מעבר - בסיס נשאר {U_base}", U_base)
@@ -394,7 +399,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         INSERT INTO calculation_runs
         (teacher_id, run_timestamp, calc_date, U_regular, U_dd_or_mid, U_total, pct_addition,
          U_cap_applied, result_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """, (teacher_id, datetime.now().isoformat(), calc_date, result["U_regular"],
           result["U_dd_or_mid"], result["U_total"], result["pct_salary_addition"],
           result["U_cap_applied"], json.dumps(result, ensure_ascii=False)))

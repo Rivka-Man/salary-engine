@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS rules (
 -- שקובעת איזה חוק חל על מי. הלוגיקה (התנאים) נשארת בקוד engine.py; הערכים
 -- הסופיים (למשל 112 שעות ליחידה, 1.2% ליחידה) נשלפים מכאן לפי תאריך.
 CREATE TABLE IF NOT EXISTS rule_parameters (
-    param_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    param_id      SERIAL PRIMARY KEY,
     rule_id       TEXT NOT NULL REFERENCES rules(rule_id),
     param_name    TEXT NOT NULL,
     param_value   REAL NOT NULL,
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS teachers (
     in_reform         INTEGER DEFAULT 0,  -- מועסק בתנאי עוז לתמורה
     reform_start_year TEXT,               -- שנה"ל תחילת העסקה ברפורמה, למשל 'תשע"ב'
     dual_reform_ofek_hadash INTEGER DEFAULT 0,
-    U_pre             REAL DEFAULT 0,     -- יחידות שהוכרו ערב הרפורמה
-    H_pre             REAL DEFAULT 0,     -- שעות שנצברו ערב הרפורמה
+    u_pre             REAL DEFAULT 0,     -- יחידות שהוכרו ערב הרפורמה
+    h_pre             REAL DEFAULT 0,     -- שעות שנצברו ערב הרפורמה
     has_double_degree_gimul INTEGER DEFAULT 0,  -- כבר קיבל גמול כפל תואר בעבר
     has_beinayim_gimul       INTEGER DEFAULT 0, -- כבר קיבל גמול ביניים בעבר
     access_token             TEXT UNIQUE        -- קישור אישי למורה לצפייה/הזנה עצמית, בלי login
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS teachers (
 
 -- טבלת קורסים/לימודים לכל מורה
 CREATE TABLE IF NOT EXISTS courses (
-    course_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id       SERIAL PRIMARY KEY,
     teacher_id      TEXT NOT NULL REFERENCES teachers(teacher_id),
     start_date      TEXT NOT NULL,        -- ISO date
     school_year     TEXT,                 -- 'תשפ"ד' וכו', לנוחות
@@ -74,14 +74,14 @@ CREATE TABLE IF NOT EXISTS employment_status_by_year (
 
 -- טבלת תוצאות חישוב (output) - נשמר audit trail מלא
 CREATE TABLE IF NOT EXISTS calculation_runs (
-    run_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          SERIAL PRIMARY KEY,
     teacher_id      TEXT NOT NULL REFERENCES teachers(teacher_id),
     run_timestamp   TEXT NOT NULL,
     calc_date       TEXT NOT NULL,        -- לאיזה תאריך חושב (קובע תקרה חלה)
-    U_regular       REAL,
-    U_dd_or_mid     REAL,
-    U_total         REAL,
+    u_regular       REAL,
+    u_dd_or_mid     REAL,
+    u_total         REAL,
     pct_addition    REAL,
-    U_cap_applied   INTEGER,
+    u_cap_applied   INTEGER,
     result_json     TEXT NOT NULL         -- הפלט המלא + trace (JSON)
 );

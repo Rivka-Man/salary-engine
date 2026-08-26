@@ -1,17 +1,17 @@
 """
-ממשק ווב מקומי להזנת נתוני מורים והרצת מנוע גמול ההשתלמות.
-מריץ מעל אותו salary.db שמשתמש בו engine.py.
+ממשק ווב להזנת נתוני מורים והרצת מנוע גמול ההשתלמות.
+מריץ מעל אותו PostgreSQL (Supabase) שמשתמש בו engine.py.
 """
 import io
 import json
 import re
 import secrets
-import sqlite3
 from datetime import date
 
 from flask import Flask, flash, redirect, render_template, request, url_for
 
-from engine import DB_PATH, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
+from db import get_connection
+from engine import SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf
 
 app = Flask(__name__)
@@ -31,15 +31,13 @@ SCHOOL_YEARS = list(SCHOOL_YEAR_START.keys())
 
 
 def get_conn():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_connection()
 
 
 def get_teacher_by_token(conn, token):
     if not token:
         return None
-    return conn.execute("SELECT * FROM teachers WHERE access_token=?", (token,)).fetchone()
+    return conn.execute("SELECT * FROM teachers WHERE access_token=%s", (token,)).fetchone()
 
 
 def next_teacher_id(conn):
@@ -73,9 +71,9 @@ def new_teacher():
             """
             INSERT INTO teachers
             (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
-             in_reform, reform_start_year, U_pre, H_pre,
+             in_reform, reform_start_year, u_pre, h_pre,
              has_double_degree_gimul, has_beinayim_gimul, access_token)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 teacher_id,
@@ -103,20 +101,20 @@ def new_teacher():
 @app.route("/teachers/<teacher_id>")
 def teacher_detail(teacher_id):
     conn = get_conn()
-    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
     if not teacher:
         conn.close()
         flash("מורה לא נמצא.", "error")
         return redirect(url_for("index"))
     courses = conn.execute(
-        "SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher_id,)
+        "SELECT * FROM courses WHERE teacher_id=%s ORDER BY start_date", (teacher_id,)
     ).fetchall()
     statuses = conn.execute(
-        "SELECT * FROM employment_status_by_year WHERE teacher_id=?", (teacher_id,)
+        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher_id,)
     ).fetchall()
     statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
     runs = conn.execute(
-        "SELECT * FROM calculation_runs WHERE teacher_id=? ORDER BY run_timestamp DESC", (teacher_id,)
+        "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC", (teacher_id,)
     ).fetchall()
     conn.close()
     return render_template(
@@ -134,7 +132,7 @@ def teacher_detail(teacher_id):
 @app.route("/teachers/<teacher_id>/edit", methods=["GET", "POST"])
 def edit_teacher(teacher_id):
     conn = get_conn()
-    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
     if not teacher:
         conn.close()
         flash("מורה לא נמצא.", "error")
@@ -149,10 +147,10 @@ def edit_teacher(teacher_id):
         conn.execute(
             """
             UPDATE teachers SET
-                full_name=?, is_active_teacher=?, has_seniority_year=?, is_pensioner=?,
-                in_reform=?, reform_start_year=?, U_pre=?, H_pre=?,
-                has_double_degree_gimul=?, has_beinayim_gimul=?
-            WHERE teacher_id=?
+                full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
+                in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
+                has_double_degree_gimul=%s, has_beinayim_gimul=%s
+            WHERE teacher_id=%s
             """,
             (
                 full_name,
@@ -196,7 +194,7 @@ def add_course(teacher_id):
         INSERT INTO courses
         (teacher_id, start_date, school_year, hours, source_type, graded, grade,
          pre_approved, is_advanced_degree_track)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             teacher_id,
@@ -219,7 +217,7 @@ def add_course(teacher_id):
 @app.route("/teachers/<teacher_id>/import-pdf", methods=["GET"])
 def import_courses_form(teacher_id):
     conn = get_conn()
-    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
     conn.close()
     if not teacher:
         flash("מורה לא נמצא.", "error")
@@ -235,7 +233,7 @@ def import_courses_form(teacher_id):
 @app.route("/teachers/<teacher_id>/import-pdf", methods=["POST"])
 def import_courses_parse(teacher_id):
     conn = get_conn()
-    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
     conn.close()
     if not teacher:
         flash("מורה לא נמצא.", "error")
@@ -302,7 +300,7 @@ def import_courses_confirm(teacher_id):
             INSERT INTO courses
             (teacher_id, start_date, school_year, hours, source_type, graded, grade,
              pre_approved, is_advanced_degree_track)
-            VALUES (?, ?, ?, ?, ?, 0, NULL, 1, 0)
+            VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
             """,
             (
                 teacher_id,
@@ -322,7 +320,7 @@ def import_courses_confirm(teacher_id):
 @app.route("/teachers/<teacher_id>/courses/<int:course_id>/delete", methods=["POST"])
 def delete_course(teacher_id, course_id):
     conn = get_conn()
-    conn.execute("DELETE FROM courses WHERE course_id=? AND teacher_id=?", (course_id, teacher_id))
+    conn.execute("DELETE FROM courses WHERE course_id=%s AND teacher_id=%s", (course_id, teacher_id))
     conn.commit()
     conn.close()
     return redirect(url_for("teacher_detail", teacher_id=teacher_id))
@@ -336,7 +334,7 @@ def add_status(teacher_id):
     conn.execute(
         """
         INSERT INTO employment_status_by_year (teacher_id, school_year, status)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
         ON CONFLICT(teacher_id, school_year) DO UPDATE SET status=excluded.status
         """,
         (teacher_id, school_year, status),
@@ -351,7 +349,7 @@ def add_status(teacher_id):
 def delete_status(teacher_id, school_year):
     conn = get_conn()
     conn.execute(
-        "DELETE FROM employment_status_by_year WHERE teacher_id=? AND school_year=?",
+        "DELETE FROM employment_status_by_year WHERE teacher_id=%s AND school_year=%s",
         (teacher_id, school_year),
     )
     conn.commit()
@@ -362,10 +360,10 @@ def delete_status(teacher_id, school_year):
 @app.route("/teachers/<teacher_id>/delete", methods=["POST"])
 def delete_teacher(teacher_id):
     conn = get_conn()
-    conn.execute("DELETE FROM courses WHERE teacher_id=?", (teacher_id,))
-    conn.execute("DELETE FROM employment_status_by_year WHERE teacher_id=?", (teacher_id,))
-    conn.execute("DELETE FROM calculation_runs WHERE teacher_id=?", (teacher_id,))
-    conn.execute("DELETE FROM teachers WHERE teacher_id=?", (teacher_id,))
+    conn.execute("DELETE FROM courses WHERE teacher_id=%s", (teacher_id,))
+    conn.execute("DELETE FROM employment_status_by_year WHERE teacher_id=%s", (teacher_id,))
+    conn.execute("DELETE FROM calculation_runs WHERE teacher_id=%s", (teacher_id,))
+    conn.execute("DELETE FROM teachers WHERE teacher_id=%s", (teacher_id,))
     conn.commit()
     conn.close()
     flash("המורה נמחק.", "success")
@@ -381,7 +379,7 @@ def calculate(teacher_id):
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
         return redirect(url_for("teacher_detail", teacher_id=teacher_id))
     conn = get_conn()
-    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=?", (teacher_id,)).fetchone()
+    teacher = conn.execute("SELECT * FROM teachers WHERE teacher_id=%s", (teacher_id,)).fetchone()
     conn.close()
     return render_template("result.html", teacher=teacher, result=result)
 
@@ -389,13 +387,13 @@ def calculate(teacher_id):
 @app.route("/runs/<int:run_id>")
 def view_run(run_id):
     conn = get_conn()
-    run = conn.execute("SELECT * FROM calculation_runs WHERE run_id=?", (run_id,)).fetchone()
+    run = conn.execute("SELECT * FROM calculation_runs WHERE run_id=%s", (run_id,)).fetchone()
     if not run:
         conn.close()
         flash("הרצה לא נמצאה.", "error")
         return redirect(url_for("index"))
     teacher = conn.execute(
-        "SELECT * FROM teachers WHERE teacher_id=?", (run["teacher_id"],)
+        "SELECT * FROM teachers WHERE teacher_id=%s", (run["teacher_id"],)
     ).fetchone()
     conn.close()
     result = json.loads(run["result_json"])
@@ -406,7 +404,7 @@ def view_run(run_id):
 def regenerate_link(teacher_id):
     conn = get_conn()
     conn.execute(
-        "UPDATE teachers SET access_token=? WHERE teacher_id=?",
+        "UPDATE teachers SET access_token=%s WHERE teacher_id=%s",
         (secrets.token_urlsafe(16), teacher_id),
     )
     conn.commit()
@@ -430,14 +428,14 @@ def my_dashboard(token):
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
     courses = conn.execute(
-        "SELECT * FROM courses WHERE teacher_id=? ORDER BY start_date", (teacher["teacher_id"],)
+        "SELECT * FROM courses WHERE teacher_id=%s ORDER BY start_date", (teacher["teacher_id"],)
     ).fetchall()
     statuses = conn.execute(
-        "SELECT * FROM employment_status_by_year WHERE teacher_id=?", (teacher["teacher_id"],)
+        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher["teacher_id"],)
     ).fetchall()
     statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
     runs = conn.execute(
-        "SELECT * FROM calculation_runs WHERE teacher_id=? ORDER BY run_timestamp DESC", (teacher["teacher_id"],)
+        "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC", (teacher["teacher_id"],)
     ).fetchall()
     conn.close()
     return render_template(
@@ -479,7 +477,7 @@ def my_add_course(token):
         INSERT INTO courses
         (teacher_id, start_date, school_year, hours, source_type, graded, grade,
          pre_approved, is_advanced_degree_track)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             teacher["teacher_id"],
@@ -512,7 +510,7 @@ def my_add_status(token):
     conn.execute(
         """
         INSERT INTO employment_status_by_year (teacher_id, school_year, status)
-        VALUES (?, ?, ?)
+        VALUES (%s, %s, %s)
         ON CONFLICT(teacher_id, school_year) DO UPDATE SET status=excluded.status
         """,
         (teacher["teacher_id"], school_year, status),
@@ -634,7 +632,7 @@ def my_import_confirm(token):
             INSERT INTO courses
             (teacher_id, start_date, school_year, hours, source_type, graded, grade,
              pre_approved, is_advanced_degree_track)
-            VALUES (?, ?, ?, ?, ?, 0, NULL, 1, 0)
+            VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
             """,
             (
                 teacher["teacher_id"],

@@ -126,8 +126,8 @@
         <dl class="kv-list">
           <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובד הוראה פעיל{% else %}לא פעיל{% endif %}</dd></div>
           <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
-          <div class="kv-row"><dt>יחידות לפני (U_pre)</dt><dd class="mono">{{ teacher.U_pre }}</dd></div>
-          <div class="kv-row"><dt>שעות לפני (H_pre)</dt><dd class="mono">{{ teacher.H_pre }}</dd></div>
+          <div class="kv-row"><dt>יחידות לפני (U_pre)</dt><dd class="mono">{{ teacher.u_pre }}</dd></div>
+          <div class="kv-row"><dt>שעות לפני (H_pre)</dt><dd class="mono">{{ teacher.h_pre }}</dd></div>
           <div class="kv-row"><dt>גמול כפל תואר בעבר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>גמול ביניים בעבר</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
         </dl>
@@ -191,7 +191,7 @@
         <tr>
           <td class="mono">{{ r.calc_date }}</td>
           <td class="mono">{{ r.run_timestamp[:16] }}</td>
-          <td class="mono">{{ r.U_total }}</td>
+          <td class="mono">{{ r.u_total }}</td>
           <td class="mono">{{ r.pct_addition }}%</td>
           <td><a href="{{ url_for('view_run', run_id=r.run_id) }}">צפייה ←</a></td>
         </tr>
