@@ -24,14 +24,6 @@
           {% endfor %}
         </select>
       </div>
-      <div class="field">
-        <label for="U_pre">יחידות שהוכרו ערב הרפורמה (U_pre)</label>
-        <input type="number" step="0.01" id="U_pre" name="U_pre" value="{{ teacher.u_pre }}">
-      </div>
-      <div class="field">
-        <label for="H_pre">שעות שנצברו ערב הרפורמה (H_pre)</label>
-        <input type="number" step="0.01" id="H_pre" name="H_pre" value="{{ teacher.h_pre }}">
-      </div>
     </div>
 
     <div class="checkbox-grid">
@@ -39,8 +31,8 @@
       <div class="checkbox-row"><input type="checkbox" id="is_active_teacher" name="is_active_teacher" {% if teacher.is_active_teacher %}checked{% endif %}><label for="is_active_teacher">עובד הוראה בפועל ומוסמך</label></div>
       <div class="checkbox-row"><input type="checkbox" id="has_seniority_year" name="has_seniority_year" {% if teacher.has_seniority_year %}checked{% endif %}><label for="has_seniority_year">השלים שנת ותק אחת</label></div>
       <div class="checkbox-row"><input type="checkbox" id="is_pensioner" name="is_pensioner" {% if teacher.is_pensioner %}checked{% endif %}><label for="is_pensioner">גמלאי</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="has_double_degree_gimul" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}><label for="has_double_degree_gimul">כבר קיבל גמול כפל תואר בעבר</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="has_beinayim_gimul" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}><label for="has_beinayim_gimul">כבר קיבל גמול ביניים בעבר</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="has_double_degree_gimul" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}><label for="has_double_degree_gimul">קיים גמול כפל תואר</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="has_beinayim_gimul" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}><label for="has_beinayim_gimul">קיים גמול ביניים</label></div>
     </div>
 
     <div class="actions-row">

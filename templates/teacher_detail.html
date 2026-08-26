@@ -29,17 +29,6 @@
   </p>
 </section>
 
-<section class="panel">
-  <div class="panel-head"><span class="panel-title">הרצת חישוב גמול השתלמות</span></div>
-  <form class="panel-body" method="post" action="{{ url_for('calculate', teacher_id=teacher.teacher_id) }}" style="flex-direction:row; align-items:flex-end; flex-wrap:wrap; gap:1rem;">
-    <div class="field" style="max-width:220px;">
-      <label for="calc_date">תאריך חישוב</label>
-      <input type="date" id="calc_date" name="calc_date" required value="{{ today }}">
-    </div>
-    <button type="submit" class="btn btn-primary">הרצת המנוע</button>
-  </form>
-</section>
-
 <div class="body-grid">
   <div style="display:flex; flex-direction:column; gap:1.5rem;">
 
@@ -126,10 +115,8 @@
         <dl class="kv-list">
           <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובד הוראה פעיל{% else %}לא פעיל{% endif %}</dd></div>
           <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
-          <div class="kv-row"><dt>יחידות לפני (U_pre)</dt><dd class="mono">{{ teacher.u_pre }}</dd></div>
-          <div class="kv-row"><dt>שעות לפני (H_pre)</dt><dd class="mono">{{ teacher.h_pre }}</dd></div>
-          <div class="kv-row"><dt>גמול כפל תואר בעבר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
-          <div class="kv-row"><dt>גמול ביניים בעבר</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
+          <div class="kv-row"><dt>קיים גמול כפל תואר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
+          <div class="kv-row"><dt>קיים גמול ביניים</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
         </dl>
       </div>
     </section>
@@ -201,5 +188,16 @@
   </div>
 </section>
 {% endif %}
+
+<section class="panel">
+  <div class="panel-head"><span class="panel-title">הרצת חישוב גמול השתלמות</span></div>
+  <form class="panel-body" method="post" action="{{ url_for('calculate', teacher_id=teacher.teacher_id) }}" style="flex-direction:row; align-items:flex-end; flex-wrap:wrap; gap:1rem;">
+    <div class="field" style="max-width:220px;">
+      <label for="calc_date">תאריך חישוב</label>
+      <input type="date" id="calc_date" name="calc_date" required value="{{ today }}">
+    </div>
+    <button type="submit" class="btn btn-primary">הרצת המנוע</button>
+  </form>
+</section>
 
 {% endblock %}
