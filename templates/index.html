@@ -16,6 +16,7 @@
           <th>עוז לתמורה</th>
           <th>שנת תחילה ברפורמה</th>
           <th></th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -28,6 +29,11 @@
           </td>
           <td>{{ t.reform_start_year or "—" }}</td>
           <td><a href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">פתיחה ←</a></td>
+          <td>
+            <form method="post" action="{{ url_for('delete_teacher', teacher_id=t.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלו לצמיתות?');">
+              <button type="submit" class="btn-danger">מחיקה</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
