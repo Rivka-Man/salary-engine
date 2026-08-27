@@ -169,6 +169,14 @@ def init_db(reset: bool = True):
         conn.execute("UPDATE teachers SET access_token=%s WHERE teacher_id=%s",
                       (secrets.token_urlsafe(16), r["teacher_id"]))
 
+    course_cols = [r["column_name"] for r in conn.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='courses'"
+    ).fetchall()]
+    if "end_date" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN end_date TEXT")
+    if "description" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN description TEXT")
+
     cur = conn.cursor()
     for r in RULES_METADATA:
         params = {

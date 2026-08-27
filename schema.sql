@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS courses (
     course_id       SERIAL PRIMARY KEY,
     teacher_id      TEXT NOT NULL REFERENCES teachers(teacher_id),
     start_date      TEXT NOT NULL,        -- ISO date
+    end_date        TEXT,                 -- ISO date
+    description     TEXT,                 -- תיאור/שם חופשי של הקורס
     school_year     TEXT,                 -- 'תשפ"ד' וכו', לנוחות
     hours           REAL NOT NULL,
     source_type     TEXT NOT NULL,        -- 'academic' | 'school_based' | 'conference' | 'language' | 'other'

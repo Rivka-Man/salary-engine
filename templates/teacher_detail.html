@@ -44,13 +44,15 @@
       <div class="table-wrap">
         <table class="ledger">
           <thead>
-            <tr><th>שנה"ל</th><th>תאריך</th><th>סוג</th><th>שעות</th><th>ציון</th><th>אישור מוקדם</th><th>תואר מתקדם</th><th></th></tr>
+            <tr><th>שנה"ל</th><th>תיאור</th><th>מתאריך</th><th>עד תאריך</th><th>סוג</th><th>שעות</th><th>ציון</th><th>אישור מוקדם</th><th>תואר מתקדם</th><th></th></tr>
           </thead>
           <tbody>
             {% for c in courses %}
             <tr>
               <td>{{ c.school_year or "—" }}</td>
+              <td>{{ c.description or "—" }}</td>
               <td class="mono">{{ c.start_date }}</td>
+              <td class="mono">{{ c.end_date or "—" }}</td>
               <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
               <td class="mono">{{ c.hours }}</td>
               <td class="mono">{{ c.grade if c.grade is not none else "—" }}</td>
@@ -73,8 +75,16 @@
       <form class="panel-body" method="post" action="{{ url_for('add_course', teacher_id=teacher.teacher_id) }}">
         <div class="form-grid">
           <div class="field">
-            <label for="start_date">תאריך תחילה *</label>
+            <label for="description">תיאור קורס</label>
+            <input type="text" id="description" name="description">
+          </div>
+          <div class="field">
+            <label for="start_date">מתאריך *</label>
             <input type="date" id="start_date" name="start_date" required>
+          </div>
+          <div class="field">
+            <label for="end_date">עד תאריך</label>
+            <input type="date" id="end_date" name="end_date">
           </div>
           <div class="field">
             <label for="source_type">סוג מקור</label>
@@ -93,7 +103,7 @@
             <input type="number" step="0.01" id="hours_ungraded" name="hours_ungraded">
           </div>
           <div class="field">
-            <label for="grade">ציון (אם עם ציון)</label>
+            <label for="grade">ציון</label>
             <input type="number" step="0.01" id="grade" name="grade">
           </div>
         </div>

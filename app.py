@@ -193,13 +193,15 @@ def add_course(teacher_id):
     conn.execute(
         """
         INSERT INTO courses
-        (teacher_id, start_date, school_year, hours, source_type, graded, grade,
+        (teacher_id, start_date, end_date, description, school_year, hours, source_type, graded, grade,
          pre_approved, is_advanced_degree_track)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             teacher_id,
             start_date,
+            request.form.get("end_date") or None,
+            request.form.get("description") or None,
             sy,
             hours,
             request.form.get("source_type", "academic"),
@@ -453,87 +455,6 @@ def my_dashboard(token):
     )
 
 
-@app.route("/my/<token>/profile", methods=["POST"])
-def my_update_profile(token):
-    conn = get_conn()
-    teacher = get_teacher_by_token(conn, token)
-    if not teacher:
-        conn.close()
-        flash("קישור לא תקין.", "error")
-        return redirect(url_for("index"))
-
-    conn.execute(
-        """
-        UPDATE teachers SET
-            is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
-            in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
-            has_double_degree_gimul=%s, has_beinayim_gimul=%s
-        WHERE teacher_id=%s
-        """,
-        (
-            1 if request.form.get("is_active_teacher") else 0,
-            1 if request.form.get("has_seniority_year") else 0,
-            1 if request.form.get("is_pensioner") else 0,
-            1 if request.form.get("in_reform") else 0,
-            request.form.get("reform_start_year") or None,
-            float(request.form.get("U_pre") or 0),
-            float(request.form.get("H_pre") or 0),
-            1 if request.form.get("has_double_degree_gimul") else 0,
-            1 if request.form.get("has_beinayim_gimul") else 0,
-            teacher["teacher_id"],
-        ),
-    )
-    conn.commit()
-    conn.close()
-    flash("הפרופיל עודכן.", "success")
-    return redirect(url_for("my_dashboard", token=token))
-
-
-@app.route("/my/<token>/courses", methods=["POST"])
-def my_add_course(token):
-    conn = get_conn()
-    teacher = get_teacher_by_token(conn, token)
-    conn.close()
-    if not teacher:
-        flash("קישור לא תקין.", "error")
-        return redirect(url_for("index"))
-
-    start_date = request.form.get("start_date")
-    hours, graded = parse_course_hours(request.form)
-    if not start_date or hours is None:
-        flash("יש למלא תאריך תחילה ושעות (עם ציון או בלי ציון).", "error")
-        return redirect(url_for("my_dashboard", token=token))
-    try:
-        sy = school_year_of(start_date)
-    except Exception:
-        sy = None
-    grade = request.form.get("grade") or None
-    conn = get_conn()
-    conn.execute(
-        """
-        INSERT INTO courses
-        (teacher_id, start_date, school_year, hours, source_type, graded, grade,
-         pre_approved, is_advanced_degree_track)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            teacher["teacher_id"],
-            start_date,
-            sy,
-            hours,
-            request.form.get("source_type", "academic"),
-            graded,
-            float(grade) if (graded and grade) else None,
-            1 if request.form.get("pre_approved") else 0,
-            1 if request.form.get("is_advanced_degree_track") else 0,
-        ),
-    )
-    conn.commit()
-    conn.close()
-    flash("הקורס נוסף.", "success")
-    return redirect(url_for("my_dashboard", token=token))
-
-
 @app.route("/my/<token>/courses/<int:course_id>/delete", methods=["POST"])
 def my_delete_course(token, course_id):
     conn = get_conn()
@@ -579,16 +500,75 @@ def my_add_status(token):
 def my_calculate(token):
     conn = get_conn()
     teacher = get_teacher_by_token(conn, token)
-    conn.close()
     if not teacher:
+        conn.close()
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
+
+    # שמירת פרופיל וקורס חדש (אם מולא) קורות באותה לחיצה על "הרצת המנוע" -
+    # אין כפתורי שמירה נפרדים בעמוד הזה.
+    conn.execute(
+        """
+        UPDATE teachers SET
+            is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
+            in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
+            has_double_degree_gimul=%s, has_beinayim_gimul=%s
+        WHERE teacher_id=%s
+        """,
+        (
+            1 if request.form.get("is_active_teacher") else 0,
+            1 if request.form.get("has_seniority_year") else 0,
+            1 if request.form.get("is_pensioner") else 0,
+            1 if request.form.get("in_reform") else 0,
+            request.form.get("reform_start_year") or None,
+            float(request.form.get("U_pre") or 0),
+            float(request.form.get("H_pre") or 0),
+            1 if request.form.get("has_double_degree_gimul") else 0,
+            1 if request.form.get("has_beinayim_gimul") else 0,
+            teacher["teacher_id"],
+        ),
+    )
+
+    start_date = request.form.get("start_date")
+    hours, graded = parse_course_hours(request.form)
+    if start_date and hours is not None:
+        try:
+            sy = school_year_of(start_date)
+        except Exception:
+            sy = None
+        grade = request.form.get("grade") or None
+        conn.execute(
+            """
+            INSERT INTO courses
+            (teacher_id, start_date, end_date, description, school_year, hours, source_type,
+             graded, grade, pre_approved, is_advanced_degree_track)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                teacher["teacher_id"],
+                start_date,
+                request.form.get("end_date") or None,
+                request.form.get("description") or None,
+                sy,
+                hours,
+                request.form.get("source_type", "academic"),
+                graded,
+                float(grade) if (graded and grade) else None,
+                1 if request.form.get("pre_approved") else 0,
+                1 if request.form.get("is_advanced_degree_track") else 0,
+            ),
+        )
+
+    conn.commit()
+
     calc_date = request.form.get("calc_date") or date.today().isoformat()
     try:
         result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
     except Exception as exc:
+        conn.close()
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
         return redirect(url_for("my_dashboard", token=token))
+    conn.close()
     return render_template(
         "result.html", teacher=teacher, result=result,
         back_url=url_for("my_dashboard", token=token), hide_admin_nav=True,
