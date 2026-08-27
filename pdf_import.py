@@ -5,8 +5,9 @@
 בעמוד (לא על extract_table הרגיל של pdfplumber, שמפיק תאים מבולגנים
 על הקובץ הזה).
 
-מה שכן ניתן לשלוף באמינות: תאריך תחילה/סיום, שעות, וסטטוס ההכרה
-כפי שמופיע בפורטל (עמודת "משתתף בחישוב גמולים"). שם הקורס והמוסד
+מה שכן ניתן לשלוף באמינות: תאריך תחילה/סיום, ושעות עוז לתמורה כפי
+שמופיעות בעמודת "משתתף בגמולי עוז לתמורה" עצמה (לא "היקף שעות עם/בלי
+ציון" הכללי) - זה המספר הרלוונטי לחישוב של המנוע הזה. שם הקורס והמוסד
 מפוצלים על בסיס מילות-מפתח של מוסדות מוכרים (מרכז פסג"ה / מכללה /
 מכון / השתלמות בית ספרית) - ניחוש סביר אך לא מובטח, ולכן ניתנים
 לעריכה בתצוגה המקדימה לפני שמירה. הסכמה של courses לא כוללת שדה
@@ -54,9 +55,9 @@ def _to_iso_date(ddmmyyyy):
 
 def parse_courses_pdf(file_path_or_buffer):
     """
-    מחזיר רשימת dict-ים, אחד לכל קורס שמסומן בקובץ כמשתתף בחישוב
-    גמולים (עמודת "משתתף בחישוב גמולים" = כן). קורסים שמסומנים שם
-    כ"לא" לא מוחזרים כלל - הם לא נספרים ממילא לפי הפורטל עצמו.
+    מחזיר רשימת dict-ים, אחד לכל קורס שיש לו ערך בעמודת "משתתף בגמולי
+    עוז לתמורה" (מספר שעות, לא "--"). קורסים בלי ערך שם לא מוחזרים
+    כלל - הם לא נספרים לעניין זה לפי הפורטל עצמו.
 
     כל item: {name, institution, start_date (ISO), end_date (ISO,
     לתצוגה בלבד - אין בסכמה שדה כזה), hours, source_type_guess}
@@ -83,7 +84,8 @@ def parse_courses_pdf(file_path_or_buffer):
                     # שני "משבצות השעות" (עם ציון / בלי ציון) יושבות תמיד צמוד
                     # לתאריך התחלה - לא מספיק לחפש כל טוקן שנראה כמו מספר בכל
                     # השורה, כי שם הקורס עצמו יכול להכיל מספר (למשל קורס
-                    # "הכשרת המחנך החדש-5643").
+                    # "הכשרת המחנך החדש-5643"). לא משתמשים בערך שלהן בפועל -
+                    # רק כדי לדעת איפה נגמר שם הקורס/המוסד ומתחילות השעות.
                     hour_slot_size = 0
                     for t in reversed(before):
                         if t == "--" or t.replace(".", "", 1).isdigit():
@@ -92,20 +94,24 @@ def parse_courses_pdf(file_path_or_buffer):
                                 break
                         else:
                             break
-                    hour_tokens = before[len(before) - hour_slot_size:] if hour_slot_size else []
-                    hours = None
-                    for t in hour_tokens:
-                        if t != "--":
-                            hours = float(t)
-                            break
 
                     label_tail = before[: len(before) - hour_slot_size]
                     name, institution = _split_name_institution(pending_tokens + label_tail)
                     pending_tokens = []
 
-                    not_reform_flag = after[0] if len(after) > 0 else None
+                    # השעות נלקחות מעמודת "משתתף בגמולי עוז לתמורה" עצמה
+                    # (הטוקן האחרון בשורה) - זה המספר הרלוונטי לחישוב עוז
+                    # לתמורה, לא "היקף שעות עם/בלי ציון" הכללי. קורס בלי ערך
+                    # שם ("--") לא נספר לעניין זה ולא מוחזר בכלל.
+                    oz_letmura_value = after[1] if len(after) > 1 else None
+                    hours = None
+                    if oz_letmura_value and oz_letmura_value != "--":
+                        try:
+                            hours = float(oz_letmura_value)
+                        except ValueError:
+                            hours = None
 
-                    if hours is not None and not_reform_flag == "כן":
+                    if hours is not None:
                         source_type_guess = "school_based" if "השתלמות" in institution else "other"
                         rows.append({
                             "name": name,

@@ -50,6 +50,21 @@ def next_teacher_id(conn):
     return f"T{max_n + 1:03d}"
 
 
+def parse_course_hours(form):
+    """
+    טופס הוספת קורס נותן שני שדות נפרדים - שעות עם ציון / בלי ציון
+    (כמו בקובץ הפורטל) - במקום שדה שעות בודד + checkbox. מחזיר
+    (hours, graded) או (None, None) אם אף אחד מהשניים לא מולא.
+    """
+    hg = form.get("hours_graded")
+    hu = form.get("hours_ungraded")
+    if hg:
+        return float(hg), 1
+    if hu:
+        return float(hu), 0
+    return None, None
+
+
 @app.route("/")
 def index():
     conn = get_conn()
@@ -165,15 +180,14 @@ def edit_teacher(teacher_id):
 @app.route("/teachers/<teacher_id>/courses", methods=["POST"])
 def add_course(teacher_id):
     start_date = request.form.get("start_date")
-    hours = request.form.get("hours")
-    if not start_date or not hours:
-        flash("יש למלא תאריך תחילה ושעות.", "error")
+    hours, graded = parse_course_hours(request.form)
+    if not start_date or hours is None:
+        flash("יש למלא תאריך תחילה ושעות (עם ציון או בלי ציון).", "error")
         return redirect(url_for("teacher_detail", teacher_id=teacher_id))
     try:
         sy = school_year_of(start_date)
     except Exception:
         sy = None
-    graded = 1 if request.form.get("graded") else 0
     grade = request.form.get("grade") or None
     conn = get_conn()
     conn.execute(
@@ -187,10 +201,10 @@ def add_course(teacher_id):
             teacher_id,
             start_date,
             sy,
-            float(hours),
+            hours,
             request.form.get("source_type", "academic"),
             graded,
-            float(grade) if grade else None,
+            float(grade) if (graded and grade) else None,
             1 if request.form.get("pre_approved") else 0,
             1 if request.form.get("is_advanced_degree_track") else 0,
         ),
@@ -448,21 +462,15 @@ def my_update_profile(token):
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
 
-    full_name = request.form.get("full_name", "").strip()
-    if not full_name:
-        conn.close()
-        flash("יש למלא שם מלא.", "error")
-        return redirect(url_for("my_dashboard", token=token))
     conn.execute(
         """
         UPDATE teachers SET
-            full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
+            is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
             in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
             has_double_degree_gimul=%s, has_beinayim_gimul=%s
         WHERE teacher_id=%s
         """,
         (
-            full_name,
             1 if request.form.get("is_active_teacher") else 0,
             1 if request.form.get("has_seniority_year") else 0,
             1 if request.form.get("is_pensioner") else 0,
@@ -491,15 +499,14 @@ def my_add_course(token):
         return redirect(url_for("index"))
 
     start_date = request.form.get("start_date")
-    hours = request.form.get("hours")
-    if not start_date or not hours:
-        flash("יש למלא תאריך תחילה ושעות.", "error")
+    hours, graded = parse_course_hours(request.form)
+    if not start_date or hours is None:
+        flash("יש למלא תאריך תחילה ושעות (עם ציון או בלי ציון).", "error")
         return redirect(url_for("my_dashboard", token=token))
     try:
         sy = school_year_of(start_date)
     except Exception:
         sy = None
-    graded = 1 if request.form.get("graded") else 0
     grade = request.form.get("grade") or None
     conn = get_conn()
     conn.execute(
@@ -513,10 +520,10 @@ def my_add_course(token):
             teacher["teacher_id"],
             start_date,
             sy,
-            float(hours),
+            hours,
             request.form.get("source_type", "academic"),
             graded,
-            float(grade) if grade else None,
+            float(grade) if (graded and grade) else None,
             1 if request.form.get("pre_approved") else 0,
             1 if request.form.get("is_advanced_degree_track") else 0,
         ),
