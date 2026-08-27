@@ -435,7 +435,50 @@ def my_dashboard(token):
         school_years=SCHOOL_YEARS,
         source_type_labels=SOURCE_TYPE_LABELS,
         today=date.today().isoformat(),
+        hide_admin_nav=True,
     )
+
+
+@app.route("/my/<token>/profile", methods=["POST"])
+def my_update_profile(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    full_name = request.form.get("full_name", "").strip()
+    if not full_name:
+        conn.close()
+        flash("יש למלא שם מלא.", "error")
+        return redirect(url_for("my_dashboard", token=token))
+    conn.execute(
+        """
+        UPDATE teachers SET
+            full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
+            in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
+            has_double_degree_gimul=%s, has_beinayim_gimul=%s
+        WHERE teacher_id=%s
+        """,
+        (
+            full_name,
+            1 if request.form.get("is_active_teacher") else 0,
+            1 if request.form.get("has_seniority_year") else 0,
+            1 if request.form.get("is_pensioner") else 0,
+            1 if request.form.get("in_reform") else 0,
+            request.form.get("reform_start_year") or None,
+            float(request.form.get("U_pre") or 0),
+            float(request.form.get("H_pre") or 0),
+            1 if request.form.get("has_double_degree_gimul") else 0,
+            1 if request.form.get("has_beinayim_gimul") else 0,
+            teacher["teacher_id"],
+        ),
+    )
+    conn.commit()
+    conn.close()
+    flash("הפרופיל עודכן.", "success")
+    return redirect(url_for("my_dashboard", token=token))
 
 
 @app.route("/my/<token>/courses", methods=["POST"])
@@ -484,6 +527,23 @@ def my_add_course(token):
     return redirect(url_for("my_dashboard", token=token))
 
 
+@app.route("/my/<token>/courses/<int:course_id>/delete", methods=["POST"])
+def my_delete_course(token, course_id):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    conn.execute(
+        "DELETE FROM courses WHERE course_id=%s AND teacher_id=%s",
+        (course_id, teacher["teacher_id"]),
+    )
+    conn.commit()
+    conn.close()
+    return redirect(url_for("my_dashboard", token=token))
+
+
 @app.route("/my/<token>/status", methods=["POST"])
 def my_add_status(token):
     conn = get_conn()
@@ -523,7 +583,8 @@ def my_calculate(token):
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
         return redirect(url_for("my_dashboard", token=token))
     return render_template(
-        "result.html", teacher=teacher, result=result, back_url=url_for("my_dashboard", token=token)
+        "result.html", teacher=teacher, result=result,
+        back_url=url_for("my_dashboard", token=token), hide_admin_nav=True,
     )
 
 
@@ -540,6 +601,7 @@ def my_import_form(token):
         teacher=teacher,
         form_action=url_for("my_import_parse", token=token),
         cancel_url=url_for("my_dashboard", token=token),
+        hide_admin_nav=True,
     )
 
 
@@ -589,6 +651,7 @@ def my_import_parse(token):
         form_action=url_for("my_import_confirm", token=token),
         cancel_url=url_for("my_dashboard", token=token),
         edit_profile_url=None,
+        hide_admin_nav=True,
     )
 
 

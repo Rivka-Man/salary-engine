@@ -130,8 +130,12 @@
   <header class="masthead">
     <div class="eyebrow">מנוע חישוב גמול השתלמות · הסכם עוז לתמורה</div>
     <div class="masthead-row">
+      {% if hide_admin_nav %}
+      <span class="brand display">פנקס הגמול</span>
+      {% else %}
       <a href="{{ url_for('index') }}" class="brand display">פנקס הגמול</a>
       <nav class="top-nav"><a href="{{ url_for('new_teacher') }}">+ מורה חדש</a></nav>
+      {% endif %}
     </div>
   </header>
   {% with messages = get_flashed_messages(with_categories=true) %}
