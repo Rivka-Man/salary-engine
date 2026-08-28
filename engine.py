@@ -98,7 +98,8 @@ RULES_METADATA = [
                      "עם in_reform=1 מתאריך זה ואילך. למורים שאינם ברפורמה אין נתון על שלב הלימוד, ולכן "
                      "הם נותרים על 1.2% (שמרני) עד שיתווסף שדה ייעודי.",
          source_doc="גמולי_עוז_מפורטל_מורים", source_ref="עדכון 1.9.2025", priority=91,
-         applies_when="in_reform = 1 AND calc_date >= 2025-09-01", overrides="R07_PCT_RATE"),
+         applies_when="in_reform = 1 AND calc_date >= 2025-09-01", overrides="R07_PCT_RATE",
+         valid_from="2025-09-01"),
     dict(rule_id="R08_TRANSITION_UNIT", topic="גמול_השתלמות", title="יחידת מעבר לרפורמה",
          description="אם U_pre=16 ויש יתרת שעות מעבר ל-16 יחידות, מוכרת יחידה נוספת מ-R_reform.",
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ב)", priority=22, applies_when="in_reform=1 and U_pre=16"),
