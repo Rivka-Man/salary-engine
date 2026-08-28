@@ -11,13 +11,29 @@ from datetime import date
 from flask import Flask, flash, redirect, render_template, request, url_for
 
 from db import get_connection
-from engine import SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
+from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf
 
 app = Flask(__name__)
 app.secret_key = "salary-engine-local-dev"
 
 init_db(reset=False)
+
+RULE_TITLES = {r["rule_id"]: r["title"] for r in RULES_METADATA}
+RULE_DESCRIPTIONS = {r["rule_id"]: r["description"] for r in RULES_METADATA}
+
+
+@app.template_filter("rule_desc")
+def rule_desc(rule_id):
+    """מחליף rule_id (כמו R09_THRESH_18) בכותרת המילולית של החוק, לתצוגה במורה."""
+    return RULE_TITLES.get(rule_id, rule_id)
+
+
+@app.template_filter("rule_tooltip")
+def rule_tooltip(rule_id):
+    """טקסט הסבר מלא ל-tooltip (title HTML attribute): קוד החוק + התיאור המלא."""
+    desc = RULE_DESCRIPTIONS.get(rule_id)
+    return f"{rule_id} — {desc}" if desc else rule_id
 
 SOURCE_TYPE_LABELS = {
     "academic": "אקדמי",

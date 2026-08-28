@@ -48,7 +48,7 @@
         <div>
           {% for step in result.trace %}
           <div class="trail-row">
-            <span class="rule-code mono">{{ step.rule_id }}</span>
+            <span class="rule-code" title="{{ step.rule_id | rule_tooltip }}">{{ step.rule_id | rule_desc }}</span>
             <span>{{ step.message }}</span>
             <span class="trail-val mono">{% if step.value is not none %}→ <b>{{ step.value }}</b>{% else %}—{% endif %}</span>
           </div>
