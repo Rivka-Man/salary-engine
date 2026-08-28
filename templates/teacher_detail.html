@@ -144,6 +144,7 @@ function copyPersonalLink() {
           <div class="kv-row"><dt>יחידות שהוכרו ערב הרפורמה</dt><dd class="mono">{{ teacher.u_pre }}</dd></div>
           <div class="kv-row"><dt>שעות שנצברו ערב הרפורמה</dt><dd class="mono">{{ teacher.h_pre }}</dd></div>
           <div class="kv-row"><dt>קיים גמול כפל תואר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
+          <div class="kv-row"><dt>קיים גם כפל שני</dt><dd>{% if teacher.has_additional_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>קיים גמול ביניים</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
         </dl>
       </div>

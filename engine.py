@@ -70,6 +70,11 @@ RULES_METADATA = [
     dict(rule_id="R05_BEINAYIM", topic="גמול_השתלמות", title="גמול ביניים",
          description="4 יחידות, פעם אחת, לא ניתן במקביל לכפל תואר.",
          source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.1", priority=31, applies_when="has_beinayim_gimul flag"),
+    dict(rule_id="R04B_ADDITIONAL_DOUBLE_DEGREE", topic="גמול_השתלמות", title="כפל תואר נוסף (\"כפל שני\")",
+         description="למורה שכבר קיבל/ה כפל תואר (R04) והשלים/ה לימודים נוספים המזכים בכך - עוד 4 יחידות, "
+                     "בנוסף ל-8.75 (לא במקומן). רק אם has_double_degree_gimul=1.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="הערה 2 לסעיף 7", priority=32,
+         applies_when="has_additional_double_degree_gimul flag AND has_double_degree_gimul flag"),
     dict(rule_id="R06_TOTAL_MAX", topic="גמול_השתלמות", title="תקרה כוללת 24.75",
          description="סך כל היחידות (רגילות + כפל תואר/ביניים) לא יעלה על 24.75 בכל מקרה.",
          source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=90, applies_when="תמיד"),
@@ -136,6 +141,8 @@ PARAMETERS_METADATA = [
          valid_from=None, valid_to=None),
     dict(rule_id="R05_BEINAYIM", param_name="units", param_value=4.0,
          valid_from=None, valid_to=None),
+    dict(rule_id="R04B_ADDITIONAL_DOUBLE_DEGREE", param_name="units", param_value=4.0,
+         valid_from=None, valid_to=None),
     dict(rule_id="R06_TOTAL_MAX", param_name="total_units_cap", param_value=24.75,
          valid_from=None, valid_to=None),
     dict(rule_id="R07_PCT_RATE", param_name="pct_per_unit", param_value=1.2,
@@ -168,6 +175,8 @@ def init_db(reset: bool = True):
     for r in conn.execute("SELECT teacher_id FROM teachers WHERE access_token IS NULL").fetchall():
         conn.execute("UPDATE teachers SET access_token=%s WHERE teacher_id=%s",
                       (secrets.token_urlsafe(16), r["teacher_id"]))
+    if "has_additional_double_degree_gimul" not in cols:
+        conn.execute("ALTER TABLE teachers ADD COLUMN has_additional_double_degree_gimul INTEGER DEFAULT 0")
 
     course_cols = [r["column_name"] for r in conn.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_name='courses'"
@@ -360,11 +369,16 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     # תואר מתקדם - גמול אחד בשנה, ללא הגבלת צבירה (מוצג בנפרד, לא בתקרה)
     advanced_units_available = advanced_degree_hours / H_unit if advanced_degree_hours else 0
 
-    # --- R04/R05: כפל תואר / ביניים ---
+    # --- R04/R04B/R05: כפל תואר / כפל תואר נוסף / ביניים ---
     U_dd_or_mid = 0.0
     if teacher["has_double_degree_gimul"]:
         U_dd_or_mid = get_param(conn, "R04_DOUBLE_DEGREE", "units", calc_date)
         trace.log("R04_DOUBLE_DEGREE", "מוכר גמול כפל תואר", U_dd_or_mid)
+        if teacher["has_additional_double_degree_gimul"]:
+            additional_units = get_param(conn, "R04B_ADDITIONAL_DOUBLE_DEGREE", "units", calc_date)
+            U_dd_or_mid += additional_units
+            trace.log("R04B_ADDITIONAL_DOUBLE_DEGREE",
+                      "מוכר גם כפל תואר נוסף (\"כפל שני\") - בנוסף לכפל תואר", additional_units)
     elif teacher["has_beinayim_gimul"]:
         U_dd_or_mid = get_param(conn, "R05_BEINAYIM", "units", calc_date)
         trace.log("R05_BEINAYIM", "מוכר גמול ביניים", U_dd_or_mid)

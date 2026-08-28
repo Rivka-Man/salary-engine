@@ -151,7 +151,7 @@ def edit_teacher(teacher_id):
             UPDATE teachers SET
                 full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
                 in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
-                has_double_degree_gimul=%s, has_beinayim_gimul=%s
+                has_double_degree_gimul=%s, has_beinayim_gimul=%s, has_additional_double_degree_gimul=%s
             WHERE teacher_id=%s
             """,
             (
@@ -165,6 +165,7 @@ def edit_teacher(teacher_id):
                 float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
                 1 if request.form.get("has_beinayim_gimul") else 0,
+                1 if request.form.get("has_additional_double_degree_gimul") else 0,
                 teacher_id,
             ),
         )
@@ -512,7 +513,7 @@ def my_calculate(token):
         UPDATE teachers SET
             is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
             in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
-            has_double_degree_gimul=%s, has_beinayim_gimul=%s
+            has_double_degree_gimul=%s, has_beinayim_gimul=%s, has_additional_double_degree_gimul=%s
         WHERE teacher_id=%s
         """,
         (
@@ -525,6 +526,7 @@ def my_calculate(token):
             float(request.form.get("H_pre") or 0),
             1 if request.form.get("has_double_degree_gimul") else 0,
             1 if request.form.get("has_beinayim_gimul") else 0,
+            1 if request.form.get("has_additional_double_degree_gimul") else 0,
             teacher["teacher_id"],
         ),
     )
