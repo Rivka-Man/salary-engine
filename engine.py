@@ -73,14 +73,32 @@ RULES_METADATA = [
     dict(rule_id="R04B_ADDITIONAL_DOUBLE_DEGREE", topic="גמול_השתלמות", title="כפל תואר נוסף (\"כפל שני\")",
          description="למורה שכבר קיבל/ה כפל תואר (R04) והשלים/ה לימודים נוספים המזכים בכך - עוד 4 יחידות, "
                      "בנוסף ל-8.75 (לא במקומן). רק אם has_double_degree_gimul=1.",
-         source_doc="חוזר_מנכל_השתלמויות", source_ref="הערה 2 לסעיף 7", priority=32,
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.3.3.2", priority=32,
          applies_when="has_additional_double_degree_gimul flag AND has_double_degree_gimul flag"),
     dict(rule_id="R06_TOTAL_MAX", topic="גמול_השתלמות", title="תקרה כוללת 24.75",
-         description="סך כל היחידות (רגילות + כפל תואר/ביניים) לא יעלה על 24.75 בכל מקרה.",
-         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=90, applies_when="תמיד"),
-    dict(rule_id="R07_PCT_RATE", topic="גמול_השתלמות", title="שיעור תשלום ליחידה",
-         description="כל יחידת גמול = 1.2% מהשכר המשולב.",
-         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 סוף", priority=91, applies_when="תמיד"),
+         description="סך כל היחידות (רגילות + כפל תואר/ביניים) לא יעלה על 24.75. חל רק על מורים שאינם "
+                     "בתנאי עוז לתמורה. למורה ברפורמה, יחידות כפל תואר/ביניים ניתנות בנוסף לתקרת הרפורמה "
+                     "(18/19) וללא תקרה כוללת נוספת - סעיף 18(א): \"בנוסף ליחידות הגמול המוכרות בגין כפל "
+                     "תואר, שאינן נספרות בתוך התקרה\".",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=90, applies_when="in_reform = 0",
+         overrides=None),
+    dict(rule_id="R06B_NO_CAP_REFORM", topic="גמול_השתלמות", title="אין תקרה כוללת - עוז לתמורה",
+         description="למורה בתנאי עוז לתמורה, יחידות כפל תואר/כפל שני/ביניים נוספות במלואן על תקרת "
+                     "הרפורמה (18/19), ללא הגבלת 24.75 - הן \"אינן נספרות בתוך התקרה\".",
+         source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(א)", priority=90,
+         applies_when="in_reform = 1", overrides="R06_TOTAL_MAX"),
+    dict(rule_id="R07_PCT_RATE", topic="גמול_השתלמות", title="שיעור תשלום ליחידה - 1.2%",
+         description="כל יחידת גמול = 1.2% מהשכר המשולב. חל על מורים שאינם בתנאי עוז לתמורה, וכן על מורי "
+                     "עוז לתמורה עד 1.9.2025.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 סוף", priority=91, applies_when="in_reform = 0 OR calc_date < 2025-09-01"),
+    dict(rule_id="R07B_PCT_RATE_REFORM", topic="גמול_השתלמות", title="עדכון שיעור ליחידה ל-1.3% (חטיבות עליונות)",
+         description="החל מ-1.9.2025 (תשפ\"ו) שיעור התשלום ליחידת גמול עלה מ-1.2% ל-1.3% למורי חטיבה "
+                     "עליונה, בין אם בעוז לתמורה ובין אם לאו. באפיון הנוכחי כל מורי עוז לתמורה מוגדרים "
+                     "כמלמדים בחטיבה עליונה (in_reform=1 => חטיבה עליונה), ולכן העדכון מיושם על כל מורה "
+                     "עם in_reform=1 מתאריך זה ואילך. למורים שאינם ברפורמה אין נתון על שלב הלימוד, ולכן "
+                     "הם נותרים על 1.2% (שמרני) עד שיתווסף שדה ייעודי.",
+         source_doc="גמולי_עוז_מפורטל_מורים", source_ref="עדכון 1.9.2025", priority=91,
+         applies_when="in_reform = 1 AND calc_date >= 2025-09-01", overrides="R07_PCT_RATE"),
     dict(rule_id="R08_TRANSITION_UNIT", topic="גמול_השתלמות", title="יחידת מעבר לרפורמה",
          description="אם U_pre=16 ויש יתרת שעות מעבר ל-16 יחידות, מוכרת יחידה נוספת מ-R_reform.",
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ב)", priority=22, applies_when="in_reform=1 and U_pre=16"),
@@ -147,6 +165,8 @@ PARAMETERS_METADATA = [
          valid_from=None, valid_to=None),
     dict(rule_id="R07_PCT_RATE", param_name="pct_per_unit", param_value=1.2,
          valid_from=None, valid_to=None),
+    dict(rule_id="R07B_PCT_RATE_REFORM", param_name="pct_per_unit", param_value=1.3,
+         valid_from="2025-09-01", valid_to=None),
 ]
 
 
@@ -402,14 +422,25 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         U_dd_or_mid = get_param(conn, "R05_BEINAYIM", "units", calc_date)
         trace.log("R05_BEINAYIM", "מוכר גמול ביניים", U_dd_or_mid)
 
-    # --- R06: תקרה כוללת ---
-    total_units_cap = get_param(conn, "R06_TOTAL_MAX", "total_units_cap", calc_date)
-    U_total = min(U_regular + U_dd_or_mid, total_units_cap)
-    if U_regular + U_dd_or_mid > total_units_cap:
-        trace.log("R06_TOTAL_MAX", "נחתך לתקרה הכוללת המקסימלית", total_units_cap)
+    # --- R06/R06B: תקרה כוללת (רק למי שאינו בעוז לתמורה) ---
+    if teacher["in_reform"]:
+        U_total = U_regular + U_dd_or_mid
+        if U_dd_or_mid:
+            trace.log("R06B_NO_CAP_REFORM",
+                      "מורה בעוז לתמורה - יחידות כפל תואר/ביניים ניתנות בנוסף לתקרת הרפורמה, ללא תקרת 24.75",
+                      U_total)
+    else:
+        total_units_cap = get_param(conn, "R06_TOTAL_MAX", "total_units_cap", calc_date)
+        U_total = min(U_regular + U_dd_or_mid, total_units_cap)
+        if U_regular + U_dd_or_mid > total_units_cap:
+            trace.log("R06_TOTAL_MAX", "נחתך לתקרה הכוללת המקסימלית", total_units_cap)
 
-    # --- R07: שיעור תשלום ---
-    pct_per_unit = get_param(conn, "R07_PCT_RATE", "pct_per_unit", calc_date)
+    # --- R07/R07B: שיעור תשלום ליחידה ---
+    if teacher["in_reform"] and calc_date >= "2025-09-01":
+        pct_per_unit = get_param(conn, "R07B_PCT_RATE_REFORM", "pct_per_unit", calc_date)
+        trace.log("R07B_PCT_RATE_REFORM", "מורה בעוז לתמורה (חטיבה עליונה) מ-1.9.2025 - שיעור מעודכן 1.3%", pct_per_unit)
+    else:
+        pct_per_unit = get_param(conn, "R07_PCT_RATE", "pct_per_unit", calc_date)
     pct_addition = round(U_total * pct_per_unit, 4)
     trace.log("R07_PCT_RATE", f"{U_total} יח' × {pct_per_unit}% ליחידה", pct_addition)
 
