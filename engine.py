@@ -346,8 +346,10 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
     # --- R11/R12: חישוב שנתי עם carry ופטור שבתון ---
     units_per_year_cap = int(get_param(conn, "R11_ANNUAL_CAP", "units_per_year_cap", calc_date))
+    tashpa_start = SCHOOL_YEAR_START['תש"פ']
     delta_u_by_year = {}
     carry = 0.0
+    running_total = U_base
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
         available = accepted_hours_by_year[sy] + carry
         status = status_by_year.get(sy, "רגיל")
@@ -357,8 +359,25 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         else:
             delta = min(units_per_year_cap, math.floor(available / H_unit))
             trace.log("R11_ANNUAL_CAP", f"שנה {sy} - עד יחידה {units_per_year_cap}: {delta} יח' (זמין: {available:.0f} שעות)", delta)
+
+        # --- R09/R10: סף הכרה קורסים ליחידות 18/19 (רק למורה ברפורמה) ---
+        year_start = SCHOOL_YEAR_START.get(sy, "9999")
+        max_allowed = running_total + delta
+        if thresh_18 is not None and running_total < 18 and year_start < thresh_18:
+            max_allowed = min(max_allowed, 17)
+        if thresh_19 is not None and running_total < 19 and (year_start < thresh_19 or calc_date < tashpa_start):
+            max_allowed = min(max_allowed, 18)
+        capped_delta = max(0, min(delta, max_allowed - running_total))
+        if capped_delta < delta:
+            rule_id = "R09_THRESH_18" if max_allowed <= 17 else "R10_THRESH_19"
+            trace.log(rule_id,
+                      f"שנה {sy} - קורסי השנה מוקדמים מדי לזכאות ליחידה {int(max_allowed) + 1}, נחתך מ-{delta} ל-{capped_delta} יח'",
+                      capped_delta)
+        delta = capped_delta
+
         carry = available - delta * H_unit
         delta_u_by_year[sy] = delta
+        running_total += delta
 
     U_regular_earned = U_base + sum(delta_u_by_year.values())
     U_regular = min(U_regular_earned, U_cap)
