@@ -1,0 +1,57 @@
+{% extends "my_base.html" %}
+{% block title %}תוצאת חישוב — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="hero" style="margin-bottom:26px">
+  <div class="eyebrow">הגעת לסוף הדרך</div>
+  <h1>יופי, {{ teacher.full_name.split(' ')[0] }} — הנה מה שגילינו יחד</h1>
+  <p>עברנו יחד על פרטי ההעסקה, ההשכלה והקורסים שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה.</p>
+</div>
+
+<div class="result-card">
+  <div class="result-figures">
+    <div class="figure accent"><div class="num">{{ result.U_total }}</div><div class="label">יחידות גמול</div></div>
+    <div class="figure"><div class="num">{{ result.pct_salary_addition }}%</div><div class="label">תוספת לשכר</div></div>
+    <div class="figure"><div class="num">{{ result.U_cap_applied }}</div><div class="label">תקרת יחידות שחלה</div></div>
+  </div>
+</div>
+
+<div class="story-card">
+  <h2>איך הגענו לתוצאה, בקצרה</h2>
+  <p>מהקורסים והוותק שלך הוכרו <strong>{{ result.U_regular }} יחידות רגילות</strong> (מתוך תקרה של {{ result.U_cap_applied }}).
+  {% if result.U_dd_or_mid %}לזה הצטרפה הכרה נוספת של <strong>{{ result.U_dd_or_mid }} יחידות</strong> מגמול כפל תואר/ביניים.{% endif %}
+  בסך הכל הצטברו <strong>{{ result.U_total }} יחידות גמול</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).</p>
+  {% if result.rejected_courses %}
+  <p>שימי לב: {{ result.rejected_courses|length }} קורס/ים לא נכללו בחישוב (למשל בגלל היעדר אישור מפקח מראש) — פירוט למטה.</p>
+  {% endif %}
+</div>
+
+<details open>
+  <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>
+  <div class="trace">
+    {% for step in result.trace %}
+    <div class="trace-row">
+      <span class="desc" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</span>
+      <span class="val">{% if step.value is not none %}{{ step.value }} →{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+</details>
+
+{% if result.rejected_courses %}
+<details>
+  <summary><span>קורסים שנפסלו</span><span>⌄</span></summary>
+  <div class="trace">
+    {% for rc in result.rejected_courses %}
+    <div class="trace-row"><span class="desc">קורס #{{ rc.course_id }}</span><span class="val" style="color:var(--critical);">{{ rc.reason }}</span></div>
+    {% endfor %}
+  </div>
+</details>
+{% endif %}
+
+<div class="cta-row">
+  <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">סיימתי — חזרה לתפריט</a>
+  <a href="{{ url_for('my_wizard_employment', token=token) }}" class="btn-secondary">לחשב שוב</a>
+</div>
+
+{% endblock %}

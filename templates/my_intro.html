@@ -1,0 +1,53 @@
+{% extends "my_base.html" %}
+{% block title %}שלום {{ teacher.full_name }} — פנקס הגמול{% endblock %}
+{% block content %}
+
+<div class="hero">
+  <div class="eyebrow">שלום, {{ teacher.full_name.split(' ')[0] }}</div>
+  <h1>מה תרצי לעשות היום?</h1>
+  <p>בחרי את הפעולה המתאימה, ונדריך אותך צעד־צעד. אפשר תמיד לחזור אחורה ולערוך לפני שהחישוב נשלח.</p>
+</div>
+
+<div class="cards">
+  <a class="card primary" href="{{ url_for('my_wizard_employment', token=token) }}">
+    <div class="icon-badge">✓</div>
+    <h3>לחשב גמול השתלמות</h3>
+    <p class="desc">נעבור יחד על פרטי ההעסקה, ההשכלה והקורסים שלך, ונחשב את הגמול שמגיע לך — צעד אחר צעד.</p>
+    <div class="card-cta"><span>להתחיל בחישוב</span><span>←</span></div>
+  </a>
+  <a class="card" href="{{ url_for('my_status_quick', token=token) }}">
+    <div class="icon-badge">◐</div>
+    <h3>לעדכן סטטוס תעסוקתי</h3>
+    <p class="desc">מלמדת השנה? במשרה מלאה, בשבתון או בחל"ת? עדכון קצר של שנת הלימודים הנוכחית שלך.</p>
+    <div class="card-cta"><span>לעדכון סטטוס</span><span>←</span></div>
+  </a>
+  <a class="card" href="{{ url_for('my_wizard_courses', token=token) }}">
+    <div class="icon-badge">＋</div>
+    <h3>להוסיף קורס חדש</h3>
+    <p class="desc">סיימת השתלמות או קורס אקדמי? נוסיף אותו לתיק שלך כדי שיובא בחשבון בחישוב הבא.</p>
+    <div class="card-cta"><span>להוספת קורס</span><span>←</span></div>
+  </a>
+</div>
+
+{% if runs %}
+<details style="margin-top:32px;">
+  <summary><span>היסטוריית הרצות קודמות</span><span>⌄</span></summary>
+  <div class="trace" style="padding:14px 22px 18px;">
+    <table class="mini-ledger">
+      <thead><tr><th>תאריך חישוב</th><th>יחידות</th><th>תוספת %</th><th></th></tr></thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td>{{ r.calc_date }}</td>
+          <td>{{ r.u_total }}</td>
+          <td>{{ r.pct_addition }}%</td>
+          <td><a href="{{ url_for('my_view_run', token=token, run_id=r.run_id) }}">צפייה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endif %}
+
+{% endblock %}

@@ -434,9 +434,10 @@ def regenerate_link(teacher_id):
 
 
 # ==================================================================
-# ממשק עצמאי למורה: קישור אישי, בלי login. מאפשר רק הוספת נתונים
-# (קורסים/סטטוס/קובץ), הרצת חישוב וצפייה בתוצאה - לא עריכת פרופיל,
-# לא מחיקה, לא צפייה במורים אחרים.
+# ממשק עצמאי למורה: קישור אישי, בלי login. אשף מודרך צעד-אחר-צעד
+# (העסקה/וותק ← השכלה ← קורסים ← סיכום), בנוסף לקיצורי דרך לעדכון
+# סטטוס תעסוקתי ולהוספת קורס בודד. לא מאפשר מחיקת מורה ולא צפייה
+# במורות אחרות - המורה יכולה לערוך רק את הפרופיל/נתונים של עצמה.
 # ==================================================================
 
 @app.route("/my/<token>")
@@ -447,29 +448,185 @@ def my_dashboard(token):
         conn.close()
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
+    runs = conn.execute(
+        "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC LIMIT 10",
+        (teacher["teacher_id"],),
+    ).fetchall()
+    conn.close()
+    return render_template("my_intro.html", token=token, teacher=teacher, runs=runs, journey_step=0)
+
+
+@app.route("/my/<token>/wizard/employment", methods=["GET", "POST"])
+def my_wizard_employment(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        conn.execute(
+            """
+            UPDATE teachers SET
+                is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
+                in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s
+            WHERE teacher_id=%s
+            """,
+            (
+                1 if request.form.get("is_active_teacher") else 0,
+                1 if request.form.get("has_seniority_year") else 0,
+                1 if request.form.get("is_pensioner") else 0,
+                1 if request.form.get("in_reform") else 0,
+                request.form.get("reform_start_year") or None,
+                float(request.form.get("U_pre") or 0),
+                float(request.form.get("H_pre") or 0),
+                teacher["teacher_id"],
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("my_wizard_education", token=token))
+
+    conn.close()
+    return render_template(
+        "my_step_employment.html", token=token, teacher=teacher,
+        school_years=SCHOOL_YEARS, journey_step=1,
+    )
+
+
+@app.route("/my/<token>/wizard/education", methods=["GET", "POST"])
+def my_wizard_education(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        conn.execute(
+            """
+            UPDATE teachers SET
+                has_double_degree_gimul=%s, has_additional_double_degree_gimul=%s, has_beinayim_gimul=%s
+            WHERE teacher_id=%s
+            """,
+            (
+                1 if request.form.get("has_double_degree_gimul") else 0,
+                1 if request.form.get("has_additional_double_degree_gimul") else 0,
+                1 if request.form.get("has_beinayim_gimul") else 0,
+                teacher["teacher_id"],
+            ),
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("my_wizard_courses", token=token))
+
+    conn.close()
+    return render_template("my_step_education.html", token=token, teacher=teacher, journey_step=2)
+
+
+@app.route("/my/<token>/wizard/courses", methods=["GET"])
+def my_wizard_courses(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
     courses = conn.execute(
         "SELECT * FROM courses WHERE teacher_id=%s ORDER BY start_date", (teacher["teacher_id"],)
     ).fetchall()
-    statuses = conn.execute(
-        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher["teacher_id"],)
-    ).fetchall()
-    statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
-    runs = conn.execute(
-        "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC", (teacher["teacher_id"],)
-    ).fetchall()
     conn.close()
     return render_template(
-        "my_dashboard.html",
-        token=token,
-        teacher=teacher,
-        courses=courses,
-        statuses=statuses,
-        runs=runs,
-        school_years=SCHOOL_YEARS,
-        source_type_labels=SOURCE_TYPE_LABELS,
-        today=date.today().isoformat(),
-        hide_admin_nav=True,
+        "my_step_courses.html", token=token, teacher=teacher, courses=courses,
+        source_type_labels=SOURCE_TYPE_LABELS, journey_step=3,
     )
+
+
+@app.route("/my/<token>/wizard/summary", methods=["POST"])
+def my_wizard_summary(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    calc_date = request.form.get("calc_date") or date.today().isoformat()
+    try:
+        result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
+    except Exception as exc:
+        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
+        return redirect(url_for("my_wizard_courses", token=token))
+    return render_template(
+        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=4,
+    )
+
+
+@app.route("/my/<token>/runs/<int:run_id>")
+def my_view_run(token, run_id):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    run = conn.execute(
+        "SELECT * FROM calculation_runs WHERE run_id=%s AND teacher_id=%s",
+        (run_id, teacher["teacher_id"]),
+    ).fetchone()
+    conn.close()
+    if not run:
+        flash("הרצה לא נמצאה.", "error")
+        return redirect(url_for("my_dashboard", token=token))
+    result = json.loads(run["result_json"])
+    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=4)
+
+
+@app.route("/my/<token>/courses", methods=["POST"])
+def my_add_course(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    start_date = request.form.get("start_date")
+    hours, graded = parse_course_hours(request.form)
+    if not start_date or hours is None:
+        conn.close()
+        flash("יש למלא תאריך תחילה ושעות (עם ציון או בלי ציון).", "error")
+        return redirect(url_for("my_wizard_courses", token=token))
+    try:
+        sy = school_year_of(start_date)
+    except Exception:
+        sy = None
+    grade = request.form.get("grade") or None
+    conn.execute(
+        """
+        INSERT INTO courses
+        (teacher_id, start_date, end_date, description, school_year, hours, source_type, graded, grade,
+         pre_approved, is_advanced_degree_track)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            teacher["teacher_id"],
+            start_date,
+            request.form.get("end_date") or None,
+            request.form.get("description") or None,
+            sy,
+            hours,
+            request.form.get("source_type", "academic"),
+            graded,
+            float(grade) if (graded and grade) else None,
+            1 if request.form.get("pre_approved") else 0,
+            1 if request.form.get("is_advanced_degree_track") else 0,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    flash("הקורס נוסף.", "success")
+    return redirect(url_for("my_wizard_courses", token=token))
 
 
 @app.route("/my/<token>/courses/<int:course_id>/delete", methods=["POST"])
@@ -486,7 +643,25 @@ def my_delete_course(token, course_id):
     )
     conn.commit()
     conn.close()
-    return redirect(url_for("my_dashboard", token=token))
+    return redirect(url_for("my_wizard_courses", token=token))
+
+
+@app.route("/my/<token>/status", methods=["GET"])
+def my_status_quick(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    statuses = conn.execute(
+        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher["teacher_id"],)
+    ).fetchall()
+    statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
+    conn.close()
+    return render_template(
+        "my_status_quick.html", token=token, teacher=teacher, statuses=statuses, school_years=SCHOOL_YEARS,
+    )
 
 
 @app.route("/my/<token>/status", methods=["POST"])
@@ -510,87 +685,24 @@ def my_add_status(token):
     conn.commit()
     conn.close()
     flash("סטטוס תעסוקתי עודכן.", "success")
-    return redirect(url_for("my_dashboard", token=token))
+    return redirect(url_for("my_status_quick", token=token))
 
 
-@app.route("/my/<token>/calculate", methods=["POST"])
-def my_calculate(token):
+@app.route("/my/<token>/status/<school_year>/delete", methods=["POST"])
+def my_delete_status(token, school_year):
     conn = get_conn()
     teacher = get_teacher_by_token(conn, token)
     if not teacher:
         conn.close()
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-
-    # שמירת פרופיל וקורס חדש (אם מולא) קורות באותה לחיצה על "הרצת המנוע" -
-    # אין כפתורי שמירה נפרדים בעמוד הזה.
     conn.execute(
-        """
-        UPDATE teachers SET
-            is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
-            in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
-            has_double_degree_gimul=%s, has_beinayim_gimul=%s, has_additional_double_degree_gimul=%s
-        WHERE teacher_id=%s
-        """,
-        (
-            1 if request.form.get("is_active_teacher") else 0,
-            1 if request.form.get("has_seniority_year") else 0,
-            1 if request.form.get("is_pensioner") else 0,
-            1 if request.form.get("in_reform") else 0,
-            request.form.get("reform_start_year") or None,
-            float(request.form.get("U_pre") or 0),
-            float(request.form.get("H_pre") or 0),
-            1 if request.form.get("has_double_degree_gimul") else 0,
-            1 if request.form.get("has_beinayim_gimul") else 0,
-            1 if request.form.get("has_additional_double_degree_gimul") else 0,
-            teacher["teacher_id"],
-        ),
+        "DELETE FROM employment_status_by_year WHERE teacher_id=%s AND school_year=%s",
+        (teacher["teacher_id"], school_year),
     )
-
-    start_date = request.form.get("start_date")
-    hours, graded = parse_course_hours(request.form)
-    if start_date and hours is not None:
-        try:
-            sy = school_year_of(start_date)
-        except Exception:
-            sy = None
-        grade = request.form.get("grade") or None
-        conn.execute(
-            """
-            INSERT INTO courses
-            (teacher_id, start_date, end_date, description, school_year, hours, source_type,
-             graded, grade, pre_approved, is_advanced_degree_track)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                teacher["teacher_id"],
-                start_date,
-                request.form.get("end_date") or None,
-                request.form.get("description") or None,
-                sy,
-                hours,
-                request.form.get("source_type", "academic"),
-                graded,
-                float(grade) if (graded and grade) else None,
-                1 if request.form.get("pre_approved") else 0,
-                1 if request.form.get("is_advanced_degree_track") else 0,
-            ),
-        )
-
     conn.commit()
-
-    calc_date = request.form.get("calc_date") or date.today().isoformat()
-    try:
-        result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
-    except Exception as exc:
-        conn.close()
-        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
-        return redirect(url_for("my_dashboard", token=token))
     conn.close()
-    return render_template(
-        "result.html", teacher=teacher, result=result,
-        back_url=url_for("my_dashboard", token=token), hide_admin_nav=True,
-    )
+    return redirect(url_for("my_status_quick", token=token))
 
 
 @app.route("/my/<token>/import-pdf", methods=["GET"])
@@ -601,13 +713,7 @@ def my_import_form(token):
     if not teacher:
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-    return render_template(
-        "import_courses.html",
-        teacher=teacher,
-        form_action=url_for("my_import_parse", token=token),
-        cancel_url=url_for("my_dashboard", token=token),
-        hide_admin_nav=True,
-    )
+    return redirect(url_for("my_wizard_courses", token=token))
 
 
 @app.route("/my/<token>/import-pdf", methods=["POST"])
@@ -622,20 +728,20 @@ def my_import_parse(token):
     uploaded = request.files.get("pdf_file")
     if not uploaded or not uploaded.filename:
         flash("יש לבחור קובץ PDF.", "error")
-        return redirect(url_for("my_import_form", token=token))
+        return redirect(url_for("my_wizard_courses", token=token))
     if not uploaded.filename.lower().endswith(".pdf"):
         flash("הקובץ חייב להיות PDF.", "error")
-        return redirect(url_for("my_import_form", token=token))
+        return redirect(url_for("my_wizard_courses", token=token))
 
     try:
         rows = parse_courses_pdf(io.BytesIO(uploaded.read()))
     except Exception as exc:
         flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
-        return redirect(url_for("my_import_form", token=token))
+        return redirect(url_for("my_wizard_courses", token=token))
 
     if not rows:
         flash("לא זוהו קורסים בקובץ. ודאי שזה קובץ PDF שהופק מ\"הקורסים שלי\" בפורטל עו\"ה.", "error")
-        return redirect(url_for("my_import_form", token=token))
+        return redirect(url_for("my_wizard_courses", token=token))
 
     earliest_school_year = None
     if not teacher["reform_start_year"]:
@@ -648,15 +754,15 @@ def my_import_parse(token):
             earliest_school_year = None
 
     return render_template(
-        "import_preview.html",
+        "my_import_preview.html",
+        token=token,
         teacher=teacher,
         rows=rows,
         source_type_labels=SOURCE_TYPE_LABELS,
         earliest_school_year=earliest_school_year,
         form_action=url_for("my_import_confirm", token=token),
-        cancel_url=url_for("my_dashboard", token=token),
-        edit_profile_url=None,
-        hide_admin_nav=True,
+        cancel_url=url_for("my_wizard_courses", token=token),
+        journey_step=3,
     )
 
 
@@ -701,7 +807,7 @@ def my_import_confirm(token):
     conn.commit()
     conn.close()
     flash(f"נוספו {added} קורסים מהקובץ.", "success")
-    return redirect(url_for("my_dashboard", token=token))
+    return redirect(url_for("my_wizard_courses", token=token))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,87 @@
+{% extends "my_base.html" %}
+{% block title %}קורסים — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="hero" style="margin-bottom:20px">
+  <div class="eyebrow">שלב 3 מתוך 3</div>
+  <h1 style="font-size:28px">אישורי השתלמויות</h1>
+</div>
+
+<div class="doc-layout">
+  <div class="doc-card">
+    <p class="doc-explain">כל אישורי הקורסים וההשתלמויות שסיימת, כולל שעות לימוד מצטברות. אפשר להעלות את הקובץ מהפורטל ("הקורסים שלי" ← הדפסה ← שמירה כ-PDF) ונחלץ את הנתונים אוטומטית — או להוסיף קורס בודד ידנית.</p>
+
+    <form method="post" action="{{ url_for('my_import_parse', token=token) }}" enctype="multipart/form-data">
+      <div class="dropzone">
+        <div class="dz-icon">↑</div>
+        <div class="dz-title">העלאת קובץ הקורסים מהפורטל</div>
+        <div class="dz-sub" style="margin-bottom:12px;">קובץ PDF שהופק מ"הקורסים שלי" בפורטל עו"ה</div>
+        <input type="file" name="pdf_file" accept="application/pdf" required style="margin-bottom:12px;">
+        <div><button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">קריאת הקובץ</button></div>
+      </div>
+    </form>
+
+    <details style="margin-top:16px; box-shadow:none;">
+      <summary style="font-size:13px; color:var(--ink-soft);"><span>או הוספת קורס בודד ידנית</span><span>⌄</span></summary>
+      <form method="post" action="{{ url_for('my_add_course', token=token) }}" style="padding:14px 22px 18px; display:flex; flex-direction:column; gap:10px;">
+        <div class="field-row"><span class="field-label">תיאור קורס</span><input type="text" name="description"></div>
+        <div class="field-row"><span class="field-label">מתאריך *</span><input type="date" name="start_date" required></div>
+        <div class="field-row"><span class="field-label">שעות עם ציון</span><input type="number" step="0.01" name="hours_graded"></div>
+        <div class="field-row"><span class="field-label">שעות בלי ציון</span><input type="number" step="0.01" name="hours_ungraded"></div>
+        <div class="field-row"><span class="field-label">ציון</span><input type="number" step="0.01" name="grade"></div>
+        <div class="field-row">
+          <span class="field-label">סוג מקור</span>
+          <select name="source_type">
+            {% for val, label in source_type_labels.items() %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field-row"><span class="field-label">אושר מראש ע"י המפקח</span><input type="checkbox" name="pre_approved" checked></div>
+        <div class="field-row"><span class="field-label">מסלול תואר מתקדם</span><input type="checkbox" name="is_advanced_degree_track"></div>
+        <div class="doc-nav" style="margin-top:0;">
+          <span></span>
+          <button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">הוספת הקורס</button>
+        </div>
+      </form>
+    </details>
+
+    {% if courses %}
+    <div class="fields-title">הקורסים שכבר בתיק שלך ({{ courses|length }})</div>
+    <table class="mini-ledger">
+      <thead><tr><th>מתאריך</th><th>סוג</th><th>שעות</th><th></th></tr></thead>
+      <tbody>
+        {% for c in courses %}
+        <tr>
+          <td>{{ c.start_date }}</td>
+          <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
+          <td>{{ c.hours }}</td>
+          <td>
+            <form method="post" action="{{ url_for('my_delete_course', token=token, course_id=c.course_id) }}" style="margin:0;">
+              <button type="submit" class="btn-danger">מחיקה</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('my_wizard_summary', token=token) }}">
+      <div class="doc-nav">
+        <a class="btn-secondary" href="{{ url_for('my_wizard_education', token=token) }}">→ הקודם</a>
+        <button type="submit" class="btn-primary">לסיכום ולחישוב ←</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="puzzle-panel">
+    <div class="puzzle-title">התיק שלך מתמלא</div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">העסקה וותק</div></div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">השכלה</div></div>
+    <div class="piece {% if courses %}uploaded{% endif %}"><div class="piece-dot">3</div><div class="piece-label">קורסים</div></div>
+    <div class="puzzle-progress">{% if courses %}3{% else %}2{% endif %} מתוך 3 שלבים הושלמו</div>
+  </div>
+</div>
+
+{% endblock %}

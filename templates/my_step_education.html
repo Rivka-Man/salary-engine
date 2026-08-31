@@ -1,0 +1,47 @@
+{% extends "my_base.html" %}
+{% block title %}השכלה — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="hero" style="margin-bottom:20px">
+  <div class="eyebrow">שלב 2 מתוך 3</div>
+  <h1 style="font-size:28px">השכלה</h1>
+</div>
+
+<div class="doc-layout">
+  <div class="doc-card">
+    <p class="doc-explain">גמולי כפל תואר / כפל תואר נוסף / ביניים ניתנים בזכות השכלה כפולה (תואר אקדמי + תעודת הוראה, או שני תארים). סמני מה מתאים לך — ניתן לשנות בהמשך.</p>
+
+    <form method="post" action="{{ url_for('my_wizard_education', token=token) }}">
+      <div class="fields-title">✎ הכרה שכבר קיבלת</div>
+
+      <div class="field-row">
+        <span class="field-label">קיים גמול כפל תואר</span>
+        <input type="checkbox" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}>
+      </div>
+      <div class="field-row">
+        <span class="field-label">קיים גם כפל תואר נוסף ("כפל שני")</span>
+        <input type="checkbox" name="has_additional_double_degree_gimul" {% if teacher.has_additional_double_degree_gimul %}checked{% endif %}>
+      </div>
+      <div class="field-row">
+        <span class="field-label">קיים גמול ביניים</span>
+        <input type="checkbox" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}>
+      </div>
+      <p class="pending-note">כפל תואר נוסף ניתן רק בנוסף לכפל תואר; גמול ביניים לא ניתן במקביל לכפל תואר.</p>
+
+      <div class="doc-nav">
+        <a class="btn-secondary" href="{{ url_for('my_wizard_employment', token=token) }}">→ הקודם</a>
+        <button type="submit" class="btn-primary">המשך</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="puzzle-panel">
+    <div class="puzzle-title">התיק שלך מתמלא</div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">העסקה וותק</div></div>
+    <div class="piece uploaded"><div class="piece-dot">2</div><div class="piece-label">השכלה</div></div>
+    <div class="piece"><div class="piece-dot">3</div><div class="piece-label">קורסים</div></div>
+    <div class="puzzle-progress">1 מתוך 3 שלבים הושלמו</div>
+  </div>
+</div>
+
+{% endblock %}
