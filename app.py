@@ -110,8 +110,8 @@ def new_teacher():
         )
         conn.commit()
         conn.close()
-        flash(f"המורה {full_name} נוצר בהצלחה. השלימי את הפרטים.", "success")
-        return redirect(url_for("edit_teacher", teacher_id=teacher_id))
+        flash(f"המורה {full_name} נוצר/ה בהצלחה. אפשר להעתיק את הקישור האישי ולשלוח אותו, או להשלים פרטים נוספים.", "success")
+        return redirect(url_for("teacher_detail", teacher_id=teacher_id))
 
     return render_template("new_teacher.html", school_years=SCHOOL_YEARS, form=None)
 
