@@ -374,12 +374,9 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
         available = accepted_hours_by_year[sy] + carry
         status = status_by_year.get(sy, "רגיל")
-        if status in ("שבתון", "חצי-שבתון", "חלת"):
-            delta = math.floor(available / H_unit)
-            trace.log("R12_SABBATICAL_EXEMPT", f"שנה {sy} (סטטוס={status}) - ללא תקרת {units_per_year_cap}/שנה: {delta} יח'", delta)
-        else:
-            delta = min(units_per_year_cap, math.floor(available / H_unit))
-            trace.log("R11_ANNUAL_CAP", f"שנה {sy} - עד יחידה {units_per_year_cap}: {delta} יח' (זמין: {available:.0f} שעות)", delta)
+        is_exempt_year = status in ("שבתון", "חצי-שבתון", "חלת")
+        potential_units = math.floor(available / H_unit)
+        delta = potential_units if is_exempt_year else min(units_per_year_cap, potential_units)
 
         # --- R09/R10: סף הכרה קורסים ליחידות 18/19 (רק למורה ברפורמה) ---
         year_start = SCHOOL_YEAR_START.get(sy, "9999")
@@ -389,7 +386,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         if thresh_19 is not None and running_total < 19 and (year_start < thresh_19 or calc_date < tashpa_start):
             max_allowed = min(max_allowed, 18)
         capped_delta = max(0, min(delta, max_allowed - running_total))
-        if capped_delta < delta:
+        threshold_capped = capped_delta < delta
+        if threshold_capped:
             rule_id = "R09_THRESH_18" if max_allowed <= 17 else "R10_THRESH_19"
             trace.log(rule_id,
                       f"שנה {sy} - קורסי השנה מוקדמים מדי לזכאות ליחידה {int(max_allowed) + 1}, נחתך מ-{delta} ל-{capped_delta} יח'",
@@ -399,6 +397,24 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         carry = available - delta * H_unit
         delta_u_by_year[sy] = delta
         running_total += delta
+
+        # --- הודעה שנתית ידידותית (R11/R12): כמה נלמד, כמה הוכר בפועל, כמה נצבר הלאה ---
+        hours_used = delta * H_unit
+        if is_exempt_year:
+            msg = (f"שנה {sy} (סטטוס={status}) - נלמדו {available:.0f} שעות (כ-{potential_units} יח'), "
+                   f"ללא תקרת {units_per_year_cap} יח'/שנה: הוכרו {delta} יח' ({hours_used:.0f} שעות)")
+        elif potential_units > delta and not threshold_capped:
+            msg = (f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units} יח'), אך לא ניתן לתרגם לגמול את כל "
+                   f"היחידות (תקרה של {units_per_year_cap} יח'/שנה) - הוכרה {delta} יח' ({hours_used:.0f} שעות)")
+        else:
+            msg = f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units} יח') - הוכרה {delta} יח' ({hours_used:.0f} שעות)"
+        if carry > 0:
+            msg += f", ונצברו {carry:.0f} שעות לשנה הבאה"
+        trace.log("R12_SABBATICAL_EXEMPT" if is_exempt_year else "R11_ANNUAL_CAP", msg, delta)
+
+    if delta_u_by_year:
+        trace.log("R11_ANNUAL_CAP",
+                  f"סה\"כ נותרו {carry:.0f} שעות שלא תורגמו ליחידה - יילקחו בחשבון בחישוב הגמול הבא", carry)
 
     U_regular_earned = U_base + sum(delta_u_by_year.values())
     U_regular = min(U_regular_earned, U_cap)
