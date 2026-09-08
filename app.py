@@ -35,6 +35,22 @@ def rule_tooltip(rule_id):
     desc = RULE_DESCRIPTIONS.get(rule_id)
     return f"{rule_id} — {desc}" if desc else rule_id
 
+
+@app.template_filter("num")
+def format_number(value):
+    """
+    מציג מספר (מחושב או לא) עם לכל היותר 2 ספרות אחרי הנקודה - לא נוגע
+    בערך המאוחסן/מחושב בפועל, רק בתצוגה. מספר שלם מוצג בלי נקודה כלל.
+    ערכים שאינם מספריים (None, טקסט) עוברים ללא שינוי.
+    """
+    if value is None:
+        return value
+    try:
+        rounded = round(float(value), 2)
+    except (TypeError, ValueError):
+        return value
+    return int(rounded) if rounded == int(rounded) else rounded
+
 SOURCE_TYPE_LABELS = {
     "academic": "אקדמי",
     "school_based": "השתלמות בית ספרית",

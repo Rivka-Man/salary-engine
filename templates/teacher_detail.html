@@ -67,8 +67,8 @@ function copyPersonalLink() {
               <td class="mono">{{ c.start_date }}</td>
               <td class="mono">{{ c.end_date or "—" }}</td>
               <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
-              <td class="mono">{{ c.hours }}</td>
-              <td class="mono">{{ c.grade if c.grade is not none else "—" }}</td>
+              <td class="mono">{{ c.hours | num }}</td>
+              <td class="mono">{{ c.grade | num if c.grade is not none else "—" }}</td>
               <td>{% if c.pre_approved %}<span class="chip good">כן</span>{% else %}<span class="chip critical">לא</span>{% endif %}</td>
               <td>{% if c.is_advanced_degree_track %}<span class="chip accent">כן</span>{% else %}<span class="chip neutral">לא</span>{% endif %}</td>
               <td>
@@ -141,8 +141,8 @@ function copyPersonalLink() {
         <dl class="kv-list">
           <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובד הוראה פעיל{% else %}לא פעיל{% endif %}</dd></div>
           <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
-          <div class="kv-row"><dt>יחידות שהוכרו ערב הרפורמה</dt><dd class="mono">{{ teacher.u_pre }}</dd></div>
-          <div class="kv-row"><dt>שעות שנצברו ערב הרפורמה</dt><dd class="mono">{{ teacher.h_pre }}</dd></div>
+          <div class="kv-row"><dt>יחידות שהוכרו ערב הרפורמה</dt><dd class="mono">{{ teacher.u_pre | num }}</dd></div>
+          <div class="kv-row"><dt>שעות שנצברו ערב הרפורמה</dt><dd class="mono">{{ teacher.h_pre | num }}</dd></div>
           <div class="kv-row"><dt>קיים גמול כפל תואר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>קיים גם כפל שני</dt><dd>{% if teacher.has_additional_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>קיים גמול ביניים</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>
@@ -207,8 +207,8 @@ function copyPersonalLink() {
         <tr>
           <td class="mono">{{ r.calc_date }}</td>
           <td class="mono">{{ r.run_timestamp[:16] }}</td>
-          <td class="mono">{{ r.u_total }}</td>
-          <td class="mono">{{ r.pct_addition }}%</td>
+          <td class="mono">{{ r.u_total | num }}</td>
+          <td class="mono">{{ r.pct_addition | num }}%</td>
           <td><a href="{{ url_for('view_run', run_id=r.run_id) }}">צפייה ←</a></td>
         </tr>
         {% endfor %}

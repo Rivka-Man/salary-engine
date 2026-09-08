@@ -23,8 +23,8 @@
         {% for r in runs %}
         <tr>
           <td>{{ r.calc_date }}</td>
-          <td>{{ r.u_total }}</td>
-          <td>{{ r.pct_addition }}%</td>
+          <td>{{ r.u_total | num }}</td>
+          <td>{{ r.pct_addition | num }}%</td>
           <td><a href="{{ url_for('my_view_run', token=token, run_id=r.run_id) }}">צפייה ←</a></td>
         </tr>
         {% endfor %}

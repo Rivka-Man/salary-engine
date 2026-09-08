@@ -16,26 +16,26 @@
 <section class="hero-stats">
   <div class="stat-tile emphasis">
     <span class="stat-label">תוספת שכר</span>
-    <span class="stat-value mono">{{ result.pct_salary_addition }}%</span>
-    <span class="stat-sub">{{ result.U_total }} יח' × 1.2%</span>
+    <span class="stat-value mono">{{ result.pct_salary_addition | num }}%</span>
+    <span class="stat-sub">{{ result.U_total | num }} יח' × 1.2%</span>
   </div>
   <div class="stat-tile emphasis">
     <span class="stat-label">סה"כ יחידות</span>
-    <span class="stat-value mono">{{ result.U_total }}</span>
+    <span class="stat-value mono">{{ result.U_total | num }}</span>
     <span class="stat-sub">U_total</span>
   </div>
   <div class="stat-tile">
     <span class="stat-label">תקרה שחלה</span>
-    <span class="stat-value mono">{{ result.U_cap_applied }}</span>
+    <span class="stat-value mono">{{ result.U_cap_applied | num }}</span>
   </div>
   <div class="stat-tile">
     <span class="stat-label">בסיס יחידת מעבר</span>
-    <span class="stat-value mono">{{ result.U_base_from_transition }}</span>
+    <span class="stat-value mono">{{ result.U_base_from_transition | num }}</span>
   </div>
   <div class="stat-tile">
     <span class="stat-label">תואר מתקדם</span>
-    <span class="stat-value mono">{{ result.advanced_degree_hours_accumulated }}<span style="font-size:0.85rem; font-weight:500;"> ש'</span></span>
-    <span class="stat-sub">~{{ result.advanced_degree_units_available }} יח' · 1/שנה</span>
+    <span class="stat-value mono">{{ result.advanced_degree_hours_accumulated | num }}<span style="font-size:0.85rem; font-weight:500;"> ש'</span></span>
+    <span class="stat-sub">~{{ result.advanced_degree_units_available | num }} יח' · 1/שנה</span>
   </div>
 </section>
 
@@ -50,7 +50,7 @@
           <div class="trail-row">
             <span class="rule-code" title="{{ step.rule_id | rule_tooltip }}">{{ step.rule_id | rule_desc }}</span>
             <span>{{ step.message }}</span>
-            <span class="trail-val mono">{% if step.value is not none %}→ <b>{{ step.value }}</b>{% else %}—{% endif %}</span>
+            <span class="trail-val mono">{% if step.value is not none %}→ <b>{{ step.value | num }}</b>{% else %}—{% endif %}</span>
           </div>
           {% endfor %}
         </div>
@@ -77,7 +77,7 @@
       <div class="panel-body">
         <dl class="kv-list">
           {% for sy, delta in result.delta_u_by_year.items() %}
-          <div class="kv-row"><dt>{{ sy }}</dt><dd class="mono">+{{ delta }} יח'</dd></div>
+          <div class="kv-row"><dt>{{ sy }}</dt><dd class="mono">+{{ delta | num }} יח'</dd></div>
           {% endfor %}
         </dl>
       </div>

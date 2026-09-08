@@ -10,19 +10,19 @@
 
 <div class="result-card">
   <div class="result-figures">
-    <div class="figure accent"><div class="num">{{ result.U_total }}</div><div class="label">יחידות גמול עוז לתמורה</div></div>
-    <div class="figure"><div class="num">{{ result.pct_salary_addition }}%</div><div class="label">תוספת לשכר</div></div>
-    <div class="figure"><div class="num">{{ result.U_cap_applied }}</div><div class="label">תקרת יחידות שחלה</div></div>
-    <div class="figure"><div class="num">{{ result.carry_remaining }}</div><div class="label">יתרת שעות לחישוב הבא</div></div>
+    <div class="figure accent"><div class="num">{{ result.U_total | num }}</div><div class="label">יחידות גמול עוז לתמורה</div></div>
+    <div class="figure"><div class="num">{{ result.pct_salary_addition | num }}%</div><div class="label">תוספת לשכר</div></div>
+    <div class="figure"><div class="num">{{ result.U_cap_applied | num }}</div><div class="label">תקרת יחידות שחלה</div></div>
+    <div class="figure"><div class="num">{{ result.carry_remaining | num }}</div><div class="label">יתרת שעות לחישוב הבא</div></div>
   </div>
 </div>
 
 <div class="story-card">
   <h2>איך הגענו לתוצאה, בקצרה</h2>
-  <p>מהקורסים והוותק שלך הוכרו <strong>{{ result.U_regular }} יחידות רגילות</strong> (מתוך תקרה של {{ result.U_cap_applied }}).
-  {% if result.U_dd_or_mid %}לזה הצטרפה הכרה נוספת של <strong>{{ result.U_dd_or_mid }} יחידות</strong> מגמול כפל תואר/ביניים.{% endif %}
-  בסך הכל הצטברו <strong>{{ result.U_total }} יחידות גמול עוז לתמורה</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).
-  {% if result.carry_remaining %}נותרו <strong>{{ result.carry_remaining }} שעות</strong> שלא תורגמו ליחידה — הן יילקחו בחשבון בחישוב הבא.{% endif %}</p>
+  <p>מהקורסים והוותק שלך הוכרו <strong>{{ result.U_regular | num }} יחידות רגילות</strong> (מתוך תקרה של {{ result.U_cap_applied | num }}).
+  {% if result.U_dd_or_mid %}לזה הצטרפה הכרה נוספת של <strong>{{ result.U_dd_or_mid | num }} יחידות</strong> מגמול כפל תואר/ביניים.{% endif %}
+  בסך הכל הצטברו <strong>{{ result.U_total | num }} יחידות גמול עוז לתמורה</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition | num }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).
+  {% if result.carry_remaining %}נותרו <strong>{{ result.carry_remaining | num }} שעות</strong> שלא תורגמו ליחידה — הן יילקחו בחשבון בחישוב הבא.{% endif %}</p>
   {% if result.rejected_courses %}
   <p>שימי לב: {{ result.rejected_courses|length }} קורס/ים לא נכללו בחישוב (למשל בגלל היעדר אישור מפקח מראש) — פירוט למטה.</p>
   {% endif %}
@@ -35,7 +35,7 @@
     {% for step in result.trace %}
     <div class="trace-row">
       <span class="desc" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</span>
-      <span class="val">{% if step.value is not none %}{{ step.value }} →{% endif %}</span>
+      <span class="val">{% if step.value is not none %}{{ step.value | num }} →{% endif %}</span>
     </div>
     {% endfor %}
   </div>
