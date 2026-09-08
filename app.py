@@ -469,13 +469,15 @@ def my_wizard_employment(token):
         # הקישור האישי מיועד אך ורק למורות/מורים בעוז לתמורה (הכותרת/המיתוג
         # של האשף כולו הוא "גמולי השתלמות עוז לתמורה") - אין יותר תיבת
         # סימון "מועסקת בתנאי עוז לתמורה"; in_reform קבוע כאן ל-1.
+        # יחידות/שעות ערב ההצטרפות (u_pre/h_pre) הוסרו מהטופס הזה לפי בקשת
+        # המשתמשת - נשארות כפי שהיו (ניתנות לעריכה רק דרך צד הניהול, אם צריך).
         reform_start_date = request.form.get("reform_start_date") or None
         conn.execute(
             """
             UPDATE teachers SET
                 is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
                 in_reform=1, reform_start_date=%s, reform_start_year=%s,
-                certification_date=%s, u_pre=%s, h_pre=%s
+                certification_date=%s
             WHERE teacher_id=%s
             """,
             (
@@ -485,8 +487,6 @@ def my_wizard_employment(token):
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
                 request.form.get("certification_date") or None,
-                float(request.form.get("U_pre") or 0),
-                float(request.form.get("H_pre") or 0),
                 teacher["teacher_id"],
             ),
         )
@@ -537,6 +537,35 @@ def my_wizard_employment_import(token):
     conn.close()
     flash(f"זוהה תאריך הצטרפות לעוז לתמורה: {reform_start_date}. אפשר לתקן למטה אם צריך.", "success")
     return redirect(url_for("my_wizard_employment", token=token))
+
+
+@app.route("/my/<token>/wizard/education/import", methods=["POST"])
+def my_wizard_education_import(token):
+    """
+    קליטת "מכתב נתוני העסקה" בשלב ההשכלה. בניגוד ל"היקף משרה" (שיש לנו
+    ממנה דוגמה אמיתית ופרסר עובד - my_wizard_employment_import), עדיין
+    אין לנו דוגמה אמיתית של המכתב הזה, ולכן אין כאן עדיין זיהוי אוטומטי
+    אמיתי - רק קליטת הקובץ ותשובה כנה. ברגע שתגיע דוגמה אמיתית, ייבנה
+    כאן פרסר אמיתי באותו אופן.
+    """
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    uploaded = request.files.get("pdf_file")
+    if not uploaded or not uploaded.filename:
+        flash("יש לבחור קובץ PDF.", "error")
+        return redirect(url_for("my_wizard_education", token=token))
+
+    flash(
+        "הקובץ נקלט, אבל עדיין אין לנו דוגמה של \"מכתב נתוני העסקה\" כדי לדעת אילו "
+        "נתונים לחפש בו - נא למלא ידנית למטה בינתיים.",
+        "error",
+    )
+    return redirect(url_for("my_wizard_education", token=token))
 
 
 @app.route("/my/<token>/wizard/education", methods=["GET", "POST"])

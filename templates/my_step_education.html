@@ -12,15 +12,25 @@
     <p class="doc-explain">גמולי כפל תואר / כפל תואר נוסף / ביניים ניתנים בזכות השכלה כפולה (תואר אקדמי + תעודת הוראה, או שני תארים). סמני מה מתאים לך, ומאיזה תאריך — ניתן לשנות בהמשך.</p>
 
     <div class="portal-row">
-      <a class="portal-link" href="https://apps.education.gov.il/Ehr/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
+      <a class="portal-link" href="https://poh.education.gov.il/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
       <div class="help-wrap">
         <button type="button" class="help-btn" aria-describedby="help-education">?</button>
         <div class="help-tip" id="help-education">
-          "מכתב נתוני העסקה" מהפורטל מפרט אילו גמולי כפל תואר/ביניים אושרו לך ומאיזה תאריך. בקרוב יתאפשר להעלות אותו כאן לזיהוי אוטומטי.
+          "מכתב נתוני העסקה" מהפורטל מפרט אילו גמולי כפל תואר/ביניים אושרו לך ומאיזה תאריך.
         </div>
       </div>
-      <span class="soon-badge">טעינה אוטומטית בקרוב</span>
+      <span class="soon-badge">סרטון הדרכה בקרוב</span>
     </div>
+
+    <form method="post" action="{{ url_for('my_wizard_education_import', token=token) }}" enctype="multipart/form-data" style="margin-bottom:22px;">
+      <div class="dropzone">
+        <div class="dz-icon">↑</div>
+        <div class="dz-title">טעינת "מכתב נתוני העסקה" מהפורטל</div>
+        <div class="dz-sub" style="margin-bottom:12px;">ננסה לזהות אוטומטית את הגמולים והתאריכים. לא חובה — אפשר גם למלא ידנית למטה.</div>
+        <input type="file" name="pdf_file" accept="application/pdf" style="margin-bottom:10px;">
+        <div><button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">טעינת קובץ</button></div>
+      </div>
+    </form>
 
     <form method="post" action="{{ url_for('my_wizard_education', token=token) }}">
       <div class="fields-title">✎ הכרה שכבר קיבלת</div>

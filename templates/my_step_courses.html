@@ -12,7 +12,7 @@
     <p class="doc-explain">כל אישורי הקורסים וההשתלמויות שסיימת, כולל שעות לימוד מצטברות. אפשר להעלות את הקובץ מהפורטל ("הקורסים שלי" ← הדפסה ← שמירה כ-PDF) ונחלץ את הנתונים אוטומטית — או להוסיף קורס בודד ידנית.</p>
 
     <div class="portal-row">
-      <a class="portal-link" href="https://apps.education.gov.il/Ehr/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
+      <a class="portal-link" href="https://poh.education.gov.il/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
       <div class="help-wrap">
         <button type="button" class="help-btn" aria-describedby="help-courses">?</button>
         <div class="help-tip" id="help-courses">
@@ -78,12 +78,10 @@
     </table>
     {% endif %}
 
-    <form method="post" action="{{ url_for('my_wizard_periods', token=token) }}">
-      <div class="doc-nav">
-        <a class="btn-secondary" href="{{ url_for('my_wizard_education', token=token) }}">→ הקודם</a>
-        <button type="submit" class="btn-primary">המשך ←</button>
-      </div>
-    </form>
+    <div class="doc-nav">
+      <a class="btn-secondary" href="{{ url_for('my_wizard_education', token=token) }}">→ הקודם</a>
+      <a class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;" href="{{ url_for('my_wizard_periods', token=token) }}">המשך ←</a>
+    </div>
   </div>
 
   <div class="puzzle-panel">

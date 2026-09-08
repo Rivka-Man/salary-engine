@@ -3,15 +3,14 @@
 {% block content %}
 
 <div class="hero">
-  <div class="eyebrow">ברוך/ה הבא/ה, {{ teacher.full_name.split(' ')[0] }}</div>
-  <h1>מה תרצה.צי לעשות היום?</h1>
+  <div class="eyebrow" style="margin-bottom:28px;">שלום, {{ teacher.full_name.split(' ')[0] }}</div>
 </div>
 
 <a class="card primary" style="max-width:520px;" href="{{ url_for('my_wizard_employment', token=token) }}">
   <div class="icon-badge">✓</div>
   <h3 style="font-size:24px;">לעדכן נתונים ולחשב גמול</h3>
   <p class="desc" style="font-size:15px;">נעבור יחד, צעד אחר צעד, על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך — והחישוב עצמו יתבצע רק בסוף, אחרי שנעדכן הכל.</p>
-  <div class="card-cta" style="font-size:16px;"><span>יאללה, להתחיל בתהליך</span><span>←</span></div>
+  <div class="card-cta" style="font-size:16px;"><span>קדימה, נתחיל בתהליך</span><span>←</span></div>
 </a>
 
 {% if runs %}
