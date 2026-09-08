@@ -5,14 +5,15 @@
 <div class="hero" style="margin-bottom:26px">
   <div class="eyebrow">הגעת לסוף הדרך</div>
   <h1>יופי, {{ teacher.full_name.split(' ')[0] }} — הנה מה שגילינו יחד</h1>
-  <p>עברנו יחד על פרטי ההעסקה, ההשכלה והקורסים שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה.</p>
+  <p>עברנו יחד על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה.</p>
 </div>
 
 <div class="result-card">
   <div class="result-figures">
-    <div class="figure accent"><div class="num">{{ result.U_total }}</div><div class="label">יחידות גמול</div></div>
+    <div class="figure accent"><div class="num">{{ result.U_total }}</div><div class="label">יחידות גמול עוז לתמורה</div></div>
     <div class="figure"><div class="num">{{ result.pct_salary_addition }}%</div><div class="label">תוספת לשכר</div></div>
     <div class="figure"><div class="num">{{ result.U_cap_applied }}</div><div class="label">תקרת יחידות שחלה</div></div>
+    <div class="figure"><div class="num">{{ result.carry_remaining }}</div><div class="label">יתרת שעות לחישוב הבא</div></div>
   </div>
 </div>
 
@@ -20,11 +21,13 @@
   <h2>איך הגענו לתוצאה, בקצרה</h2>
   <p>מהקורסים והוותק שלך הוכרו <strong>{{ result.U_regular }} יחידות רגילות</strong> (מתוך תקרה של {{ result.U_cap_applied }}).
   {% if result.U_dd_or_mid %}לזה הצטרפה הכרה נוספת של <strong>{{ result.U_dd_or_mid }} יחידות</strong> מגמול כפל תואר/ביניים.{% endif %}
-  בסך הכל הצטברו <strong>{{ result.U_total }} יחידות גמול</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).</p>
+  בסך הכל הצטברו <strong>{{ result.U_total }} יחידות גמול עוז לתמורה</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).
+  {% if result.carry_remaining %}נותרו <strong>{{ result.carry_remaining }} שעות</strong> שלא תורגמו ליחידה — הן יילקחו בחשבון בחישוב הבא.{% endif %}</p>
   {% if result.rejected_courses %}
   <p>שימי לב: {{ result.rejected_courses|length }} קורס/ים לא נכללו בחישוב (למשל בגלל היעדר אישור מפקח מראש) — פירוט למטה.</p>
   {% endif %}
 </div>
+<p class="pending-note" style="margin:-12px 0 18px;">בקרוב: פירוט יתרת השעות בחלוקה לעם/בלי ציון, ו"יתרת גמולים לפריסה".</p>
 
 <details open>
   <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>

@@ -53,6 +53,57 @@ def _to_iso_date(ddmmyyyy):
     return f"{y}-{m}-{d}"
 
 
+def parse_heikef_misra_pdf(file_path_or_buffer):
+    """
+    שולף את "תאריך הצטרפות לעוז לתמורה" מקובץ PDF שהופק מעמוד "היקף משרה"
+    בפורטל עו"ה. אותה בעיית קידוד עברית הפוכה תו-אחר-תו כמו בקובץ
+    הקורסים - וגם כאן העמוד בנוי כרשת של תוויות/ערכים לפי מיקום (לא
+    טבלה אמיתית), עם כמה "עמודות" זו לצד זו באותה שורה. במקום לנתח את
+    כל הרשת, מאתרים ספציפית את התווית "תאריך הצטרפות לעוז [שורה הבאה]
+    לתמורה" ולוקחים את התאריך הראשון שמופיע מתחתיה **באותו טווח X**
+    (כדי לא להתבלבל עם "תאריך הצטרפות לאופק חדש" שמופיע בעמודה אחרת).
+
+    מחזיר {"reform_start_date": ISO date} או {} אם לא נמצא.
+    """
+    with pdfplumber.open(file_path_or_buffer) as pdf:
+        for page in pdf.pages:
+            words = page.extract_words(use_text_flow=False, keep_blank_chars=False)
+            rows = {}
+            for w in words:
+                if w["text"] == "!":
+                    continue
+                key = round(w["top"] / 3) * 3
+                rows.setdefault(key, []).append((w["x0"], _fix_word(w["text"])))
+
+            label_row = next(
+                (r for r, items in rows.items()
+                 if {"תאריך", "הצטרפות", "לעוז"} <= {t for _, t in items}),
+                None,
+            )
+            if label_row is None:
+                continue
+
+            x_taarich = next(x0 for x0, t in rows[label_row] if t == "תאריך")
+            x_leoz = next(x0 for x0, t in rows[label_row] if t == "לעוז")
+            col_lo, col_hi = x_leoz - 20, x_taarich + 20
+
+            cont_row = next(
+                (r for r in sorted(rows) if label_row < r <= label_row + 40
+                 and any(t == "לתמורה" and col_lo - 30 <= x0 <= col_hi + 30 for x0, t in rows[r])),
+                None,
+            )
+            if cont_row is None:
+                continue
+
+            for r in sorted(rows):
+                if r <= cont_row or r > cont_row + 40:
+                    continue
+                for x0, t in rows[r]:
+                    if DATE_RE.match(t) and col_lo - 60 <= x0 <= col_hi + 60:
+                        return {"reform_start_date": _to_iso_date(t)}
+    return {}
+
+
 def parse_courses_pdf(file_path_or_buffer):
     """
     מחזיר רשימת dict-ים, אחד לכל קורס שיש לו ערך בעמודת "משתתף בגמולי

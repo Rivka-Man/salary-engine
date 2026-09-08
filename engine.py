@@ -198,6 +198,15 @@ def init_db(reset: bool = True):
                       (secrets.token_urlsafe(16), r["teacher_id"]))
     if "has_additional_double_degree_gimul" not in cols:
         conn.execute("ALTER TABLE teachers ADD COLUMN has_additional_double_degree_gimul INTEGER DEFAULT 0")
+    for col, ddl in (
+        ("reform_start_date", "ALTER TABLE teachers ADD COLUMN reform_start_date TEXT"),
+        ("certification_date", "ALTER TABLE teachers ADD COLUMN certification_date TEXT"),
+        ("double_degree_start_date", "ALTER TABLE teachers ADD COLUMN double_degree_start_date TEXT"),
+        ("beinayim_start_date", "ALTER TABLE teachers ADD COLUMN beinayim_start_date TEXT"),
+        ("additional_double_degree_start_date", "ALTER TABLE teachers ADD COLUMN additional_double_degree_start_date TEXT"),
+    ):
+        if col not in cols:
+            conn.execute(ddl)
 
     course_cols = [r["column_name"] for r in conn.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_name='courses'"

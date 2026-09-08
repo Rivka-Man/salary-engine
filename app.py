@@ -12,7 +12,7 @@ from flask import Flask, flash, redirect, render_template, request, url_for
 
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
-from pdf_import import parse_courses_pdf
+from pdf_import import parse_courses_pdf, parse_heikef_misra_pdf
 
 app = Flask(__name__)
 app.secret_key = "salary-engine-local-dev"
@@ -466,19 +466,25 @@ def my_wizard_employment(token):
         return redirect(url_for("index"))
 
     if request.method == "POST":
+        # הקישור האישי מיועד אך ורק למורות/מורים בעוז לתמורה (הכותרת/המיתוג
+        # של האשף כולו הוא "גמולי השתלמות עוז לתמורה") - אין יותר תיבת
+        # סימון "מועסקת בתנאי עוז לתמורה"; in_reform קבוע כאן ל-1.
+        reform_start_date = request.form.get("reform_start_date") or None
         conn.execute(
             """
             UPDATE teachers SET
                 is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
-                in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s
+                in_reform=1, reform_start_date=%s, reform_start_year=%s,
+                certification_date=%s, u_pre=%s, h_pre=%s
             WHERE teacher_id=%s
             """,
             (
                 1 if request.form.get("is_active_teacher") else 0,
                 1 if request.form.get("has_seniority_year") else 0,
                 1 if request.form.get("is_pensioner") else 0,
-                1 if request.form.get("in_reform") else 0,
-                request.form.get("reform_start_year") or None,
+                reform_start_date,
+                school_year_of(reform_start_date) if reform_start_date else None,
+                request.form.get("certification_date") or None,
                 float(request.form.get("U_pre") or 0),
                 float(request.form.get("H_pre") or 0),
                 teacher["teacher_id"],
@@ -495,6 +501,44 @@ def my_wizard_employment(token):
     )
 
 
+@app.route("/my/<token>/wizard/employment/import", methods=["POST"])
+def my_wizard_employment_import(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+
+    uploaded = request.files.get("pdf_file")
+    if not uploaded or not uploaded.filename:
+        conn.close()
+        flash("יש לבחור קובץ PDF.", "error")
+        return redirect(url_for("my_wizard_employment", token=token))
+
+    try:
+        found = parse_heikef_misra_pdf(io.BytesIO(uploaded.read()))
+    except Exception as exc:
+        conn.close()
+        flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
+        return redirect(url_for("my_wizard_employment", token=token))
+
+    reform_start_date = found.get("reform_start_date")
+    if not reform_start_date:
+        conn.close()
+        flash("לא זוהה בקובץ תאריך הצטרפות לעוז לתמורה. ודאי שזה קובץ \"היקף משרה\" מהפורטל, או מלאי את התאריך ידנית.", "error")
+        return redirect(url_for("my_wizard_employment", token=token))
+
+    conn.execute(
+        "UPDATE teachers SET reform_start_date=%s, reform_start_year=%s WHERE teacher_id=%s",
+        (reform_start_date, school_year_of(reform_start_date), teacher["teacher_id"]),
+    )
+    conn.commit()
+    conn.close()
+    flash(f"זוהה תאריך הצטרפות לעוז לתמורה: {reform_start_date}. אפשר לתקן למטה אם צריך.", "success")
+    return redirect(url_for("my_wizard_employment", token=token))
+
+
 @app.route("/my/<token>/wizard/education", methods=["GET", "POST"])
 def my_wizard_education(token):
     conn = get_conn()
@@ -508,13 +552,18 @@ def my_wizard_education(token):
         conn.execute(
             """
             UPDATE teachers SET
-                has_double_degree_gimul=%s, has_additional_double_degree_gimul=%s, has_beinayim_gimul=%s
+                has_double_degree_gimul=%s, double_degree_start_date=%s,
+                has_additional_double_degree_gimul=%s, additional_double_degree_start_date=%s,
+                has_beinayim_gimul=%s, beinayim_start_date=%s
             WHERE teacher_id=%s
             """,
             (
                 1 if request.form.get("has_double_degree_gimul") else 0,
+                request.form.get("double_degree_start_date") or None,
                 1 if request.form.get("has_additional_double_degree_gimul") else 0,
+                request.form.get("additional_double_degree_start_date") or None,
                 1 if request.form.get("has_beinayim_gimul") else 0,
+                request.form.get("beinayim_start_date") or None,
                 teacher["teacher_id"],
             ),
         )
@@ -544,6 +593,25 @@ def my_wizard_courses(token):
     )
 
 
+@app.route("/my/<token>/wizard/periods", methods=["GET"])
+def my_wizard_periods(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    statuses = conn.execute(
+        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher["teacher_id"],)
+    ).fetchall()
+    statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
+    conn.close()
+    return render_template(
+        "my_step_periods.html", token=token, teacher=teacher, statuses=statuses,
+        school_years=SCHOOL_YEARS, journey_step=4,
+    )
+
+
 @app.route("/my/<token>/wizard/summary", methods=["POST"])
 def my_wizard_summary(token):
     conn = get_conn()
@@ -557,9 +625,9 @@ def my_wizard_summary(token):
         result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
     except Exception as exc:
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
-        return redirect(url_for("my_wizard_courses", token=token))
+        return redirect(url_for("my_wizard_periods", token=token))
     return render_template(
-        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=4,
+        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=5,
     )
 
 
@@ -580,7 +648,7 @@ def my_view_run(token, run_id):
         flash("הרצה לא נמצאה.", "error")
         return redirect(url_for("my_dashboard", token=token))
     result = json.loads(run["result_json"])
-    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=4)
+    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=5)
 
 
 @app.route("/my/<token>/courses", methods=["POST"])
@@ -646,24 +714,6 @@ def my_delete_course(token, course_id):
     return redirect(url_for("my_wizard_courses", token=token))
 
 
-@app.route("/my/<token>/status", methods=["GET"])
-def my_status_quick(token):
-    conn = get_conn()
-    teacher = get_teacher_by_token(conn, token)
-    if not teacher:
-        conn.close()
-        flash("קישור לא תקין.", "error")
-        return redirect(url_for("index"))
-    statuses = conn.execute(
-        "SELECT * FROM employment_status_by_year WHERE teacher_id=%s", (teacher["teacher_id"],)
-    ).fetchall()
-    statuses = sorted(statuses, key=lambda s: SCHOOL_YEAR_START.get(s["school_year"], s["school_year"]))
-    conn.close()
-    return render_template(
-        "my_status_quick.html", token=token, teacher=teacher, statuses=statuses, school_years=SCHOOL_YEARS,
-    )
-
-
 @app.route("/my/<token>/status", methods=["POST"])
 def my_add_status(token):
     conn = get_conn()
@@ -685,7 +735,7 @@ def my_add_status(token):
     conn.commit()
     conn.close()
     flash("סטטוס תעסוקתי עודכן.", "success")
-    return redirect(url_for("my_status_quick", token=token))
+    return redirect(url_for("my_wizard_periods", token=token))
 
 
 @app.route("/my/<token>/status/<school_year>/delete", methods=["POST"])
@@ -702,7 +752,7 @@ def my_delete_status(token, school_year):
     )
     conn.commit()
     conn.close()
-    return redirect(url_for("my_status_quick", token=token))
+    return redirect(url_for("my_wizard_periods", token=token))
 
 
 @app.route("/my/<token>/import-pdf", methods=["GET"])

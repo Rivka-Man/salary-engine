@@ -3,28 +3,48 @@
 {% block content %}
 
 <div class="hero" style="margin-bottom:20px">
-  <div class="eyebrow">שלב 2 מתוך 3</div>
-  <h1 style="font-size:28px">השכלה</h1>
+  <div class="eyebrow">שלב 2 מתוך 4</div>
+  <h1 style="font-size:32px">השכלה</h1>
 </div>
 
 <div class="doc-layout">
   <div class="doc-card">
-    <p class="doc-explain">גמולי כפל תואר / כפל תואר נוסף / ביניים ניתנים בזכות השכלה כפולה (תואר אקדמי + תעודת הוראה, או שני תארים). סמני מה מתאים לך — ניתן לשנות בהמשך.</p>
+    <p class="doc-explain">גמולי כפל תואר / כפל תואר נוסף / ביניים ניתנים בזכות השכלה כפולה (תואר אקדמי + תעודת הוראה, או שני תארים). סמני מה מתאים לך, ומאיזה תאריך — ניתן לשנות בהמשך.</p>
+
+    <div class="portal-row">
+      <a class="portal-link" href="https://apps.education.gov.il/Ehr/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
+      <div class="help-wrap">
+        <button type="button" class="help-btn" aria-describedby="help-education">?</button>
+        <div class="help-tip" id="help-education">
+          "מכתב נתוני העסקה" מהפורטל מפרט אילו גמולי כפל תואר/ביניים אושרו לך ומאיזה תאריך. בקרוב יתאפשר להעלות אותו כאן לזיהוי אוטומטי.
+        </div>
+      </div>
+      <span class="soon-badge">טעינה אוטומטית בקרוב</span>
+    </div>
 
     <form method="post" action="{{ url_for('my_wizard_education', token=token) }}">
       <div class="fields-title">✎ הכרה שכבר קיבלת</div>
 
       <div class="field-row">
         <span class="field-label">קיים גמול כפל תואר</span>
-        <input type="checkbox" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <input type="date" name="double_degree_start_date" value="{{ teacher.double_degree_start_date or '' }}" placeholder="החל מ-">
+          <input type="checkbox" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}>
+        </span>
       </div>
       <div class="field-row">
         <span class="field-label">קיים גם כפל תואר נוסף ("כפל שני")</span>
-        <input type="checkbox" name="has_additional_double_degree_gimul" {% if teacher.has_additional_double_degree_gimul %}checked{% endif %}>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <input type="date" name="additional_double_degree_start_date" value="{{ teacher.additional_double_degree_start_date or '' }}" placeholder="החל מ-">
+          <input type="checkbox" name="has_additional_double_degree_gimul" {% if teacher.has_additional_double_degree_gimul %}checked{% endif %}>
+        </span>
       </div>
       <div class="field-row">
         <span class="field-label">קיים גמול ביניים</span>
-        <input type="checkbox" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <input type="date" name="beinayim_start_date" value="{{ teacher.beinayim_start_date or '' }}" placeholder="החל מ-">
+          <input type="checkbox" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}>
+        </span>
       </div>
       <p class="pending-note">כפל תואר נוסף ניתן רק בנוסף לכפל תואר; גמול ביניים לא ניתן במקביל לכפל תואר.</p>
 
@@ -37,10 +57,11 @@
 
   <div class="puzzle-panel">
     <div class="puzzle-title">התיק שלך מתמלא</div>
-    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">העסקה וותק</div></div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">פרטי העסקה</div></div>
     <div class="piece uploaded"><div class="piece-dot">2</div><div class="piece-label">השכלה</div></div>
-    <div class="piece"><div class="piece-dot">3</div><div class="piece-label">קורסים</div></div>
-    <div class="puzzle-progress">1 מתוך 3 שלבים הושלמו</div>
+    <div class="piece"><div class="piece-dot">3</div><div class="piece-label">השתלמויות</div></div>
+    <div class="piece"><div class="piece-dot">4</div><div class="piece-label">תקופות העסקה</div></div>
+    <div class="puzzle-progress">1 מתוך 4 שלבים הושלמו</div>
   </div>
 </div>
 

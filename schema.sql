@@ -41,13 +41,18 @@ CREATE TABLE IF NOT EXISTS teachers (
     has_seniority_year INTEGER,           -- השלים שנת ותק אחת
     is_pensioner      INTEGER DEFAULT 0,
     in_reform         INTEGER DEFAULT 0,  -- מועסק בתנאי עוז לתמורה
-    reform_start_year TEXT,               -- שנה"ל תחילת העסקה ברפורמה, למשל 'תשע"ב'
+    reform_start_year TEXT,               -- שנה"ל תחילת העסקה ברפורמה, למשל 'תשע"ב' (נגזר אוטומטית מ-reform_start_date)
+    reform_start_date TEXT,               -- תאריך ISO מדויק של ההצטרפות לעוז לתמורה (לתצוגה/הזנה; reform_start_year הוא הנגזרת שהמנוע קורא בפועל)
+    certification_date TEXT,              -- תאריך הסמכה כעובד הוראה מוסמך (מידע בלבד, לא משפיע כרגע על החישוב)
     dual_reform_ofek_hadash INTEGER DEFAULT 0,
     u_pre             REAL DEFAULT 0,     -- יחידות שהוכרו ערב הרפורמה
     h_pre             REAL DEFAULT 0,     -- שעות שנצברו ערב הרפורמה
     has_double_degree_gimul INTEGER DEFAULT 0,  -- כבר קיבל גמול כפל תואר בעבר
+    double_degree_start_date TEXT,              -- החל ממתי מוכר גמול כפל תואר (מידע בלבד)
     has_beinayim_gimul       INTEGER DEFAULT 0, -- כבר קיבל גמול ביניים בעבר (חלופי לכפל תואר)
+    beinayim_start_date      TEXT,              -- החל ממתי מוכר גמול ביניים (מידע בלבד)
     has_additional_double_degree_gimul INTEGER DEFAULT 0, -- "כפל שני"/כפל תואר נוסף - רק בנוסף לכפל תואר
+    additional_double_degree_start_date TEXT,   -- החל ממתי מוכר כפל תואר נוסף (מידע בלבד)
     access_token             TEXT UNIQUE        -- קישור אישי למורה לצפייה/הזנה עצמית, בלי login
 );
 

@@ -1,0 +1,77 @@
+{% extends "my_base.html" %}
+{% block title %}תקופות העסקה — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="hero" style="margin-bottom:20px">
+  <div class="eyebrow">שלב 4 מתוך 4</div>
+  <h1 style="font-size:32px">תקופות העסקה</h1>
+</div>
+
+<div class="doc-layout">
+  <div class="doc-card">
+    <p class="doc-explain">שבתון, חצי-שבתון או חל"ת פוטרים את אותה שנה מהתקרה של יחידה אחת בשנה. סמני אילו שנים חלות עלייך.</p>
+
+    <div class="portal-row">
+      <a class="portal-link" href="https://apps.education.gov.il/Ehr/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
+      <div class="help-wrap">
+        <button type="button" class="help-btn" aria-describedby="help-periods">?</button>
+        <div class="help-tip" id="help-periods">
+          נתוני שבתון/חצי-שבתון/חל"ת מופיעים בפורטל תחת "פרטי העסקה". בקרוב יתאפשר לזהות אותם אוטומטית מקובץ שמועלה כאן.
+        </div>
+      </div>
+      <span class="soon-badge">טעינה אוטומטית בקרוב</span>
+    </div>
+
+    {% if statuses %}
+    <div class="fields-title">מה כבר עדכנת</div>
+    {% for s in statuses %}
+    <div class="field-row">
+      <span class="field-label">{{ s.school_year }} — {{ s.status }}</span>
+      <form method="post" action="{{ url_for('my_delete_status', token=token, school_year=s.school_year) }}" style="margin:0;">
+        <button type="submit" class="btn-danger">מחיקה</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="post" action="{{ url_for('my_add_status', token=token) }}" style="margin-top:18px;">
+      <div class="field-row">
+        <span class="field-label">שנת לימודים</span>
+        <select name="school_year" required>
+          {% for sy in school_years %}<option value="{{ sy }}">{{ sy }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <span class="field-label">סטטוס</span>
+        <select name="status">
+          <option value="רגיל">רגיל</option>
+          <option value="שבתון">שבתון</option>
+          <option value="חצי-שבתון">חצי-שבתון</option>
+          <option value="חלת">חל"ת</option>
+        </select>
+      </div>
+      <div class="doc-nav" style="margin-top:0;">
+        <span></span>
+        <button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">הוספה</button>
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('my_wizard_summary', token=token) }}">
+      <div class="doc-nav">
+        <a class="btn-secondary" href="{{ url_for('my_wizard_courses', token=token) }}">→ הקודם</a>
+        <button type="submit" class="btn-primary">לסיכום ולחישוב ←</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="puzzle-panel">
+    <div class="puzzle-title">התיק שלך מתמלא</div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">פרטי העסקה</div></div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">השכלה</div></div>
+    <div class="piece uploaded"><div class="piece-dot">✓</div><div class="piece-label">השתלמויות</div></div>
+    <div class="piece {% if statuses %}uploaded{% endif %}"><div class="piece-dot">4</div><div class="piece-label">תקופות העסקה</div></div>
+    <div class="puzzle-progress">{% if statuses %}4{% else %}3{% endif %} מתוך 4 שלבים הושלמו</div>
+  </div>
+</div>
+
+{% endblock %}

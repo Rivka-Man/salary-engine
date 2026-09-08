@@ -1,50 +1,65 @@
 {% extends "my_base.html" %}
-{% block title %}העסקה וותק — {{ teacher.full_name }}{% endblock %}
+{% block title %}פרטי העסקה — {{ teacher.full_name }}{% endblock %}
 {% block content %}
 
 <div class="hero" style="margin-bottom:20px">
-  <div class="eyebrow">שלב 1 מתוך 3</div>
-  <h1 style="font-size:28px">העסקה וותק</h1>
+  <div class="eyebrow">שלב 1 מתוך 4</div>
+  <h1 style="font-size:32px">פרטי העסקה</h1>
 </div>
 
 <div class="doc-layout">
   <div class="doc-card">
-    <p class="doc-explain">הפרטים האלה קובעים את התקרה שחלה עלייך (16 / 18 / 19 יחידות) ואת בסיס היחידות שכבר הוכרו לך לפני החישוב הנוכחי. אפשר לעדכן בכל שלב — גם בחזרה לכאן בעתיד.</p>
+
+    <div class="portal-row">
+      <a class="portal-link" href="https://apps.education.gov.il/Ehr/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
+      <div class="help-wrap">
+        <button type="button" class="help-btn" aria-describedby="help-employment">?</button>
+        <div class="help-tip" id="help-employment">
+          תאריך ההצטרפות לעוז לתמורה נמצא בפורטל תחת <strong>"פרטי העסקה" ← "היקף משרה"</strong> — השדה "תאריך הצטרפות לעוז לתמורה". אפשר להוריד את הדף כ-PDF ולהעלות אותו כאן, והתאריך יזוהה אוטומטית.
+        </div>
+      </div>
+      <span class="soon-badge">סרטון הדרכה בקרוב</span>
+    </div>
+
+    <form method="post" action="{{ url_for('my_wizard_employment_import', token=token) }}" enctype="multipart/form-data" style="margin-bottom:22px;">
+      <div class="dropzone">
+        <div class="dz-icon">↑</div>
+        <div class="dz-title">טעינת "היקף משרה" מהפורטל</div>
+        <div class="dz-sub" style="margin-bottom:12px;">מזהה אוטומטית את תאריך ההצטרפות לעוז לתמורה. לא חובה — אפשר גם למלא ידנית למטה.</div>
+        <input type="file" name="pdf_file" accept="application/pdf" style="margin-bottom:10px;">
+        <div><button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">טעינת קובץ</button></div>
+      </div>
+    </form>
 
     <form method="post" action="{{ url_for('my_wizard_employment', token=token) }}">
       <div class="fields-title">✎ פרטי ההעסקה שלך</div>
 
       <div class="field-row">
-        <span class="field-label">עובד הוראה בפועל ומוסמך</span>
+        <span class="field-label">עובד הוראה מוסמך</span>
         <input type="checkbox" name="is_active_teacher" {% if teacher.is_active_teacher %}checked{% endif %}>
+      </div>
+      <div class="field-row">
+        <span class="field-label">תאריך הסמכה</span>
+        <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
       </div>
       <div class="field-row">
         <span class="field-label">השלימה שנת ותק אחת</span>
         <input type="checkbox" name="has_seniority_year" {% if teacher.has_seniority_year %}checked{% endif %}>
       </div>
       <div class="field-row">
-        <span class="field-label">גמלאית</span>
+        <span class="field-label">גמלאי.ת</span>
         <input type="checkbox" name="is_pensioner" {% if teacher.is_pensioner %}checked{% endif %}>
       </div>
       <div class="field-row">
-        <span class="field-label">מועסקת בתנאי עוז לתמורה</span>
-        <input type="checkbox" name="in_reform" {% if teacher.in_reform %}checked{% endif %}>
+        <span class="field-label">תאריך הצטרפות עוז לתמורה</span>
+        <input type="date" name="reform_start_date" value="{{ teacher.reform_start_date or '' }}">
       </div>
       <div class="field-row">
-        <span class="field-label">שנת תחילה ברפורמת עוז לתמורה</span>
-        <select name="reform_start_year">
-          <option value="">— לא רלוונטי —</option>
-          {% for sy in school_years %}
-          <option value="{{ sy }}" {% if teacher.reform_start_year==sy %}selected{% endif %}>{{ sy }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field-row">
-        <span class="field-label">יחידות שהוכרו ערב הרפורמה</span>
+        <span class="field-label">יחידות שהוכרו לפני תאריך הצטרפות עוז לתמורה</span>
         <input type="number" step="0.01" name="U_pre" value="{{ teacher.u_pre }}">
       </div>
       <div class="field-row">
-        <span class="field-label">שעות שנצברו ערב הרפורמה</span>
+        <span class="field-label">יתרת שעות (טרם תורגמו ליחידה)</span>
         <input type="number" step="0.01" name="H_pre" value="{{ teacher.h_pre }}">
       </div>
 
@@ -57,10 +72,11 @@
 
   <div class="puzzle-panel">
     <div class="puzzle-title">התיק שלך מתמלא</div>
-    <div class="piece uploaded"><div class="piece-dot">1</div><div class="piece-label">העסקה וותק</div></div>
+    <div class="piece uploaded"><div class="piece-dot">1</div><div class="piece-label">פרטי העסקה</div></div>
     <div class="piece"><div class="piece-dot">2</div><div class="piece-label">השכלה</div></div>
-    <div class="piece"><div class="piece-dot">3</div><div class="piece-label">קורסים</div></div>
-    <div class="puzzle-progress">0 מתוך 3 שלבים הושלמו</div>
+    <div class="piece"><div class="piece-dot">3</div><div class="piece-label">השתלמויות</div></div>
+    <div class="piece"><div class="piece-dot">4</div><div class="piece-label">תקופות העסקה</div></div>
+    <div class="puzzle-progress">0 מתוך 4 שלבים הושלמו</div>
   </div>
 </div>
 

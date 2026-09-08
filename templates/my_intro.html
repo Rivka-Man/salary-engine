@@ -1,36 +1,21 @@
 {% extends "my_base.html" %}
-{% block title %}שלום {{ teacher.full_name }} — פנקס הגמול{% endblock %}
+{% block title %}שלום {{ teacher.full_name }} — גמולי השתלמות עוז לתמורה{% endblock %}
 {% block content %}
 
 <div class="hero">
-  <div class="eyebrow">שלום, {{ teacher.full_name.split(' ')[0] }}</div>
-  <h1>מה תרצי לעשות היום?</h1>
-  <p>בחרי את הפעולה המתאימה, ונדריך אותך צעד־צעד. אפשר תמיד לחזור אחורה ולערוך לפני שהחישוב נשלח.</p>
+  <div class="eyebrow">ברוך/ה הבא/ה, {{ teacher.full_name.split(' ')[0] }}</div>
+  <h1>מה תרצה.צי לעשות היום?</h1>
 </div>
 
-<div class="cards">
-  <a class="card primary" href="{{ url_for('my_wizard_employment', token=token) }}">
-    <div class="icon-badge">✓</div>
-    <h3>לעדכן נתונים ולחשב גמול</h3>
-    <p class="desc">נעבור יחד, צעד אחר צעד, על פרטי ההעסקה, ההשכלה והקורסים שלך — והחישוב עצמו יתבצע רק בסוף, אחרי שנעדכן הכל.</p>
-    <div class="card-cta"><span>להתחיל בתהליך</span><span>←</span></div>
-  </a>
-  <a class="card" href="{{ url_for('my_status_quick', token=token) }}">
-    <div class="icon-badge">◐</div>
-    <h3>לעדכן סטטוס תעסוקתי</h3>
-    <p class="desc">מלמדת השנה? במשרה מלאה, בשבתון או בחל"ת? עדכון קצר של שנת הלימודים הנוכחית שלך.</p>
-    <div class="card-cta"><span>לעדכון סטטוס</span><span>←</span></div>
-  </a>
-  <a class="card" href="{{ url_for('my_wizard_courses', token=token) }}">
-    <div class="icon-badge">＋</div>
-    <h3>להוסיף קורס חדש</h3>
-    <p class="desc">סיימת השתלמות או קורס אקדמי? נוסיף אותו לתיק שלך כדי שיובא בחשבון בחישוב הבא.</p>
-    <div class="card-cta"><span>להוספת קורס</span><span>←</span></div>
-  </a>
-</div>
+<a class="card primary" style="max-width:520px;" href="{{ url_for('my_wizard_employment', token=token) }}">
+  <div class="icon-badge">✓</div>
+  <h3 style="font-size:24px;">לעדכן נתונים ולחשב גמול</h3>
+  <p class="desc" style="font-size:15px;">נעבור יחד, צעד אחר צעד, על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך — והחישוב עצמו יתבצע רק בסוף, אחרי שנעדכן הכל.</p>
+  <div class="card-cta" style="font-size:16px;"><span>יאללה, להתחיל בתהליך</span><span>←</span></div>
+</a>
 
 {% if runs %}
-<details style="margin-top:32px;">
+<details style="margin-top:32px; max-width:520px;">
   <summary><span>היסטוריית הרצות קודמות</span><span>⌄</span></summary>
   <div class="trace" style="padding:14px 22px 18px;">
     <table class="mini-ledger">
