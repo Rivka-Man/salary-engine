@@ -6,22 +6,23 @@
 <title>{% block title %}פנקס הגמול{% endblock %}</title>
 <style>
   :root {
-    --ink: #1c2622;
-    --ink-soft: #4c584f;
-    --paper: #eef0e9;
-    --paper-raised: #f8f9f4;
-    --line: rgba(28,38,34,0.14);
-    --line-strong: rgba(28,38,34,0.26);
-    --accent: #1f6f63;
-    --accent-ink: #123f38;
-    --accent-soft: rgba(31,111,99,0.12);
-    --good: #3c7d4f;
-    --good-soft: rgba(60,125,79,0.14);
+    /* פלטת OptyPay: נייבי לזהות/הדגשה, כחול לפעולות, טורקיז ל"תקין"/הצלחה */
+    --ink: #14233F;
+    --ink-soft: #55688A;
+    --paper: #F3F6FB;
+    --paper-raised: #FFFFFF;
+    --line: rgba(11,47,99,0.12);
+    --line-strong: rgba(11,47,99,0.24);
+    --accent: #0EA5E8;
+    --accent-ink: #0B2F63;
+    --accent-soft: rgba(14,165,232,0.12);
+    --good: #0E9E84;
+    --good-soft: rgba(14,158,132,0.14);
     --warn: #9c6f1f;
     --warn-soft: rgba(156,111,31,0.14);
     --critical: #a3392c;
     --critical-soft: rgba(163,57,44,0.13);
-    --shadow: 0 1px 2px rgba(28,38,34,0.05), 0 10px 28px -16px rgba(28,38,34,0.22);
+    --shadow: 0 1px 2px rgba(11,47,99,0.05), 0 10px 28px -16px rgba(11,47,99,0.22);
   }
   * { box-sizing: border-box; }
   body {
@@ -40,7 +41,8 @@
   .masthead { display: flex; flex-direction: column; gap: 0.9rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line-strong); }
   .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--accent-ink); text-transform: uppercase; font-weight: 600; }
   .masthead-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
-  .brand { font-size: 1.6rem; font-weight: 600; text-decoration: none; color: var(--ink); }
+  .brand { display: flex; align-items: center; gap: 0.6rem; font-size: 1.6rem; font-weight: 600; text-decoration: none; color: var(--ink); }
+  .brand img { height: 34px; width: auto; }
   .top-nav a {
     text-decoration: none; font-size: 0.85rem; font-weight: 600; color: var(--accent-ink);
     background: var(--accent-soft); padding: 0.5rem 0.9rem; border-radius: 6px;
@@ -131,9 +133,9 @@
     <div class="eyebrow">מנוע חישוב גמול השתלמות · הסכם עוז לתמורה</div>
     <div class="masthead-row">
       {% if hide_admin_nav %}
-      <span class="brand display">פנקס הגמול</span>
+      <span class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</span>
       {% else %}
-      <a href="{{ url_for('index') }}" class="brand display">פנקס הגמול</a>
+      <a href="{{ url_for('index') }}" class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</a>
       <nav class="top-nav"><a href="{{ url_for('new_teacher') }}">+ מורה חדש</a></nav>
       {% endif %}
     </div>

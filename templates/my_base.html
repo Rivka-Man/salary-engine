@@ -8,13 +8,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700;900&family=Assistant:wght@400;500;600;700;800&family=Heebo:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1F3A3D; --ink-soft:#3C5457;
-    --paper:#F6F2E9; --paper-raised:#FFFFFF;
-    --gold:#B3862B; --gold-soft:#E9D9AE; --gold-bg:#FBF6E9;
-    --teal:#2D6E6E; --teal-soft:#DCEAE8; --teal-bg:#F1F8F7;
+    /* פלטת OptyPay: נייבי לזהות/הדגשה, כחול לפעולות, טורקיז ל"הושלם"/הצלחה */
+    --ink:#0B2F63; --ink-soft:#5A7196;
+    --paper:#F4F7FB; --paper-raised:#FFFFFF;
+    --gold:#0B2F63; --gold-soft:#D7E4F6; --gold-bg:#EFF4FC;
+    --teal:#0EA5E8; --teal-soft:#CFEBFB; --teal-bg:#EFF9FE;
+    --brand-teal:#14BFA8; --brand-teal-soft:#CDF3EC;
     --amber:#B3701F; --amber-soft:#F0DDB8; --amber-bg:#FBF3E4;
     --critical:#a3392c; --critical-soft:#f3ddd8;
-    --line:#E3DCC9; --shadow:0 12px 30px -14px rgba(31,58,61,0.28);
+    --line:#DCE4F0; --shadow:0 12px 30px -14px rgba(11,47,99,0.24);
   }
   *{ box-sizing:border-box; }
   body{ margin:0; background:var(--paper); color:var(--ink); font-family:'Assistant',sans-serif; min-height:100vh; }
@@ -23,16 +25,16 @@
 
   .brandbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:30px; }
   .brand{ display:flex; align-items:center; gap:12px; }
-  .seal{ width:40px;height:40px;border-radius:50%; background:var(--teal); display:flex;align-items:center;justify-content:center; color:var(--paper); font-family:'Frank Ruhl Libre',serif; font-weight:700; font-size:17px; flex-shrink:0; box-shadow:0 0 0 3px var(--paper),0 0 0 4px var(--teal-soft); }
+  .logo-img{ height:38px; width:auto; flex-shrink:0; }
   .brand-name{ font-family:'Heebo',sans-serif; font-size:14px; color:var(--ink-soft); }
 
   .journey{ display:flex; align-items:center; gap:4px; margin-bottom:40px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; }
   .jstep{ display:flex; align-items:center; gap:7px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; color:var(--ink-soft); white-space:nowrap; flex-shrink:0; }
   .jdot{ width:28px;height:28px;border-radius:50%; background:var(--line); color:var(--ink-soft); display:flex;align-items:center;justify-content:center; font-size:13.5px; font-weight:700; flex-shrink:0; }
-  .jdot.done{ background:var(--teal); color:#fff; }
+  .jdot.done{ background:var(--brand-teal); color:#fff; }
   .jdot.active{ background:var(--gold); color:#fff; }
   .jline{ width:20px; height:2px; background:var(--line); flex-shrink:0; }
-  .jline.filled{ background:var(--teal); }
+  .jline.filled{ background:var(--brand-teal); }
   @media (max-width:720px){ .jstep span{ display:none; } }
 
   .eyebrow{ font-family:'Heebo',sans-serif; font-size:20px; font-weight:700; color:var(--gold); letter-spacing:.02em; display:flex; align-items:center; gap:10px; margin-bottom:16px; }
@@ -97,9 +99,9 @@
   .puzzle-panel{ background:var(--paper-raised); border:1px solid var(--line); border-radius:18px; padding:20px 18px; box-shadow:var(--shadow); position:sticky; top:20px; }
   .puzzle-title{ font-family:'Heebo',sans-serif; font-weight:600; font-size:13.5px; color:var(--ink-soft); margin-bottom:14px; }
   .piece{ display:flex; align-items:center; gap:10px; padding:11px 10px; border-radius:10px; border:1.5px dashed var(--line); margin-bottom:10px; background:var(--paper); }
-  .piece.uploaded{ border-style:solid; border-color:var(--teal-soft); background:var(--teal-bg); }
+  .piece.uploaded{ border-style:solid; border-color:var(--brand-teal-soft); background:var(--brand-teal-soft); }
   .piece-dot{ width:26px;height:26px; border-radius:8px; background:var(--line); color:var(--ink-soft); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
-  .piece.uploaded .piece-dot{ background:var(--teal); color:#fff; }
+  .piece.uploaded .piece-dot{ background:var(--brand-teal); color:#fff; }
   .piece-label{ font-size:12.5px; color:var(--ink-soft); line-height:1.4; }
   .piece.uploaded .piece-label{ color:var(--ink); }
   .puzzle-progress{ font-family:'Heebo',sans-serif; font-size:12px; color:var(--ink-soft); margin-top:6px; text-align:center; }
@@ -144,7 +146,7 @@
 <div class="wrap">
   <div class="brandbar">
     <div class="brand">
-      <div class="seal">ג</div>
+      <img class="logo-img" src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay">
       <div class="brand-name">גמולי השתלמות עוז לתמורה</div>
     </div>
   </div>
