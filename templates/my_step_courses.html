@@ -9,31 +9,10 @@
 
 <div class="doc-layout">
   <div class="doc-card">
-    <p class="doc-explain">כל אישורי הקורסים וההשתלמויות שסיימת, כולל שעות לימוד מצטברות. אפשר להעלות את הקובץ מהפורטל ("הקורסים שלי" ← הדפסה ← שמירה כ-PDF) ונחלץ את הנתונים אוטומטית — או להוסיף קורס בודד ידנית.</p>
+    <p class="doc-explain">כל אישורי הקורסים וההשתלמויות שסיימת. אם טענת את "הקורסים שלי" בשלב הראשון — הרשימה כבר מולאה; בדקי אותה, מחקי מה שלא רלוונטי, והוסיפי ידנית קורס שחסר.</p>
 
-    <div class="portal-row">
-      <a class="portal-link" href="https://poh.education.gov.il/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
-      <div class="help-wrap">
-        <button type="button" class="help-btn" aria-describedby="help-courses">?</button>
-        <div class="help-tip" id="help-courses">
-          בפורטל: "פיתוח מקצועי והדרכה" ← "הקורסים שלי" ← כפתור "הדפס" ← לבחור יעד הדפסה "שמירה כ-PDF".
-        </div>
-      </div>
-      <span class="soon-badge">סרטון הדרכה בקרוב</span>
-    </div>
-
-    <form method="post" action="{{ url_for('my_import_parse', token=token) }}" enctype="multipart/form-data">
-      <div class="dropzone">
-        <div class="dz-icon">↑</div>
-        <div class="dz-title">העלאת קובץ הקורסים מהפורטל</div>
-        <div class="dz-sub" style="margin-bottom:12px;">קובץ PDF שהופק מ"הקורסים שלי" בפורטל עו"ה</div>
-        <input type="file" name="pdf_file" accept="application/pdf" required style="margin-bottom:12px;">
-        <div><button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">טעינת קובץ</button></div>
-      </div>
-    </form>
-
-    <details style="margin-top:16px; box-shadow:none;">
-      <summary style="font-size:13px; color:var(--ink-soft);"><span>או הוספת קורס בודד ידנית</span><span>⌄</span></summary>
+    <details style="margin-top:4px; box-shadow:none;">
+      <summary style="font-size:13px; color:var(--ink-soft);"><span>הוספת קורס בודד ידנית</span><span>⌄</span></summary>
       <form method="post" action="{{ url_for('my_add_course', token=token) }}" style="padding:14px 22px 18px; display:flex; flex-direction:column; gap:10px;">
         <div class="field-row"><span class="field-label">תיאור קורס</span><input type="text" name="description"></div>
         <div class="field-row"><span class="field-label">מתאריך *</span><input type="date" name="start_date" required></div>

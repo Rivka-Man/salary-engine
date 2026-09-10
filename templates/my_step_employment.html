@@ -10,24 +10,27 @@
 <div class="doc-layout">
   <div class="doc-card">
 
+    <p class="doc-explain">לנוחיותך, טען את שלושת הקבצים הבאים מפורטל עובד הוראה של משרד החינוך — המערכת תוציא מהם את המידע ותחסוך לך את הצורך בהזנה ידנית.</p>
+
     <div class="portal-row">
       <a class="portal-link" href="https://poh.education.gov.il/" target="_blank" rel="noopener">↗ מעבר לפורטל עובדי הוראה</a>
       <div class="help-wrap">
         <button type="button" class="help-btn" aria-describedby="help-employment">?</button>
         <div class="help-tip" id="help-employment">
-          תאריך ההצטרפות לעוז לתמורה נמצא בפורטל תחת <strong>"פרטי העסקה" ← "היקף משרה"</strong> — השדה "תאריך הצטרפות לעוז לתמורה". אפשר להוריד את הדף כ-PDF ולהעלות אותו כאן, והתאריך יזוהה אוטומטית.
+          כל קובץ מופק בפורטל דרך כפתור "הדפס" ← יעד הדפסה "שמירה כ-PDF". מכתב העסקה: "פרטי העסקה" ← "מכתב נתוני העסקה". היקף משרה: "פרטי העסקה" ← "היקף משרה". הקורסים שלי: "פיתוח מקצועי והדרכה" ← "הקורסים שלי".
         </div>
       </div>
       <span class="soon-badge">סרטון הדרכה בקרוב</span>
     </div>
 
-    <form method="post" action="{{ url_for('my_wizard_employment_import', token=token) }}" enctype="multipart/form-data" style="margin-bottom:22px;">
-      <div class="dropzone">
-        <div class="dz-icon">↑</div>
-        <div class="dz-title">טעינת "היקף משרה" מהפורטל</div>
-        <div class="dz-sub" style="margin-bottom:12px;">מזהה אוטומטית את תאריך ההצטרפות לעוז לתמורה. לא חובה — אפשר גם למלא ידנית למטה.</div>
-        <input type="file" name="pdf_file" accept="application/pdf" style="margin-bottom:10px;">
-        <div><button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">טעינת קובץ</button></div>
+    <form method="post" action="{{ url_for('my_wizard_docs_upload', token=token) }}" enctype="multipart/form-data" style="margin-bottom:22px;">
+      <div class="dropzone" style="text-align:right;">
+        <div class="dz-title" style="margin-bottom:14px; text-align:center;">רשימת הקבצים הנדרשים</div>
+        <div class="field-row"><span class="field-label">1. מכתב העסקה</span><input type="file" name="file_maktav" accept="application/pdf"></div>
+        <div class="field-row"><span class="field-label">2. היקף משרה</span><input type="file" name="file_heikef" accept="application/pdf"></div>
+        <div class="field-row"><span class="field-label">3. הקורסים שלי</span><input type="file" name="file_courses" accept="application/pdf"></div>
+        <div style="text-align:center; margin-top:14px;"><button type="submit" class="btn-primary" style="padding:10px 24px; font-size:14px;">טעינת הקבצים</button></div>
+        <div class="dz-sub" style="margin-top:8px; text-align:center;">אפשר לטעון קובץ אחד, שניים או שלושה — ולהשלים את השאר ידנית למטה.</div>
       </div>
     </form>
 

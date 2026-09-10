@@ -49,8 +49,85 @@ def _split_name_institution(tokens):
 
 
 def _to_iso_date(ddmmyyyy):
-    d, m, y = ddmmyyyy.split("/")
-    return f"{y}-{m}-{d}"
+    parts = re.split(r"[/.]", ddmmyyyy.strip("."))
+    d, m, y = parts[0], parts[1], parts[2]
+    return f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+
+
+# --- פענוח "מכתב העסקה" ---
+# הגופן במכתב ההעסקה שמור בלי מיפוי Unicode תקין, ו-pdfplumber מוציא רק
+# קודי glyph גולמיים בצורת "(cid:N)". התברר שהמיפוי לינארי וקבוע:
+# codepoint = cid + 1334 עבור כל אותיות עברית (U+05D0..U+05EA), כלומר
+# ניתן לפענח כל אות. תווי הגלִיף מסודרים בסדר ויזואלי (הפוך ללוגי), לכן
+# הופכים כל רצף עברית אחרי הפענוח. מספרים/תאריכים מחולצים כרגיל.
+_CID_RE = re.compile(r"\(cid:(\d+)\)")
+_MAKTAV_DATE_RE = re.compile(r"^\.?\d{1,2}/\d{1,2}/\d{4}$")
+
+
+def _cid_char(n):
+    n = int(n)
+    if 154 <= n <= 180:
+        return chr(n + 1334)
+    return ""  # תווים שאינם עברית (מרכאות, סימני RTL) - מושמטים
+
+
+def _decode_maktav(text):
+    s = _CID_RE.sub(lambda m: _cid_char(m.group(1)), text)
+    # היפוך רצפי עברית (ויזואלי -> לוגי)
+    return re.sub(r"[֐-׿]+", lambda mm: mm.group(0)[::-1], s)
+
+
+def _maktav_rows(pdf):
+    """מחזיר לכל עמוד רשימת שורות; כל שורה = list של (x0, decoded_text)
+    ממוינת מימין לשמאל (x0 יורד)."""
+    for page in pdf.pages:
+        words = page.extract_words(use_text_flow=False, keep_blank_chars=False)
+        buckets = {}
+        for w in words:
+            if w["text"] == "!":
+                continue
+            key = round(w["top"] / 4) * 4
+            dec = _decode_maktav(w["text"])
+            if dec.strip():
+                buckets.setdefault(key, []).append((w["x0"], dec))
+        for key in sorted(buckets):
+            yield sorted(buckets[key], key=lambda t: -t[0])
+
+
+def parse_maktav_haasaka_pdf(file_path_or_buffer):
+    """
+    שולף מ"מכתב העסקה" (מהפורטל) את:
+      - certification_date: התאריך שאחרי "מורה מוסמך מתאריך:"
+      - double_degree_start_date: "החל מ" בשורת "כפל תואר"
+      - additional_double_degree_start_date: בשורת "כפל תואר נוסף"
+      - beinayim_start_date: בשורת "גמול ביניים"
+    מחזיר dict רק עם המפתחות שנמצאו.
+    """
+    found = {}
+    with pdfplumber.open(file_path_or_buffer) as pdf:
+        for row in _maktav_rows(pdf):
+            joined = " ".join(t for _, t in row)
+            dates = [t.strip(".") for _, t in row if _MAKTAV_DATE_RE.match(t)]
+
+            if "certification_date" not in found and "מוסמך" in joined and "מתאריך" in joined and dates:
+                found["certification_date"] = _to_iso_date(dates[-1])
+
+            # שורות טבלת "הנושא": התווית בעמודה הימנית ביותר (x0 גבוה)
+            label = " ".join(t for _, t in row[:3])
+            date_hachel = None
+            # "החל מ" הוא עמודת התאריך עם ה-x0 הגבוה מבין תאריכי השורה
+            row_dates = [(x0, t.strip(".")) for x0, t in row if _MAKTAV_DATE_RE.match(t)]
+            if row_dates:
+                date_hachel = max(row_dates, key=lambda p: p[0])[1]
+
+            if date_hachel:
+                if "כפל" in label and "תואר" in label and "נוסף" in label:
+                    found.setdefault("additional_double_degree_start_date", _to_iso_date(date_hachel))
+                elif "כפל" in label and "תואר" in label:
+                    found.setdefault("double_degree_start_date", _to_iso_date(date_hachel))
+                elif "ביניים" in label or "בינים" in label:
+                    found.setdefault("beinayim_start_date", _to_iso_date(date_hachel))
+    return found
 
 
 def parse_heikef_misra_pdf(file_path_or_buffer):

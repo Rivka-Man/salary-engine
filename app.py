@@ -12,7 +12,7 @@ from flask import Flask, flash, redirect, render_template, request, url_for
 
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
-from pdf_import import parse_courses_pdf, parse_heikef_misra_pdf
+from pdf_import import parse_courses_pdf, parse_heikef_misra_pdf, parse_maktav_haasaka_pdf
 
 app = Flask(__name__)
 app.secret_key = "salary-engine-local-dev"
@@ -460,16 +460,11 @@ def regenerate_link(teacher_id):
 def my_dashboard(token):
     conn = get_conn()
     teacher = get_teacher_by_token(conn, token)
+    conn.close()
     if not teacher:
-        conn.close()
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-    runs = conn.execute(
-        "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC LIMIT 10",
-        (teacher["teacher_id"],),
-    ).fetchall()
-    conn.close()
-    return render_template("my_intro.html", token=token, teacher=teacher, runs=runs, journey_step=0)
+    return render_template("my_intro.html", token=token, teacher=teacher, journey_step=0)
 
 
 @app.route("/my/<token>/wizard/employment", methods=["GET", "POST"])
@@ -517,71 +512,101 @@ def my_wizard_employment(token):
     )
 
 
-@app.route("/my/<token>/wizard/employment/import", methods=["POST"])
-def my_wizard_employment_import(token):
+@app.route("/my/<token>/wizard/docs", methods=["POST"])
+def my_wizard_docs_upload(token):
+    """
+    טעינה מרוכזת של שלושת קובצי הפורטל בשלב 1: מכתב העסקה, היקף משרה,
+    הקורסים שלי. כל קובץ עובר לפרסר המתאים לו והנתונים נשמרים; מה שלא
+    זוהה נשאר להזנה ידנית בהמשך.
+    """
     conn = get_conn()
     teacher = get_teacher_by_token(conn, token)
     if not teacher:
         conn.close()
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
+    tid = teacher["teacher_id"]
+    ok, errs = [], []
 
-    uploaded = request.files.get("pdf_file")
-    if not uploaded or not uploaded.filename:
-        conn.close()
-        flash("יש לבחור קובץ PDF.", "error")
-        return redirect(url_for("my_wizard_employment", token=token))
+    f = request.files.get("file_heikef")
+    if f and f.filename:
+        try:
+            found = parse_heikef_misra_pdf(io.BytesIO(f.read()))
+            if found.get("reform_start_date"):
+                d = found["reform_start_date"]
+                conn.execute(
+                    "UPDATE teachers SET reform_start_date=%s, reform_start_year=%s WHERE teacher_id=%s",
+                    (d, school_year_of(d), tid),
+                )
+                ok.append(f"היקף משרה: תאריך הצטרפות לעוז לתמורה — {d}")
+            else:
+                errs.append("היקף משרה: לא זוהה תאריך הצטרפות. ודאי שזה קובץ \"היקף משרה\" מהפורטל.")
+        except Exception as exc:
+            errs.append(f"היקף משרה: לא הצלחתי לקרוא את הקובץ ({exc}).")
 
-    try:
-        found = parse_heikef_misra_pdf(io.BytesIO(uploaded.read()))
-    except Exception as exc:
-        conn.close()
-        flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
-        return redirect(url_for("my_wizard_employment", token=token))
+    f = request.files.get("file_maktav")
+    if f and f.filename:
+        try:
+            found = parse_maktav_haasaka_pdf(io.BytesIO(f.read()))
+            sets, params = [], []
+            if found.get("certification_date"):
+                sets.append("certification_date=%s"); params.append(found["certification_date"])
+                ok.append(f"מכתב העסקה: תאריך הסמכה — {found['certification_date']}")
+            for key, col, label in (
+                ("double_degree_start_date", "double_degree_start_date", "כפל תואר"),
+                ("additional_double_degree_start_date", "additional_double_degree_start_date", "כפל תואר נוסף"),
+                ("beinayim_start_date", "beinayim_start_date", "גמול ביניים"),
+            ):
+                if found.get(key):
+                    flag = {"double_degree_start_date": "has_double_degree_gimul",
+                            "additional_double_degree_start_date": "has_additional_double_degree_gimul",
+                            "beinayim_start_date": "has_beinayim_gimul"}[col]
+                    sets.append(f"{col}=%s"); params.append(found[key])
+                    sets.append(f"{flag}=1")
+                    ok.append(f"מכתב העסקה: {label} — החל מ-{found[key]}")
+            if sets:
+                params.append(tid)
+                conn.execute(f"UPDATE teachers SET {', '.join(sets)} WHERE teacher_id=%s", tuple(params))
+            if not found:
+                errs.append("מכתב העסקה: לא זוהו נתונים. ודאי שזה קובץ \"מכתב נתוני העסקה\" מהפורטל.")
+        except Exception as exc:
+            errs.append(f"מכתב העסקה: לא הצלחתי לקרוא את הקובץ ({exc}).")
 
-    reform_start_date = found.get("reform_start_date")
-    if not reform_start_date:
-        conn.close()
-        flash("לא זוהה בקובץ תאריך הצטרפות לעוז לתמורה. ודאי שזה קובץ \"היקף משרה\" מהפורטל, או מלאי את התאריך ידנית.", "error")
-        return redirect(url_for("my_wizard_employment", token=token))
+    f = request.files.get("file_courses")
+    if f and f.filename:
+        try:
+            rows = parse_courses_pdf(io.BytesIO(f.read()))
+            if rows:
+                conn.execute("DELETE FROM courses WHERE teacher_id=%s", (tid,))
+                for r in rows:
+                    try:
+                        sy = school_year_of(r["start_date"])
+                    except Exception:
+                        sy = None
+                    conn.execute(
+                        """
+                        INSERT INTO courses
+                        (teacher_id, start_date, school_year, hours, source_type, graded, grade,
+                         pre_approved, is_advanced_degree_track)
+                        VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
+                        """,
+                        (tid, r["start_date"], sy, float(r["hours"]), r.get("source_type_guess", "other")),
+                    )
+                ok.append(f"הקורסים שלי: נטענו {len(rows)} קורסים (מחליפים את הרשימה הקודמת).")
+            else:
+                errs.append("הקורסים שלי: לא זוהו קורסים. ודאי שזה קובץ \"הקורסים שלי\" מהפורטל.")
+        except Exception as exc:
+            errs.append(f"הקורסים שלי: לא הצלחתי לקרוא את הקובץ ({exc}).")
 
-    conn.execute(
-        "UPDATE teachers SET reform_start_date=%s, reform_start_year=%s WHERE teacher_id=%s",
-        (reform_start_date, school_year_of(reform_start_date), teacher["teacher_id"]),
-    )
     conn.commit()
     conn.close()
-    flash(f"זוהה תאריך הצטרפות לעוז לתמורה: {reform_start_date}. אפשר לתקן למטה אם צריך.", "success")
+    if not ok and not errs:
+        flash("לא נבחר אף קובץ.", "error")
+    if ok:
+        flash("נטען בהצלחה — " + " · ".join(ok), "success")
+    for e in errs:
+        flash(e, "error")
     return redirect(url_for("my_wizard_employment", token=token))
-
-
-@app.route("/my/<token>/wizard/education/import", methods=["POST"])
-def my_wizard_education_import(token):
-    """
-    קליטת "מכתב נתוני העסקה" בשלב ההשכלה. בניגוד ל"היקף משרה" (שיש לנו
-    ממנה דוגמה אמיתית ופרסר עובד - my_wizard_employment_import), עדיין
-    אין לנו דוגמה אמיתית של המכתב הזה, ולכן אין כאן עדיין זיהוי אוטומטי
-    אמיתי - רק קליטת הקובץ ותשובה כנה. ברגע שתגיע דוגמה אמיתית, ייבנה
-    כאן פרסר אמיתי באותו אופן.
-    """
-    conn = get_conn()
-    teacher = get_teacher_by_token(conn, token)
-    conn.close()
-    if not teacher:
-        flash("קישור לא תקין.", "error")
-        return redirect(url_for("index"))
-
-    uploaded = request.files.get("pdf_file")
-    if not uploaded or not uploaded.filename:
-        flash("יש לבחור קובץ PDF.", "error")
-        return redirect(url_for("my_wizard_education", token=token))
-
-    flash(
-        "הקובץ נקלט, אבל עדיין אין לנו דוגמה של \"מכתב נתוני העסקה\" כדי לדעת אילו "
-        "נתונים לחפש בו - נא למלא ידנית למטה בינתיים.",
-        "error",
-    )
-    return redirect(url_for("my_wizard_education", token=token))
 
 
 @app.route("/my/<token>/wizard/education", methods=["GET", "POST"])

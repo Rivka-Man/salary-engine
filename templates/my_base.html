@@ -28,14 +28,13 @@
   .logo-img{ height:38px; width:auto; flex-shrink:0; }
   .brand-name{ font-family:'Heebo',sans-serif; font-size:14px; color:var(--ink-soft); }
 
-  .journey{ display:flex; align-items:center; gap:4px; margin-bottom:40px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; }
-  .jstep{ display:flex; align-items:center; gap:7px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; color:var(--ink-soft); white-space:nowrap; flex-shrink:0; }
+  .journey{ display:flex; align-items:center; gap:4px; margin-bottom:38px; width:100%; max-width:600px; }
+  .jstep{ display:flex; align-items:center; gap:8px; font-family:'Heebo',sans-serif; font-size:14px; font-weight:600; color:var(--ink-soft); white-space:nowrap; flex-shrink:0; }
   .jdot{ width:28px;height:28px;border-radius:50%; background:var(--line); color:var(--ink-soft); display:flex;align-items:center;justify-content:center; font-size:13.5px; font-weight:700; flex-shrink:0; }
   .jdot.done{ background:var(--brand-teal); color:#fff; }
   .jdot.active{ background:var(--gold); color:#fff; }
-  .jline{ width:20px; height:2px; background:var(--line); flex-shrink:0; }
+  .jline{ flex:1; min-width:12px; height:2px; background:var(--line); }
   .jline.filled{ background:var(--brand-teal); }
-  @media (max-width:720px){ .jstep span{ display:none; } }
 
   .eyebrow{ font-family:'Heebo',sans-serif; font-size:20px; font-weight:700; color:var(--gold); letter-spacing:.02em; display:flex; align-items:center; gap:10px; margin-bottom:16px; }
   .eyebrow::before{ content:""; width:26px; height:2px; background:var(--gold); display:inline-block; }
@@ -153,15 +152,14 @@
 
   {% if journey_step is defined %}
   <div class="journey">
-    {% set labels = ['שלום','פרטי העסקה','השכלה','השתלמויות','תקופות העסקה','סיכום'] %}
-    {% for label in labels %}
+    {% for i in range(6) %}
     <div class="jstep">
-      <div class="jdot {% if loop.index0 < journey_step %}done{% elif loop.index0 == journey_step %}active{% endif %}">
-        {% if loop.index0 < journey_step %}✓{% else %}{{ loop.index }}{% endif %}
+      <div class="jdot {% if i < journey_step %}done{% elif i == journey_step %}active{% endif %}">
+        {% if i == 0 %}★{% elif i < journey_step %}✓{% else %}{{ i }}{% endif %}
       </div>
-      <span>{{ label }}</span>
+      {% if i == 0 and teacher %}<span>שלום, {{ teacher.full_name.split(' ')[0] }}</span>{% endif %}
     </div>
-    {% if not loop.last %}<div class="jline {% if loop.index0 < journey_step %}filled{% endif %}"></div>{% endif %}
+    {% if i < 5 %}<div class="jline {% if i < journey_step %}filled{% endif %}"></div>{% endif %}
     {% endfor %}
   </div>
   {% endif %}
