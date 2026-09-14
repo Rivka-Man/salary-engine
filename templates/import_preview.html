@@ -43,6 +43,8 @@
               <th>תאריך תחילה</th>
               <th>תאריך סיום</th>
               <th>שעות</th>
+              <th>היקף שעות עם ציון</th>
+              <th>היקף שעות בלי ציון</th>
               <th>סוג מקור</th>
             </tr>
           </thead>
@@ -53,8 +55,10 @@
               <td class="label-col">{{ r.name }}</td>
               <td class="label-col">{{ r.institution }}</td>
               <td class="narrow"><input class="mini-input" type="date" name="start_date_{{ loop.index0 }}" value="{{ r.start_date }}"></td>
-              <td class="narrow mono">{{ r.end_date }}</td>
+              <td class="narrow mono">{{ r.end_date | dmy }}</td>
               <td class="narrow"><input class="mini-input" type="number" step="0.01" name="hours_{{ loop.index0 }}" value="{{ r.hours }}"></td>
+              <td class="narrow"><input class="mini-input" type="number" step="0.01" name="hours_graded_{{ loop.index0 }}" value="{{ r.hours_graded }}"></td>
+              <td class="narrow"><input class="mini-input" type="number" step="0.01" name="hours_ungraded_{{ loop.index0 }}" value="{{ r.hours_ungraded }}"></td>
               <td class="narrow">
                 <select class="mini-input" name="source_type_{{ loop.index0 }}">
                   {% for val, label in source_type_labels.items() %}

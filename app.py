@@ -51,6 +51,17 @@ def format_number(value):
         return value
     return int(rounded) if rounded == int(rounded) else rounded
 
+
+@app.template_filter("dmy")
+def format_date_dmy(value):
+    """תאריך ISO (YYYY-MM-DD) -> DD/MM/YYYY לתצוגה. ערך ריק/לא-תאריך עובר כמו שהוא."""
+    if not value:
+        return value
+    s = str(value)[:10]
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", s)
+    return f"{m.group(3)}/{m.group(2)}/{m.group(1)}" if m else value
+
+
 SOURCE_TYPE_LABELS = {
     "academic": "אקדמי",
     "school_based": "השתלמות בית ספרית",
@@ -331,18 +342,22 @@ def import_courses_confirm(teacher_id):
             sy = school_year_of(start_date)
         except Exception:
             sy = None
+        hg = request.form.get(f"hours_graded_{i}") or None
+        hu = request.form.get(f"hours_ungraded_{i}") or None
         conn.execute(
             """
             INSERT INTO courses
-            (teacher_id, start_date, school_year, hours, source_type, graded, grade,
-             pre_approved, is_advanced_degree_track)
-            VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
+            (teacher_id, start_date, school_year, hours, hours_graded, hours_ungraded,
+             source_type, graded, grade, pre_approved, is_advanced_degree_track)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0)
             """,
             (
                 teacher_id,
                 start_date,
                 sy,
                 float(hours),
+                float(hg) if hg else None,
+                float(hu) if hu else None,
                 request.form.get(f"source_type_{i}", "other"),
             ),
         )
@@ -464,7 +479,7 @@ def my_dashboard(token):
     if not teacher:
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-    return render_template("my_intro.html", token=token, teacher=teacher, journey_step=0)
+    return render_template("my_intro.html", token=token, teacher=teacher, journey_step=-1)
 
 
 @app.route("/my/<token>/wizard/employment", methods=["GET", "POST"])
@@ -508,7 +523,7 @@ def my_wizard_employment(token):
     conn.close()
     return render_template(
         "my_step_employment.html", token=token, teacher=teacher,
-        school_years=SCHOOL_YEARS, journey_step=1,
+        school_years=SCHOOL_YEARS, journey_step=0,
     )
 
 
@@ -586,11 +601,13 @@ def my_wizard_docs_upload(token):
                     conn.execute(
                         """
                         INSERT INTO courses
-                        (teacher_id, start_date, school_year, hours, source_type, graded, grade,
-                         pre_approved, is_advanced_degree_track)
-                        VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
+                        (teacher_id, start_date, school_year, hours, hours_graded, hours_ungraded,
+                         source_type, graded, grade, pre_approved, is_advanced_degree_track)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0)
                         """,
-                        (tid, r["start_date"], sy, float(r["hours"]), r.get("source_type_guess", "other")),
+                        (tid, r["start_date"], sy, float(r["hours"]),
+                         r.get("hours_graded"), r.get("hours_ungraded"),
+                         r.get("source_type_guess", "other")),
                     )
                 ok.append(f"הקורסים שלי: נטענו {len(rows)} קורסים (מחליפים את הרשימה הקודמת).")
             else:
@@ -642,7 +659,7 @@ def my_wizard_education(token):
         return redirect(url_for("my_wizard_courses", token=token))
 
     conn.close()
-    return render_template("my_step_education.html", token=token, teacher=teacher, journey_step=2)
+    return render_template("my_step_education.html", token=token, teacher=teacher, journey_step=1)
 
 
 @app.route("/my/<token>/wizard/courses", methods=["GET"])
@@ -659,7 +676,7 @@ def my_wizard_courses(token):
     conn.close()
     return render_template(
         "my_step_courses.html", token=token, teacher=teacher, courses=courses,
-        source_type_labels=SOURCE_TYPE_LABELS, journey_step=3,
+        source_type_labels=SOURCE_TYPE_LABELS, journey_step=2,
     )
 
 
@@ -678,7 +695,7 @@ def my_wizard_periods(token):
     conn.close()
     return render_template(
         "my_step_periods.html", token=token, teacher=teacher, statuses=statuses,
-        school_years=SCHOOL_YEARS, journey_step=4,
+        school_years=SCHOOL_YEARS, journey_step=3,
     )
 
 
@@ -697,7 +714,7 @@ def my_wizard_summary(token):
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
         return redirect(url_for("my_wizard_periods", token=token))
     return render_template(
-        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=5,
+        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=4,
     )
 
 
@@ -718,7 +735,7 @@ def my_view_run(token, run_id):
         flash("הרצה לא נמצאה.", "error")
         return redirect(url_for("my_dashboard", token=token))
     result = json.loads(run["result_json"])
-    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=5)
+    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=4)
 
 
 @app.route("/my/<token>/courses", methods=["POST"])
@@ -730,8 +747,10 @@ def my_add_course(token):
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
     start_date = request.form.get("start_date")
-    hours, graded = parse_course_hours(request.form)
-    if not start_date or hours is None:
+    hg = float(request.form.get("hours_graded") or 0)
+    hu = float(request.form.get("hours_ungraded") or 0)
+    total = hg + hu
+    if not start_date or total <= 0:
         conn.close()
         flash("יש למלא תאריך תחילה ושעות (עם ציון או בלי ציון).", "error")
         return redirect(url_for("my_wizard_courses", token=token))
@@ -743,9 +762,9 @@ def my_add_course(token):
     conn.execute(
         """
         INSERT INTO courses
-        (teacher_id, start_date, end_date, description, school_year, hours, source_type, graded, grade,
-         pre_approved, is_advanced_degree_track)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (teacher_id, start_date, end_date, description, school_year, hours, hours_graded, hours_ungraded,
+         source_type, graded, grade, pre_approved, is_advanced_degree_track)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             teacher["teacher_id"],
@@ -753,10 +772,12 @@ def my_add_course(token):
             request.form.get("end_date") or None,
             request.form.get("description") or None,
             sy,
-            hours,
+            total,
+            hg or None,
+            hu or None,
             request.form.get("source_type", "academic"),
-            graded,
-            float(grade) if (graded and grade) else None,
+            1 if hg > 0 else 0,
+            float(grade) if (hg > 0 and grade) else None,
             1 if request.form.get("pre_approved") else 0,
             1 if request.form.get("is_advanced_degree_track") else 0,
         ),
@@ -882,7 +903,7 @@ def my_import_parse(token):
         earliest_school_year=earliest_school_year,
         form_action=url_for("my_import_confirm", token=token),
         cancel_url=url_for("my_wizard_courses", token=token),
-        journey_step=3,
+        journey_step=2,
     )
 
 

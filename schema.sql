@@ -64,7 +64,9 @@ CREATE TABLE IF NOT EXISTS courses (
     end_date        TEXT,                 -- ISO date
     description     TEXT,                 -- תיאור/שם חופשי של הקורס
     school_year     TEXT,                 -- 'תשפ"ד' וכו', לנוחות
-    hours           REAL NOT NULL,
+    hours           REAL NOT NULL,        -- שעות שנספרות לחישוב (מעמודת "עוז לתמורה" בקובץ / סכום ידני)
+    hours_graded    REAL,                 -- היקף שעות עם ציון (מהקובץ / הזנה ידנית)
+    hours_ungraded  REAL,                 -- היקף שעות בלי ציון
     source_type     TEXT NOT NULL,        -- 'academic' | 'school_based' | 'conference' | 'language' | 'other'
     graded          INTEGER DEFAULT 0,    -- 1 = עם ציון
     grade           REAL,                 -- הציון שהתקבל (אם עם ציון)

@@ -64,8 +64,8 @@ function copyPersonalLink() {
             <tr>
               <td>{{ c.school_year or "—" }}</td>
               <td>{{ c.description or "—" }}</td>
-              <td class="mono">{{ c.start_date }}</td>
-              <td class="mono">{{ c.end_date or "—" }}</td>
+              <td class="mono">{{ c.start_date | dmy }}</td>
+              <td class="mono">{{ c.end_date | dmy or "—" }}</td>
               <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
               <td class="mono">{{ c.hours | num }}</td>
               <td class="mono">{{ c.grade | num if c.grade is not none else "—" }}</td>
@@ -205,7 +205,7 @@ function copyPersonalLink() {
       <tbody>
         {% for r in runs %}
         <tr>
-          <td class="mono">{{ r.calc_date }}</td>
+          <td class="mono">{{ r.calc_date | dmy }}</td>
           <td class="mono">{{ r.run_timestamp[:16] }}</td>
           <td class="mono">{{ r.u_total | num }}</td>
           <td class="mono">{{ r.pct_addition | num }}%</td>

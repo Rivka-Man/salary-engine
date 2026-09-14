@@ -2,55 +2,73 @@
 {% block title %}תוצאת חישוב — {{ teacher.full_name }}{% endblock %}
 {% block content %}
 
-<div class="hero" style="margin-bottom:26px">
+<div class="hero" style="margin-bottom:20px">
   <div class="eyebrow">הגעת לסוף הדרך</div>
-  <h1>יופי, {{ teacher.full_name.split(' ')[0] }} — הנה מה שגילינו יחד</h1>
-  <p>עברנו יחד על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה.</p>
+  <h1 style="font-size:32px">יופי, {{ teacher.full_name.split(' ')[0] }} — הנה מה שגילינו יחד</h1>
+  <p style="margin-bottom:20px;">עברנו יחד על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה (חושב לתאריך {{ result.calc_date | dmy }}).</p>
 </div>
 
-<div class="result-card">
-  <div class="result-figures">
-    <div class="figure accent"><div class="num">{{ result.U_total | num }}</div><div class="label">יחידות גמול עוז לתמורה</div></div>
-    <div class="figure"><div class="num">{{ result.pct_salary_addition | num }}%</div><div class="label">תוספת לשכר</div></div>
-    <div class="figure"><div class="num">{{ result.U_cap_applied | num }}</div><div class="label">תקרת יחידות שחלה</div></div>
-    <div class="figure"><div class="num">{{ result.carry_remaining | num }}</div><div class="label">יתרת שעות לחישוב הבא</div></div>
+<div class="stat-row">
+  <div class="stat-tile emphasis">
+    <span class="stat-label">תוספת לשכר</span>
+    <span class="stat-value">{{ result.pct_salary_addition | num }}%</span>
   </div>
-</div>
-
-<div class="story-card">
-  <h2>איך הגענו לתוצאה, בקצרה</h2>
-  <p>מהקורסים והוותק שלך הוכרו <strong>{{ result.U_regular | num }} יחידות רגילות</strong> (מתוך תקרה של {{ result.U_cap_applied | num }}).
-  {% if result.U_dd_or_mid %}לזה הצטרפה הכרה נוספת של <strong>{{ result.U_dd_or_mid | num }} יחידות</strong> מגמול כפל תואר/ביניים.{% endif %}
-  בסך הכל הצטברו <strong>{{ result.U_total | num }} יחידות גמול עוז לתמורה</strong> — שמתורגמות לתוספת של <strong>{{ result.pct_salary_addition | num }}%</strong> לשכר שלך (חושב לתאריך {{ result.calc_date }}).
-  {% if result.carry_remaining %}נותרו <strong>{{ result.carry_remaining | num }} שעות</strong> שלא תורגמו ליחידה — הן יילקחו בחשבון בחישוב הבא.{% endif %}</p>
-  {% if result.rejected_courses %}
-  <p>שימי לב: {{ result.rejected_courses|length }} קורס/ים לא נכללו בחישוב (למשל בגלל היעדר אישור מפקח מראש) — פירוט למטה.</p>
+  <div class="stat-tile emphasis">
+    <span class="stat-label">סה"כ יחידות</span>
+    <span class="stat-value">{{ result.U_total | num }}</span>
+    {% if result.U_dd_or_mid %}<span class="stat-sub">כולל {{ result.U_dd_or_mid | num }} יח' כפל תואר/ביניים</span>{% endif %}
+  </div>
+  <div class="stat-tile">
+    <span class="stat-label">תקרת יחידות שחלה</span>
+    <span class="stat-value">{{ result.U_cap_applied | num }}</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-label">יתרת שעות לחישוב הבא</span>
+    <span class="stat-value">{{ result.carry_remaining | num }}</span>
+  </div>
+  {% if result.advanced_degree_hours_accumulated %}
+  <div class="stat-tile">
+    <span class="stat-label">תואר מתקדם</span>
+    <span class="stat-value">{{ result.advanced_degree_hours_accumulated | num }}<span style="font-size:0.6em; font-weight:500;"> ש'</span></span>
+    <span class="stat-sub">~{{ result.advanced_degree_units_available | num }} יח' · 1/שנה</span>
+  </div>
   {% endif %}
 </div>
-<p class="pending-note" style="margin:-12px 0 18px;">בקרוב: פירוט יתרת השעות בחלוקה לעם/בלי ציון, ו"יתרת גמולים לפריסה".</p>
 
-<details open>
-  <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>
-  <div class="trace">
-    {% for step in result.trace %}
-    <div class="trace-row">
-      <span class="desc" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</span>
-      <span class="val">{% if step.value is not none %}{{ step.value | num }} →{% endif %}</span>
+<div class="summary-grid">
+  <div>
+    <details open>
+      <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>
+      <div class="trace">
+        {% for step in result.trace %}
+        <div class="trace-row">
+          <span class="desc" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</span>
+          <span class="val">{% if step.value is not none %}{{ step.value | num }} →{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+
+  <div>
+    <div class="side-panel">
+      <div class="side-panel-title">יחידות חדשות לפי שנה</div>
+      {% for sy, delta in result.delta_u_by_year.items() %}
+      <div class="year-row"><span>{{ sy }}</span><span style="font-weight:600;">+{{ delta | num }} יח'</span></div>
+      {% endfor %}
     </div>
-    {% endfor %}
-  </div>
-</details>
 
-{% if result.rejected_courses %}
-<details>
-  <summary><span>קורסים שנפסלו</span><span>⌄</span></summary>
-  <div class="trace">
-    {% for rc in result.rejected_courses %}
-    <div class="trace-row"><span class="desc">קורס #{{ rc.course_id }}</span><span class="val" style="color:var(--critical);">{{ rc.reason }}</span></div>
-    {% endfor %}
+    {% if result.rejected_courses %}
+    <div class="side-panel">
+      <div class="side-panel-title">קורסים שנפסלו</div>
+      {% for rc in result.rejected_courses %}
+      <div class="year-row"><span>קורס #{{ rc.course_id }}</span><span style="color:var(--critical);">{{ rc.reason }}</span></div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
-</details>
-{% endif %}
+</div>
+<p class="pending-note" style="margin:0 0 18px;">בקרוב: פירוט יתרת השעות בחלוקה לעם/בלי ציון, ו"יתרת גמולים לפריסה".</p>
 
 <div class="cta-row">
   <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">סיימתי — חזרה לתפריט</a>

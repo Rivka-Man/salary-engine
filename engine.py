@@ -215,6 +215,10 @@ def init_db(reset: bool = True):
         conn.execute("ALTER TABLE courses ADD COLUMN end_date TEXT")
     if "description" not in course_cols:
         conn.execute("ALTER TABLE courses ADD COLUMN description TEXT")
+    if "hours_graded" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN hours_graded REAL")
+    if "hours_ungraded" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN hours_ungraded REAL")
 
     cur = conn.cursor()
     for r in RULES_METADATA:

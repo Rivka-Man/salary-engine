@@ -227,6 +227,17 @@ def parse_courses_pdf(file_path_or_buffer):
                     name, institution = _split_name_institution(pending_tokens + label_tail)
                     pending_tokens = []
 
+                    # שתי משבצות השעות הכלליות: before[-2]=עם ציון, before[-1]=בלי ציון
+                    def _hval(tok):
+                        if not tok or tok == "--":
+                            return None
+                        try:
+                            return float(tok)
+                        except ValueError:
+                            return None
+                    hours_graded = _hval(before[-2]) if len(before) >= 2 else None
+                    hours_ungraded = _hval(before[-1]) if len(before) >= 1 else None
+
                     # השעות נלקחות מעמודת "משתתף בגמולי עוז לתמורה" עצמה
                     # (הטוקן האחרון בשורה) - זה המספר הרלוונטי לחישוב עוז
                     # לתמורה, לא "היקף שעות עם/בלי ציון" הכללי. קורס בלי ערך
@@ -247,6 +258,8 @@ def parse_courses_pdf(file_path_or_buffer):
                             "start_date": _to_iso_date(dates[0]),
                             "end_date": _to_iso_date(dates[1]),
                             "hours": hours,
+                            "hours_graded": hours_graded,
+                            "hours_ungraded": hours_ungraded,
                             "source_type_guess": source_type_guess,
                         })
                 elif seen_header:
