@@ -53,6 +53,13 @@ RULES_METADATA = [
     dict(rule_id="R01_UNIT_HOURS", topic="גמול_השתלמות", title="יחידת גמול = שעות לימוד",
          description="יחידת גמול השתלמות אחת = 112 שעות לימוד; אם עם ציון, לפחות 56 מהן בציון 60+.",
          source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2", priority=10, applies_when="תמיד"),
+    dict(rule_id="R01B_GRADED_COMPOSITION", topic="גמול_השתלמות", title="הרכב שעות עם ציון ליחידה",
+         description="מתוך שעות היחידה (112, או 168 לגמלאי), לפחות מחצית (56/84 בהתאמה) חייבות להיות שעות "
+                     "עם ציון 60 ומעלה. שעות עם ציון ללא ציון רשום נחשבות עומדות בתנאי (בהנחת מעבר, כי ייבוא "
+                     "מה-PDF לא מדווח ציון מספרי); שעות עם ציון רשום מתחת ל-60 אינן נחשבות עומדות בתנאי, אך "
+                     "עדיין נספרות בסך השעות הכולל.",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 (חלק מתיאור R01 - טרם אומת מול המקור המלא, ראו פערים ידועים)",
+         priority=10, applies_when="תמיד"),
     dict(rule_id="R15_PENSIONER_RATE", topic="גמול_השתלמות", title="יחידת גמול לגמלאי = 168 שעות",
          description="עבור מורה גמלאי/העומד לפרוש, יחידת גמול = 168 שעות (במקום 112).",
          source_doc="חוזר_מנכל_השתלמויות", source_ref="6.9.2", priority=11,
@@ -143,6 +150,8 @@ RULES_METADATA = [
 
 PARAMETERS_METADATA = [
     dict(rule_id="R01_UNIT_HOURS", param_name="unit_hours", param_value=112,
+         valid_from=None, valid_to=None),
+    dict(rule_id="R01B_GRADED_COMPOSITION", param_name="min_graded_fraction", param_value=0.5,
          valid_from=None, valid_to=None),
     dict(rule_id="R15_PENSIONER_RATE", param_name="unit_hours", param_value=168,
          valid_from=None, valid_to=None),
@@ -379,15 +388,40 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
             hours = counted
 
         accepted_hours_by_year[sy] = accepted_hours_by_year.get(sy, 0) + hours
-        # מעקב מקביל לפי עם/בלי ציון (c["graded"]) - לצורך פירוט היתרה בלבד,
-        # לא משפיע על מספר היחידות שנצברות (זה עדיין נקבע מהסה"כ המשולב).
-        if c["graded"]:
-            accepted_graded_hours_by_year[sy] = accepted_graded_hours_by_year.get(sy, 0) + hours
+
+        # פיצול עם/בלי ציון לצורך R01B (הרכב 56/112) ולפירוט היתרה - לא משפיע
+        # על סך השעות/יחידות שנספרות, רק על כמה מהן "עומדות בתנאי" ההרכב.
+        if c["hours_graded"] is not None or c["hours_ungraded"] is not None:
+            course_graded = c["hours_graded"] or 0
+            course_ungraded = c["hours_ungraded"] or 0
         else:
-            accepted_ungraded_hours_by_year[sy] = accepted_ungraded_hours_by_year.get(sy, 0) + hours
+            # נתון ישן מלפני שהתווסף הפיצול hours_graded/hours_ungraded (וגם הדגל
+            # graded לא הוזן משמעותית עבורו - ברירת המחדל בסכימה היא 0 לכולם).
+            # מטופל כמו ציון לא ידוע: בהנחת עמידה בתנאי, לא כ"בלי ציון" - אחרת
+            # קורסים ישנים לגיטימיים היו מאבדים זכאות ליחידה בגלל חוסר בנתון, לא בפועל.
+            course_graded = c["hours"]
+            course_ungraded = 0
+        if hours != c["hours"] and c["hours"]:
+            # תקרת השתלמות בית-ספרית צמצמה את hours - מצמצמים גם את הפיצול יחסית.
+            ratio = hours / c["hours"]
+            course_graded *= ratio
+            course_ungraded *= ratio
+
+        # ציון רשום מתחת ל-60: השעות עם ציון של הקורס הזה לא "עומדות בתנאי" ל-R01B,
+        # אך עדיין נספרות בסך הכל (accepted_hours_by_year, כבר עודכן למעלה).
+        if course_graded and c["grade"] is not None and c["grade"] < 60:
+            trace.log("R01B_GRADED_COMPOSITION",
+                      f"קורס {c['course_id']} - ציון {c['grade']:.0f} מתחת ל-60, {course_graded:.0f} שעות עם "
+                      f"ציון לא נספרות לדרישת ההרכב (56/112)", 0)
+            course_ungraded += course_graded
+            course_graded = 0
+
+        accepted_graded_hours_by_year[sy] = accepted_graded_hours_by_year.get(sy, 0) + course_graded
+        accepted_ungraded_hours_by_year[sy] = accepted_ungraded_hours_by_year.get(sy, 0) + course_ungraded
 
     # --- R11/R12: חישוב שנתי עם carry ופטור שבתון ---
     units_per_year_cap = int(get_param(conn, "R11_ANNUAL_CAP", "units_per_year_cap", calc_date))
+    min_graded_fraction = get_param(conn, "R01B_GRADED_COMPOSITION", "min_graded_fraction", calc_date)
     tashpa_start = SCHOOL_YEAR_START['תש"פ']
     delta_u_by_year = {}
     carry = 0.0
@@ -400,7 +434,20 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         available_ungraded = accepted_ungraded_hours_by_year.get(sy, 0) + carry_ungraded
         status = status_by_year.get(sy, "רגיל")
         is_exempt_year = status in ("שבתון", "חצי-שבתון", "חלת")
-        potential_units = math.floor(available / H_unit)
+        potential_units_by_hours = math.floor(available / H_unit)
+
+        # --- R01B: הרכב 56/112 - לפחות מחצית משעות היחידה חייבות להיות עם ציון עובר ---
+        min_graded_per_unit = H_unit * min_graded_fraction
+        potential_units_by_composition = (
+            math.floor(available_graded / min_graded_per_unit) if min_graded_per_unit > 0 else potential_units_by_hours
+        )
+        potential_units = min(potential_units_by_hours, potential_units_by_composition)
+        if potential_units < potential_units_by_hours:
+            trace.log("R01B_GRADED_COMPOSITION",
+                      f"שנה {sy} - יש {available:.0f} שעות (כ-{potential_units_by_hours} יח'), אך רק "
+                      f"{available_graded:.0f} מהן עם ציון עובר (נדרש לפחות {min_graded_fraction*100:.0f}% "
+                      f"מכל יחידה) - נחתך ל-{potential_units} יח'", potential_units)
+
         delta = potential_units if is_exempt_year else min(units_per_year_cap, potential_units)
 
         # --- R09/R10: סף הכרה קורסים ליחידות 18/19 (רק למורה ברפורמה) ---
@@ -432,13 +479,13 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         carry_graded = available_graded - hours_used * frac_graded
         carry_ungraded = available_ungraded - hours_used * (1 - frac_graded)
         if is_exempt_year:
-            msg = (f"שנה {sy} (סטטוס={status}) - נלמדו {available:.0f} שעות (כ-{potential_units} יח'), "
+            msg = (f"שנה {sy} (סטטוס={status}) - נלמדו {available:.0f} שעות (כ-{potential_units_by_hours} יח'), "
                    f"ללא תקרת {units_per_year_cap} יח'/שנה: הוכרו {delta} יח' ({hours_used:.0f} שעות)")
         elif potential_units > delta and not threshold_capped:
-            msg = (f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units} יח'), אך לא ניתן לתרגם לגמול את כל "
+            msg = (f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units_by_hours} יח'), אך לא ניתן לתרגם לגמול את כל "
                    f"היחידות (תקרה של {units_per_year_cap} יח'/שנה) - הוכרה {delta} יח' ({hours_used:.0f} שעות)")
         else:
-            msg = f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units} יח') - הוכרה {delta} יח' ({hours_used:.0f} שעות)"
+            msg = f"שנה {sy} - נלמדו {available:.0f} שעות (כ-{potential_units_by_hours} יח') - הוכרה {delta} יח' ({hours_used:.0f} שעות)"
         if carry > 0:
             msg += f", ונצברו {carry:.0f} שעות לשנה הבאה"
         trace.log("R12_SABBATICAL_EXEMPT" if is_exempt_year else "R11_ANNUAL_CAP", msg, delta)
