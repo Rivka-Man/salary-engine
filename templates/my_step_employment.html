@@ -25,13 +25,47 @@
     <form method="post" action="{{ url_for('my_wizard_docs_upload', token=token) }}" enctype="multipart/form-data" style="margin-bottom:22px;">
       <div class="dropzone" style="text-align:right;">
         <div class="dz-title" style="margin-bottom:14px; text-align:center;">רשימת הקבצים הנדרשים</div>
-        <div class="field-row"><span class="field-label">1. מכתב העסקה</span><input type="file" name="file_maktav" accept="application/pdf"></div>
-        <div class="field-row"><span class="field-label">2. היקף משרה</span><input type="file" name="file_heikef" accept="application/pdf"></div>
-        <div class="field-row"><span class="field-label">3. הקורסים שלי</span><input type="file" name="file_courses" accept="application/pdf"></div>
+
+        <label class="file-row" for="file_maktav" id="row_file_maktav">
+          <span class="file-icon">📄</span>
+          <span class="file-name">1. מכתב העסקה</span>
+          <span class="file-action">העלאה +</span>
+          <input type="file" id="file_maktav" name="file_maktav" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
+        </label>
+        <label class="file-row" for="file_heikef" id="row_file_heikef">
+          <span class="file-icon">📄</span>
+          <span class="file-name">2. היקף משרה</span>
+          <span class="file-action">העלאה +</span>
+          <input type="file" id="file_heikef" name="file_heikef" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
+        </label>
+        <label class="file-row" for="file_courses" id="row_file_courses">
+          <span class="file-icon">📄</span>
+          <span class="file-name">3. הקורסים שלי</span>
+          <span class="file-action">העלאה +</span>
+          <input type="file" id="file_courses" name="file_courses" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
+        </label>
+
         <div style="text-align:center; margin-top:14px;"><button type="submit" class="btn-primary" style="padding:10px 24px; font-size:14px;">טעינת הקבצים</button></div>
-        <div class="dz-sub" style="margin-top:8px; text-align:center;">אפשר לטעון קובץ אחד, שניים או שלושה — ולהשלים את השאר ידנית למטה.</div>
+        <div class="dz-sub" style="margin-top:8px; text-align:center;">אפשר לטעון קובץ אחד, שניים או שלושה מתוך השלושה.</div>
       </div>
     </form>
+
+    <div class="upload-divider">או הזנה ידנית למטה</div>
+
+    <script>
+      function opFileRowChange(input){
+        var row = document.getElementById('row_' + input.id);
+        if(!row) return;
+        if(input.files && input.files.length){
+          row.classList.add('filled');
+          row.querySelector('.file-icon').textContent = '✓';
+          row.querySelector('.file-name').textContent = input.files[0].name;
+          row.querySelector('.file-action').textContent = 'הוחלף';
+        } else {
+          row.classList.remove('filled');
+        }
+      }
+    </script>
 
     <form method="post" action="{{ url_for('my_wizard_employment', token=token) }}">
       <div class="fields-title">✎ פרטי ההעסקה שלך</div>

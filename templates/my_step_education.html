@@ -8,33 +8,50 @@
 
 <div class="doc-layout">
   <div class="doc-card">
-    <p class="doc-explain">גמולי כפל תואר / כפל תואר נוסף / ביניים ניתנים בזכות השכלה כפולה (תואר אקדמי + תעודת הוראה, או שני תארים). אם טענת את "מכתב העסקה" בשלב הראשון — הנתונים כאן כבר מולאו אוטומטית; בדקי ותקני אם צריך.</p>
+    <div class="tip-box">💡 טענת מכתב העסקה בשלב הקודם? הנתונים כבר התעדכנו עבורך. נותר רק לוודא שהתאריכים מדויקים.</div>
 
     <form method="post" action="{{ url_for('my_wizard_education', token=token) }}">
       <div class="fields-title">✎ הכרה שכבר קיבלת</div>
 
       <div class="field-row">
-        <span class="field-label">קיים גמול כפל תואר</span>
+        <span class="field-label">
+          קיים גמול כפל תואר
+          <span class="help-wrap help-wrap-inline">
+            <button type="button" class="help-btn help-btn-sm" aria-describedby="help-dd">?</button>
+            <div class="help-tip help-tip-sm" id="help-dd">ניתן בזכות השכלה כפולה: תואר אקדמי + תעודת הוראה, או שני תארים אקדמיים.</div>
+          </span>
+        </span>
         <span style="display:flex; align-items:center; gap:10px;">
           <input type="date" name="double_degree_start_date" value="{{ teacher.double_degree_start_date or '' }}" placeholder="החל מ-">
           <input type="checkbox" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}>
         </span>
       </div>
       <div class="field-row">
-        <span class="field-label">קיים גם כפל תואר נוסף ("כפל שני")</span>
+        <span class="field-label">
+          קיים גם כפל תואר נוסף ("כפל שני")
+          <span class="help-wrap help-wrap-inline">
+            <button type="button" class="help-btn help-btn-sm" aria-describedby="help-dd2">?</button>
+            <div class="help-tip help-tip-sm" id="help-dd2">ניתן רק בנוסף לכפל תואר קיים — לא כתחליף לו.</div>
+          </span>
+        </span>
         <span style="display:flex; align-items:center; gap:10px;">
           <input type="date" name="additional_double_degree_start_date" value="{{ teacher.additional_double_degree_start_date or '' }}" placeholder="החל מ-">
           <input type="checkbox" name="has_additional_double_degree_gimul" {% if teacher.has_additional_double_degree_gimul %}checked{% endif %}>
         </span>
       </div>
       <div class="field-row">
-        <span class="field-label">קיים גמול ביניים</span>
+        <span class="field-label">
+          קיים גמול ביניים
+          <span class="help-wrap help-wrap-inline">
+            <button type="button" class="help-btn help-btn-sm" aria-describedby="help-mid">?</button>
+            <div class="help-tip help-tip-sm" id="help-mid">לא ניתן במקביל לכפל תואר — יש לבחור באחד מהשניים.</div>
+          </span>
+        </span>
         <span style="display:flex; align-items:center; gap:10px;">
           <input type="date" name="beinayim_start_date" value="{{ teacher.beinayim_start_date or '' }}" placeholder="החל מ-">
           <input type="checkbox" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}>
         </span>
       </div>
-      <p class="pending-note">כפל תואר נוסף ניתן רק בנוסף לכפל תואר; גמול ביניים לא ניתן במקביל לכפל תואר.</p>
 
       <div class="doc-nav">
         <a class="btn-secondary" href="{{ url_for('my_wizard_employment', token=token) }}">→ הקודם</a>

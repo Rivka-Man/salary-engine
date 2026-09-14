@@ -25,6 +25,9 @@
   <div class="stat-tile">
     <span class="stat-label">יתרת שעות לחישוב הבא</span>
     <span class="stat-value">{{ result.carry_remaining | num }}</span>
+    {% if result.carry_remaining_graded is defined %}
+    <span class="stat-sub">{{ result.carry_remaining_graded | num }} עם ציון · {{ result.carry_remaining_ungraded | num }} בלי ציון</span>
+    {% endif %}
   </div>
   {% if result.advanced_degree_hours_accumulated %}
   <div class="stat-tile">
@@ -40,17 +43,32 @@
     <details open>
       <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>
       <div class="trace">
-        {% for step in result.trace %}
-        <div class="trace-row">
-          <span class="desc" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</span>
-          <span class="val">{% if step.value is not none %}{{ step.value | num }} →{% endif %}</span>
+        <div class="table-wrap">
+        <table class="mini-ledger">
+          <thead><tr><th>שלב</th><th>תוצאה</th></tr></thead>
+          <tbody>
+            {% for step in result.trace %}
+            <tr>
+              <td class="trace-msg" title="{{ step.rule_id | rule_tooltip }}">{{ step.message }}</td>
+              <td class="trace-val">{% if step.value is not none %}{{ step.value | num }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
         </div>
-        {% endfor %}
       </div>
     </details>
   </div>
 
   <div>
+    <div class="side-panel carry-highlight">
+      <div class="side-panel-title">שעות שנשמרות לפעם הבאה</div>
+      <div><span class="carry-num">{{ result.carry_remaining | num }}</span> <span class="carry-unit">שעות</span></div>
+      {% if result.carry_remaining_graded is defined %}
+      <div class="carry-sub">{{ result.carry_remaining_graded | num }} עם ציון · {{ result.carry_remaining_ungraded | num }} בלי ציון</div>
+      {% endif %}
+    </div>
+
     <div class="side-panel">
       <div class="side-panel-title">יחידות חדשות לפי שנה</div>
       {% for sy, delta in result.delta_u_by_year.items() %}
@@ -68,7 +86,7 @@
     {% endif %}
   </div>
 </div>
-<p class="pending-note" style="margin:0 0 18px;">בקרוב: פירוט יתרת השעות בחלוקה לעם/בלי ציון, ו"יתרת גמולים לפריסה".</p>
+<p class="pending-note" style="margin:0 0 18px;">בקרוב: "יתרת גמולים לפריסה".</p>
 
 <div class="cta-row">
   <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">סיימתי — חזרה לתפריט</a>

@@ -348,6 +348,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     school_hours_cap = get_param(conn, "R13_SCHOOL_HOURS_CAP", "school_based_annual_hours_cap", calc_date)
 
     accepted_hours_by_year = {}
+    accepted_graded_hours_by_year = {}
+    accepted_ungraded_hours_by_year = {}
     school_hours_by_year = {}
     advanced_degree_hours = 0.0
     rejected = []
@@ -377,15 +379,25 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
             hours = counted
 
         accepted_hours_by_year[sy] = accepted_hours_by_year.get(sy, 0) + hours
+        # מעקב מקביל לפי עם/בלי ציון (c["graded"]) - לצורך פירוט היתרה בלבד,
+        # לא משפיע על מספר היחידות שנצברות (זה עדיין נקבע מהסה"כ המשולב).
+        if c["graded"]:
+            accepted_graded_hours_by_year[sy] = accepted_graded_hours_by_year.get(sy, 0) + hours
+        else:
+            accepted_ungraded_hours_by_year[sy] = accepted_ungraded_hours_by_year.get(sy, 0) + hours
 
     # --- R11/R12: חישוב שנתי עם carry ופטור שבתון ---
     units_per_year_cap = int(get_param(conn, "R11_ANNUAL_CAP", "units_per_year_cap", calc_date))
     tashpa_start = SCHOOL_YEAR_START['תש"פ']
     delta_u_by_year = {}
     carry = 0.0
+    carry_graded = 0.0
+    carry_ungraded = 0.0
     running_total = U_base
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
         available = accepted_hours_by_year[sy] + carry
+        available_graded = accepted_graded_hours_by_year.get(sy, 0) + carry_graded
+        available_ungraded = accepted_ungraded_hours_by_year.get(sy, 0) + carry_ungraded
         status = status_by_year.get(sy, "רגיל")
         is_exempt_year = status in ("שבתון", "חצי-שבתון", "חלת")
         potential_units = math.floor(available / H_unit)
@@ -413,6 +425,12 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
         # --- הודעה שנתית ידידותית (R11/R12): כמה נלמד, כמה הוכר בפועל, כמה נצבר הלאה ---
         hours_used = delta * H_unit
+        # פירוט היתרה (carry) עם/בלי ציון - החלוקה בין הקטגוריות כשצורכים
+        # שעות ליחידה נעשית לפי היחס שלהן בין הזמינות באותה שנה (לא משפיעה
+        # על מספר היחידות, רק על איך היתרה שנותרת מיוחסת לכל קטגוריה).
+        frac_graded = (available_graded / available) if available > 0 else 0.0
+        carry_graded = available_graded - hours_used * frac_graded
+        carry_ungraded = available_ungraded - hours_used * (1 - frac_graded)
         if is_exempt_year:
             msg = (f"שנה {sy} (סטטוס={status}) - נלמדו {available:.0f} שעות (כ-{potential_units} יח'), "
                    f"ללא תקרת {units_per_year_cap} יח'/שנה: הוכרו {delta} יח' ({hours_used:.0f} שעות)")
@@ -427,7 +445,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
     if delta_u_by_year:
         trace.log("R11_ANNUAL_CAP",
-                  f"סה\"כ נותרו {carry:.0f} שעות שלא תורגמו ליחידה - יילקחו בחשבון בחישוב הגמול הבא", carry)
+                  f"סה\"כ נותרו {carry:.0f} שעות שלא תורגמו ליחידה ({carry_graded:.0f} עם ציון, "
+                  f"{carry_ungraded:.0f} בלי ציון) - יילקחו בחשבון בחישוב הגמול הבא", carry)
 
     U_regular_earned = U_base + sum(delta_u_by_year.values())
     U_regular = min(U_regular_earned, U_cap)
@@ -493,6 +512,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         "advanced_degree_units_available": round(advanced_units_available, 3),
         "delta_u_by_year": delta_u_by_year,
         "carry_remaining": round(carry, 2),
+        "carry_remaining_graded": round(carry_graded, 2),
+        "carry_remaining_ungraded": round(carry_ungraded, 2),
         "rejected_courses": rejected,
         "trace": trace.steps,
     }
