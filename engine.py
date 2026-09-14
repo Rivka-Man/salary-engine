@@ -428,6 +428,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     carry_graded = 0.0
     carry_ungraded = 0.0
     running_total = U_base
+    year_breakdown = []
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
         available = accepted_hours_by_year[sy] + carry
         available_graded = accepted_graded_hours_by_year.get(sy, 0) + carry_graded
@@ -489,6 +490,16 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         if carry > 0:
             msg += f", ונצברו {carry:.0f} שעות לשנה הבאה"
         trace.log("R12_SABBATICAL_EXEMPT" if is_exempt_year else "R11_ANNUAL_CAP", msg, delta)
+
+        year_breakdown.append({
+            "school_year": sy,
+            "status": status,
+            "hours_graded_available": round(available_graded, 2),
+            "hours_ungraded_available": round(available_ungraded, 2),
+            "units_earned": delta,
+            "carry_graded": round(carry_graded, 2),
+            "carry_ungraded": round(carry_ungraded, 2),
+        })
 
     if delta_u_by_year:
         trace.log("R11_ANNUAL_CAP",
@@ -558,6 +569,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         "advanced_degree_hours_accumulated": advanced_degree_hours,
         "advanced_degree_units_available": round(advanced_units_available, 3),
         "delta_u_by_year": delta_u_by_year,
+        "year_breakdown": year_breakdown,
         "carry_remaining": round(carry, 2),
         "carry_remaining_graded": round(carry_graded, 2),
         "carry_remaining_ungraded": round(carry_ungraded, 2),

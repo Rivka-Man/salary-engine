@@ -41,7 +41,39 @@
 <div class="summary-grid">
   <div>
     <details open>
-      <summary><span>הצג את החישוב המלא<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב, שנה אחר שנה</small></span><span>⌄</span></summary>
+      <summary><span>חישוב הגמולים לפי שנה<br><small style="font-weight:400;color:var(--ink-soft)">כמה שעות נצברו, כמה גמולים נוצרו, ומה היתרה</small></span><span>⌄</span></summary>
+      <div class="trace">
+        <div class="table-wrap">
+        <table class="mini-ledger">
+          <thead>
+            <tr>
+              <th>שנה</th>
+              <th>שעות עם ציון</th>
+              <th>שעות בלי ציון</th>
+              <th>גמולים שנוצרו</th>
+              <th>יתרה עם ציון</th>
+              <th>יתרה בלי ציון</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for y in result.year_breakdown %}
+            <tr>
+              <td>{{ y.school_year }}{% if y.status != 'רגיל' %} <span style="color:var(--ink-soft); font-size:12px;">({{ y.status }})</span>{% endif %}</td>
+              <td>{{ y.hours_graded_available | num }}</td>
+              <td>{{ y.hours_ungraded_available | num }}</td>
+              <td class="trace-val">{% if y.units_earned %}+{{ y.units_earned | num }}{% else %}—{% endif %}</td>
+              <td>{{ y.carry_graded | num }}</td>
+              <td>{{ y.carry_ungraded | num }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </details>
+
+    <details style="margin-top:14px;">
+      <summary><span>פירוט מלא לפי חוק<br><small style="font-weight:400;color:var(--ink-soft)">כל שלב בחישוב, ללא סינון</small></span><span>⌄</span></summary>
       <div class="trace">
         <div class="table-wrap">
         <table class="mini-ledger">
@@ -67,13 +99,6 @@
       {% if result.carry_remaining_graded is defined %}
       <div class="carry-sub">{{ result.carry_remaining_graded | num }} עם ציון · {{ result.carry_remaining_ungraded | num }} בלי ציון</div>
       {% endif %}
-    </div>
-
-    <div class="side-panel">
-      <div class="side-panel-title">יחידות חדשות לפי שנה</div>
-      {% for sy, delta in result.delta_u_by_year.items() %}
-      <div class="year-row"><span>{{ sy }}</span><span style="font-weight:600;">+{{ delta | num }} יח'</span></div>
-      {% endfor %}
     </div>
 
     {% if result.rejected_courses %}
