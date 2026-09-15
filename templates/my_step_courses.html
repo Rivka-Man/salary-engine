@@ -14,7 +14,7 @@
       <summary style="font-size:13px; color:var(--ink-soft);"><span>הוספת קורס בודד ידנית</span><span>⌄</span></summary>
       <form method="post" action="{{ url_for('my_add_course', token=token) }}" style="padding:14px 22px 18px; display:flex; flex-direction:column; gap:10px;">
         <div class="field-row"><span class="field-label">תיאור קורס</span><input type="text" name="description"></div>
-        <div class="field-row"><span class="field-label">מתאריך *</span><input type="date" name="start_date" required></div>
+        <div class="field-row"><span class="field-label">החל מתאריך *</span><input type="date" name="start_date" required></div>
         <div class="field-row"><span class="field-label">שעות עם ציון</span><input type="number" step="0.01" name="hours_graded"></div>
         <div class="field-row"><span class="field-label">שעות בלי ציון</span><input type="number" step="0.01" name="hours_ungraded"></div>
         <div class="field-row"><span class="field-label">ציון</span><input type="number" step="0.01" name="grade"></div>

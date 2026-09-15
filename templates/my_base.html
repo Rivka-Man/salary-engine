@@ -86,11 +86,25 @@
   .field-row{ display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-bottom:1px dashed var(--line); gap:12px; flex-wrap:wrap; }
   .field-row:last-child{ border-bottom:none; }
   .field-label{ font-size:13.5px; color:var(--ink-soft); flex-shrink:0; }
+  .date-prefix{ font-family:'Heebo',sans-serif; font-size:13px; color:var(--ink-soft); white-space:nowrap; flex-shrink:0; }
   .field-row select, .field-row input[type=text], .field-row input[type=number], .field-row input[type=date]{
     font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink);
     border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--paper); max-width:220px;
   }
   .field-row input[type=checkbox]{ width:18px; height:18px; accent-color:var(--gold); }
+
+  /* התאריכון הרגיל (type=date) מציג את התאריך לפי שפת התצוגה של הדפדפן
+     (למשל mm/dd/yyyy באנגלית-אמריקאית) בלי קשר לעברית של הדף - אין דרך
+     סטנדרטית לשלוט בזה. הפתרון: מסתירים את הטקסט הפנימי של השדה (נשאר
+     פונקציונלי - לחיצה/פתיחת לוח השנה עדיין עובדת) ומציגים במקומו תווית
+     משלנו בפורמט DD/MM/YYYY קבוע, שמתעדכנת לפי ה-value האמיתי (שהוא
+     תמיד ISO, בלי קשר לתצוגה). */
+  .date-wrap{ position:relative; display:inline-block; }
+  .date-wrap input[type=date]{ color:transparent; }
+  .date-wrap input[type=date]::-webkit-datetime-edit{ color:transparent; }
+  .date-overlay{ position:absolute; top:0; bottom:0; left:11px; right:26px; display:flex; align-items:center;
+    pointer-events:none; font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); direction:ltr; justify-content:flex-start; }
+  .date-overlay.placeholder{ color:var(--ink-soft); font-weight:500; }
 
   .doc-nav{ display:flex; justify-content:space-between; margin-top:24px; }
   .btn-primary{ background:var(--teal); color:#fff; border:none; font-family:'Heebo',sans-serif; font-weight:600; font-size:15px; padding:13px 26px; border-radius:12px; cursor:pointer; box-shadow:0 8px 20px -8px rgba(45,110,110,.5); }
@@ -226,5 +240,34 @@
 
   {% block content %}{% endblock %}
 </div>
+<script>
+  // התאריכון (type=date) מציג את הטקסט הפנימי שלו לפי שפת התצוגה של
+  // הדפדפן (למשל mm/dd/yyyy באנגלית-אמריקאית) בלי קשר לעברית של הדף.
+  // עוטפים כל שדה תאריך, מסתירים את הטקסט המקורי שלו (color:transparent -
+  // עדיין לוחצים ופותחים את לוח השנה כרגיל) ומציגים מעליו תווית משלנו
+  // בפורמט DD/MM/YYYY קבוע, מבוססת על ה-value (שהוא תמיד ISO).
+  document.querySelectorAll('input[type="date"]').forEach(function (inp) {
+    var wrap = document.createElement('span');
+    wrap.className = 'date-wrap';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    var overlay = document.createElement('span');
+    overlay.className = 'date-overlay';
+    wrap.appendChild(overlay);
+    function update() {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(inp.value);
+      if (m) {
+        overlay.textContent = m[3] + '/' + m[2] + '/' + m[1];
+        overlay.classList.remove('placeholder');
+      } else {
+        overlay.textContent = 'dd/mm/yyyy';
+        overlay.classList.add('placeholder');
+      }
+    }
+    inp.addEventListener('input', update);
+    inp.addEventListener('change', update);
+    update();
+  });
+</script>
 </body>
 </html>

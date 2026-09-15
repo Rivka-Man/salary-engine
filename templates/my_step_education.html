@@ -22,7 +22,8 @@
           </span>
         </span>
         <span style="display:flex; align-items:center; gap:10px;">
-          <input type="date" name="double_degree_start_date" value="{{ teacher.double_degree_start_date or '' }}" placeholder="החל מ-">
+          <span class="date-prefix">החל מתאריך</span>
+          <input type="date" name="double_degree_start_date" value="{{ teacher.double_degree_start_date or '' }}">
           <input type="checkbox" name="has_double_degree_gimul" {% if teacher.has_double_degree_gimul %}checked{% endif %}>
         </span>
       </div>
@@ -35,7 +36,8 @@
           </span>
         </span>
         <span style="display:flex; align-items:center; gap:10px;">
-          <input type="date" name="additional_double_degree_start_date" value="{{ teacher.additional_double_degree_start_date or '' }}" placeholder="החל מ-">
+          <span class="date-prefix">החל מתאריך</span>
+          <input type="date" name="additional_double_degree_start_date" value="{{ teacher.additional_double_degree_start_date or '' }}">
           <input type="checkbox" name="has_additional_double_degree_gimul" {% if teacher.has_additional_double_degree_gimul %}checked{% endif %}>
         </span>
       </div>
@@ -48,7 +50,8 @@
           </span>
         </span>
         <span style="display:flex; align-items:center; gap:10px;">
-          <input type="date" name="beinayim_start_date" value="{{ teacher.beinayim_start_date or '' }}" placeholder="החל מ-">
+          <span class="date-prefix">החל מתאריך</span>
+          <input type="date" name="beinayim_start_date" value="{{ teacher.beinayim_start_date or '' }}">
           <input type="checkbox" name="has_beinayim_gimul" {% if teacher.has_beinayim_gimul %}checked{% endif %}>
         </span>
       </div>

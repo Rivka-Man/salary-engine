@@ -75,7 +75,7 @@
         <input type="checkbox" name="is_active_teacher" {% if teacher.is_active_teacher %}checked{% endif %}>
       </div>
       <div class="field-row">
-        <span class="field-label">תאריך הסמכה</span>
+        <span class="field-label">החל מתאריך הסמכה</span>
         <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
       </div>
       <div class="field-row">
@@ -87,7 +87,7 @@
         <input type="checkbox" name="is_pensioner" {% if teacher.is_pensioner %}checked{% endif %}>
       </div>
       <div class="field-row">
-        <span class="field-label">תאריך הצטרפות עוז לתמורה</span>
+        <span class="field-label">החל מתאריך הצטרפות עוז לתמורה</span>
         <input type="date" name="reform_start_date" value="{{ teacher.reform_start_date or '' }}">
       </div>
 
