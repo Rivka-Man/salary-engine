@@ -110,6 +110,11 @@ RULES_METADATA = [
     dict(rule_id="R08_TRANSITION_UNIT", topic="גמול_השתלמות", title="יחידת מעבר לרפורמה",
          description="אם U_pre=16 ויש יתרת שעות מעבר ל-16 יחידות, מוכרת יחידה נוספת מ-R_reform.",
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ב)", priority=22, applies_when="in_reform=1 and U_pre=16"),
+    dict(rule_id="R08B_PRE_REFORM_EXCLUDED", topic="גמול_השתלמות", title="קורסים מלפני ההצטרפות - לא נספרים שוב",
+         description="קורס שתאריך תחילתו לפני תאריך ההצטרפות לעוז לתמורה כבר מגולם ב-U_pre/H_pre (יחידות/שעות "
+                     "שהוכרו ערב הרפורמה) - לא נכנס שוב לחישוב השנתי, כדי למנוע ספירה כפולה.",
+         source_doc="לוגיקת_מערכת", source_ref="מניעת ספירה כפולה מול U_pre/H_pre", priority=16,
+         applies_when="reform_start_date is set AND course.start_date < reform_start_date"),
     dict(rule_id="R09_THRESH_18", topic="גמול_השתלמות", title="סף הכרה קורסים ליחידה 18",
          description="קורס מוכר ליחידה ה-18 רק אם תחילתו לא לפני max(תשע\"ב, R_reform).",
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ג)-(ד)", priority=40, applies_when="in_reform=1"),
@@ -367,6 +372,12 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         if not c["pre_approved"]:
             rejected.append({"course_id": c["course_id"], "reason": "אין אישור מוקדם מהמפקח (R17)"})
             trace.log("R17_NO_PREAPPROVAL", f"קורס {c['course_id']} נפסל - אין אישור מוקדם")
+            continue
+
+        if teacher["reform_start_date"] and c["start_date"] < teacher["reform_start_date"]:
+            trace.log("R08B_PRE_REFORM_EXCLUDED",
+                      f"קורס {c['course_id']} - מתאריך {c['start_date']}, לפני ההצטרפות לעוז לתמורה "
+                      f"({teacher['reform_start_date']}) - כבר מגולם ביחידות/שעות שהוכרו ערב הרפורמה, לא נספר שוב")
             continue
 
         hours = c["hours"]
