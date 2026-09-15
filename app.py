@@ -495,15 +495,13 @@ def my_wizard_employment(token):
         # הקישור האישי מיועד אך ורק למורות/מורים בעוז לתמורה (הכותרת/המיתוג
         # של האשף כולו הוא "גמולי השתלמות עוז לתמורה") - אין יותר תיבת
         # סימון "מועסקת בתנאי עוז לתמורה"; in_reform קבוע כאן ל-1.
-        # יחידות/שעות ערב ההצטרפות (u_pre/h_pre) הוסרו מהטופס הזה לפי בקשת
-        # המשתמשת - נשארות כפי שהיו (ניתנות לעריכה רק דרך צד הניהול, אם צריך).
         reform_start_date = request.form.get("reform_start_date") or None
         conn.execute(
             """
             UPDATE teachers SET
                 is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
                 in_reform=1, reform_start_date=%s, reform_start_year=%s,
-                certification_date=%s
+                certification_date=%s, u_pre=%s, h_pre=%s
             WHERE teacher_id=%s
             """,
             (
@@ -513,6 +511,8 @@ def my_wizard_employment(token):
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
                 request.form.get("certification_date") or None,
+                float(request.form.get("u_pre") or 0),
+                float(request.form.get("h_pre") or 0),
                 teacher["teacher_id"],
             ),
         )

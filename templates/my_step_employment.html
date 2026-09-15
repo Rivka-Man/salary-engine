@@ -90,6 +90,26 @@
         <span class="field-label">החל מתאריך הצטרפות עוז לתמורה</span>
         <input type="date" name="reform_start_date" value="{{ teacher.reform_start_date or '' }}">
       </div>
+      <div class="field-row">
+        <span class="field-label">
+          יחידות שהוכרו ערב הרפורמה
+          <span class="help-wrap help-wrap-inline">
+            <button type="button" class="help-btn help-btn-sm" aria-describedby="help-upre">?</button>
+            <div class="help-tip help-tip-sm" id="help-upre">כמה יחידות גמול היו לך מוכרות ומאושרות לפני ההצטרפות לעוז לתמורה.</div>
+          </span>
+        </span>
+        <input type="number" step="0.01" name="u_pre" value="{{ teacher.u_pre if teacher.u_pre is not none else '' }}">
+      </div>
+      <div class="field-row">
+        <span class="field-label">
+          שעות שנצברו ערב הרפורמה
+          <span class="help-wrap help-wrap-inline">
+            <button type="button" class="help-btn help-btn-sm" aria-describedby="help-hpre">?</button>
+            <div class="help-tip help-tip-sm" id="help-hpre">כמה שעות השתלמות נצברו לך (מעבר ליחידות שכבר הוכרו) עד ההצטרפות לעוז לתמורה.</div>
+          </span>
+        </span>
+        <input type="number" step="0.01" name="h_pre" value="{{ teacher.h_pre if teacher.h_pre is not none else '' }}">
+      </div>
 
       <div class="doc-nav">
         <a class="btn-secondary" href="{{ url_for('my_dashboard', token=token) }}">→ חזרה</a>
