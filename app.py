@@ -511,8 +511,8 @@ def my_wizard_employment(token):
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
                 request.form.get("certification_date") or None,
-                float(request.form.get("u_pre") or 0),
-                float(request.form.get("h_pre") or 0),
+                int(float(request.form.get("u_pre") or 0)),
+                int(float(request.form.get("h_pre") or 0)),
                 teacher["teacher_id"],
             ),
         )
