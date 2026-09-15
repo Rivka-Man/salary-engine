@@ -212,9 +212,6 @@
     {% if i < 4 %}<div class="jline {% if i < journey_step %}filled{% endif %}"></div>{% endif %}
     {% endfor %}
   </div>
-  {% if journey_step >= 0 and journey_step < 4 %}
-  <div class="journey-step-label">שלב {{ journey_step + 1 }} מתוך 4</div>
-  {% endif %}
   {% endif %}
 
   {% with messages = get_flashed_messages(with_categories=true) %}
