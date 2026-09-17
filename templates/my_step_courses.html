@@ -48,7 +48,7 @@
           <td>
             {%- if c.hours_graded is not none -%}
               {{ c.hours_graded | num }}
-            {%- elif c.graded -%}
+            {%- elif c.hours_ungraded is none -%}
               {{ c.hours | num }}
             {%- else -%}
               —
@@ -57,8 +57,6 @@
           <td>
             {%- if c.hours_ungraded is not none -%}
               {{ c.hours_ungraded | num }}
-            {%- elif not c.graded -%}
-              {{ c.hours | num }}
             {%- else -%}
               —
             {%- endif -%}
