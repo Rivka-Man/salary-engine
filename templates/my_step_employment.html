@@ -71,11 +71,8 @@
       <div class="fields-title">✎ פרטי ההעסקה שלך</div>
 
       <div class="field-row">
-        <span class="field-label">עובד הוראה מוסמך</span>
-        <span style="display:flex; align-items:center; gap:10px;">
-          <span class="date-prefix">החל מתאריך הסמכה</span>
-          <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
-        </span>
+        <span class="field-label">תעודת הסמכה התקבלה בתאריך</span>
+        <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
       </div>
       <div class="field-row">
         <span class="field-label">השלימה שנת ותק אחת</span>
