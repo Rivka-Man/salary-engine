@@ -63,11 +63,8 @@ def format_date_dmy(value):
 
 
 SOURCE_TYPE_LABELS = {
-    "academic": "אקדמי",
     "school_based": "השתלמות בית ספרית",
-    "conference": "כנס",
-    "language": "שפה",
-    "other": "אחר",
+    "institutional": 'השתלמות מוסדית (פיסג"ה)',
 }
 
 SCHOOL_YEARS = list(SCHOOL_YEAR_START.keys())
@@ -248,7 +245,7 @@ def add_course(teacher_id):
             request.form.get("description") or None,
             sy,
             hours,
-            request.form.get("source_type", "academic"),
+            request.form.get("source_type", "institutional"),
             graded,
             float(grade) if (graded and grade) else None,
             1 if request.form.get("pre_approved") else 0,
@@ -358,7 +355,7 @@ def import_courses_confirm(teacher_id):
                 float(hours),
                 float(hg) if hg else None,
                 float(hu) if hu else None,
-                request.form.get(f"source_type_{i}", "other"),
+                request.form.get(f"source_type_{i}", "institutional"),
             ),
         )
         added += 1
@@ -496,6 +493,7 @@ def my_wizard_employment(token):
         # של האשף כולו הוא "גמולי השתלמות עוז לתמורה") - אין יותר תיבת
         # סימון "מועסקת בתנאי עוז לתמורה"; in_reform קבוע כאן ל-1.
         reform_start_date = request.form.get("reform_start_date") or None
+        certification_date = request.form.get("certification_date") or None
         conn.execute(
             """
             UPDATE teachers SET
@@ -505,12 +503,14 @@ def my_wizard_employment(token):
             WHERE teacher_id=%s
             """,
             (
-                1 if request.form.get("is_active_teacher") else 0,
+                # אין יותר תיבת סימון נפרדת ל"עובד הוראה מוסמך" - השורה
+                # אוחדה לשדה תאריך הסמכה יחיד; קיום תאריך = מוסמך.
+                1 if certification_date else 0,
                 1 if request.form.get("has_seniority_year") else 0,
                 1 if request.form.get("is_pensioner") else 0,
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
-                request.form.get("certification_date") or None,
+                certification_date,
                 int(float(request.form.get("u_pre") or 0)),
                 int(float(request.form.get("h_pre") or 0)),
                 teacher["teacher_id"],
@@ -607,7 +607,7 @@ def my_wizard_docs_upload(token):
                         """,
                         (tid, r["start_date"], sy, float(r["hours"]),
                          r.get("hours_graded"), r.get("hours_ungraded"),
-                         r.get("source_type_guess", "other")),
+                         r.get("source_type_guess", "institutional")),
                     )
                 ok.append(f"הקורסים שלי: נטענו {len(rows)} קורסים (מחליפים את הרשימה הקודמת).")
             else:
@@ -636,6 +636,11 @@ def my_wizard_education(token):
         return redirect(url_for("index"))
 
     if request.method == "POST":
+        # אין יותר תיבות סימון נפרדות - כל הכרה מסומנת "יש" ע"י מילוי
+        # תאריך "החל מ-" בלבד; שדה ריק = אין הכרה.
+        double_degree_start_date = request.form.get("double_degree_start_date") or None
+        additional_double_degree_start_date = request.form.get("additional_double_degree_start_date") or None
+        beinayim_start_date = request.form.get("beinayim_start_date") or None
         conn.execute(
             """
             UPDATE teachers SET
@@ -645,12 +650,12 @@ def my_wizard_education(token):
             WHERE teacher_id=%s
             """,
             (
-                1 if request.form.get("has_double_degree_gimul") else 0,
-                request.form.get("double_degree_start_date") or None,
-                1 if request.form.get("has_additional_double_degree_gimul") else 0,
-                request.form.get("additional_double_degree_start_date") or None,
-                1 if request.form.get("has_beinayim_gimul") else 0,
-                request.form.get("beinayim_start_date") or None,
+                1 if double_degree_start_date else 0,
+                double_degree_start_date,
+                1 if additional_double_degree_start_date else 0,
+                additional_double_degree_start_date,
+                1 if beinayim_start_date else 0,
+                beinayim_start_date,
                 teacher["teacher_id"],
             ),
         )
@@ -775,7 +780,7 @@ def my_add_course(token):
             total,
             hg or None,
             hu or None,
-            request.form.get("source_type", "academic"),
+            request.form.get("source_type", "institutional"),
             1 if hg > 0 else 0,
             float(grade) if (hg > 0 and grade) else None,
             1 if request.form.get("pre_approved") else 0,
@@ -941,7 +946,7 @@ def my_import_confirm(token):
                 start_date,
                 sy,
                 float(hours),
-                request.form.get(f"source_type_{i}", "other"),
+                request.form.get(f"source_type_{i}", "institutional"),
             ),
         )
         added += 1

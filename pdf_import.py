@@ -251,7 +251,7 @@ def parse_courses_pdf(file_path_or_buffer):
                             hours = None
 
                     if hours is not None:
-                        source_type_guess = "school_based" if "השתלמות" in institution else "other"
+                        source_type_guess = "school_based" if "השתלמות" in institution else "institutional"
                         rows.append({
                             "name": name,
                             "institution": institution,

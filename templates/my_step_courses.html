@@ -39,21 +39,28 @@
     <div class="fields-title">הקורסים שכבר בתיק שלך ({{ courses|length }})</div>
     <div class="table-wrap">
     <table class="mini-ledger">
-      <thead><tr><th>מתאריך</th><th>סוג</th><th>היקף שעות</th><th></th></tr></thead>
+      <thead><tr><th>מתאריך</th><th>סוג</th><th>היקף שעות עם ציון</th><th>היקף שעות בלי ציון</th><th></th></tr></thead>
       <tbody>
         {% for c in courses %}
         <tr>
           <td>{{ c.start_date | dmy }}</td>
           <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
           <td>
-            {%- if c.hours_graded and c.hours_ungraded -%}
-              {{ c.hours_graded | num }} עם ציון + {{ c.hours_ungraded | num }} בלי ציון
-            {%- elif c.hours_graded -%}
-              {{ c.hours_graded | num }} שעות עם ציון
-            {%- elif c.hours_ungraded -%}
-              {{ c.hours_ungraded | num }} שעות בלי ציון
+            {%- if c.hours_graded is not none -%}
+              {{ c.hours_graded | num }}
+            {%- elif c.graded -%}
+              {{ c.hours | num }}
             {%- else -%}
-              {{ c.hours | num }} שעות
+              —
+            {%- endif -%}
+          </td>
+          <td>
+            {%- if c.hours_ungraded is not none -%}
+              {{ c.hours_ungraded | num }}
+            {%- elif not c.graded -%}
+              {{ c.hours | num }}
+            {%- else -%}
+              —
             {%- endif -%}
           </td>
           <td>

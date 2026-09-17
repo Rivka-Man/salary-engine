@@ -35,22 +35,17 @@
 
     <form method="post" action="{{ url_for('my_add_status', token=token) }}" style="margin-top:18px;">
       <div class="field-row">
-        <span class="field-label">שנת לימודים</span>
-        <select name="school_year" required>
-          {% for sy in school_years %}<option value="{{ sy }}">{{ sy }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="field-row">
-        <span class="field-label">סטטוס</span>
-        <select name="status">
-          <option value="שבתון">שבתון</option>
-          <option value="חצי-שבתון">חצי-שבתון</option>
-          <option value="חלת">חל"ת</option>
-        </select>
-      </div>
-      <div class="doc-nav" style="margin-top:0;">
-        <span></span>
-        <button type="submit" class="btn-primary" style="padding:9px 20px; font-size:13.5px;">הוספה</button>
+        <span style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
+          <select name="school_year" required>
+            {% for sy in school_years %}<option value="{{ sy }}">{{ sy }}</option>{% endfor %}
+          </select>
+          <select name="status">
+            <option value="שבתון">שבתון</option>
+            <option value="חצי-שבתון">חצי-שבתון</option>
+            <option value="חלת">חל"ת</option>
+          </select>
+        </span>
+        <button type="submit" class="btn-add-circle" title="הוספה" aria-label="הוספה">+</button>
       </div>
     </form>
 

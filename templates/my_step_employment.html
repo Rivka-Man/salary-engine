@@ -72,18 +72,17 @@
 
       <div class="field-row">
         <span class="field-label">עובד הוראה מוסמך</span>
-        <input type="checkbox" name="is_active_teacher" {% if teacher.is_active_teacher %}checked{% endif %}>
-      </div>
-      <div class="field-row">
-        <span class="field-label">החל מתאריך הסמכה</span>
-        <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span class="date-prefix">החל מתאריך הסמכה</span>
+          <input type="date" name="certification_date" value="{{ teacher.certification_date or '' }}">
+        </span>
       </div>
       <div class="field-row">
         <span class="field-label">השלימה שנת ותק אחת</span>
         <input type="checkbox" name="has_seniority_year" {% if teacher.has_seniority_year %}checked{% endif %}>
       </div>
       <div class="field-row">
-        <span class="field-label">גמלאי.ת</span>
+        <span class="field-label">גמלאית</span>
         <input type="checkbox" name="is_pensioner" {% if teacher.is_pensioner %}checked{% endif %}>
       </div>
       <div class="field-row">
