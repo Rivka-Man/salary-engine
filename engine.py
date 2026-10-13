@@ -590,6 +590,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         "advanced_degree_units_available": round(advanced_units_available, 3),
         "delta_u_by_year": delta_u_by_year,
         "year_breakdown": year_breakdown,
+        "pre_reform_carry": round(pre_reform_carry, 2),
         "carry_remaining": round(carry, 2),
         "carry_remaining_graded": round(carry_graded, 2),
         "carry_remaining_ungraded": round(carry_ungraded, 2),

@@ -56,6 +56,21 @@
             </tr>
           </thead>
           <tbody>
+            {% if result.pre_reform_carry %}
+            <tr>
+              <td>יתרת פתיחה <span style="color:var(--ink-soft); font-size:12px;">(ערב הרפורמה)</span></td>
+              <td>{{ result.pre_reform_carry | num }}</td>
+              <td>0</td>
+              <td class="trace-val">—</td>
+              <td>{{ result.pre_reform_carry | num }}</td>
+              <td>0</td>
+            </tr>
+            {% endif %}
+            {% if not result.year_breakdown %}
+            <tr>
+              <td colspan="6" style="color:var(--ink-soft);">אין עדיין קורסים שנספרים בחישוב. קורסים מלפני ההצטרפות לעוז לתמורה כבר כלולים ביחידות ובשעות שהוכרו ערב הרפורמה.</td>
+            </tr>
+            {% endif %}
             {% for y in result.year_breakdown %}
             <tr>
               <td>{{ y.school_year }}{% if y.status != 'רגיל' %} <span style="color:var(--ink-soft); font-size:12px;">({{ y.status }})</span>{% endif %}</td>
