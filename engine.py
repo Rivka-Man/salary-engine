@@ -345,11 +345,15 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         trace.log("R02_BASE_CAP", "תקרה כללית (לא ברפורמה)", U_cap)
 
     # --- R08: יחידת מעבר לרפורמה ---
+    # H_pre = שעות שנצברו ערב הרפורמה מעבר ליחידות שכבר הוכרו (U_pre) - יתרה, לא סה"כ שעות.
     U_base = teacher["u_pre"] or 0
-    if teacher["in_reform"] and teacher["u_pre"] == 16 and (teacher["h_pre"] or 0) > 16 * H_unit:
+    H_pre = (teacher["h_pre"] or 0) if teacher["in_reform"] else 0
+    pre_reform_carry = H_pre
+    if teacher["in_reform"] and teacher["u_pre"] == 16 and H_pre > 0:
         U_base = 17
+        pre_reform_carry = 0  # השעות העודפות נוצלו ליחידת המעבר
         trace.log("R08_TRANSITION_UNIT",
-                   f"זוהתה יתרת שעות מעל 16 יחידות (H_pre={teacher['h_pre']}) - הוכרה יחידה 17-ית",
+                   f"זוהתה יתרת שעות מעל 16 יחידות (H_pre={H_pre:.0f}) - הוכרה יחידה 17-ית",
                    U_base)
     else:
         trace.log("R08_TRANSITION_UNIT", f"אין זכאות ליחידת מעבר - בסיס נשאר {U_base}", U_base)
@@ -435,9 +439,14 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     min_graded_fraction = get_param(conn, "R01B_GRADED_COMPOSITION", "min_graded_fraction", calc_date)
     tashpa_start = SCHOOL_YEAR_START['תש"פ']
     delta_u_by_year = {}
-    carry = 0.0
-    carry_graded = 0.0
+    # יתרת השעות מערב הרפורמה נכנסת כיתרת פתיחה. אין פירוט עם/בלי ציון לשעות
+    # האלה, והן כבר הוכרו לפני הרפורמה - לכן נחשבות כשעות עם ציון.
+    carry = float(pre_reform_carry)
+    carry_graded = float(pre_reform_carry)
     carry_ungraded = 0.0
+    if pre_reform_carry > 0:
+        trace.log("R08_TRANSITION_UNIT",
+                  f"יתרת פתיחה: {pre_reform_carry:.0f} שעות שנצברו ערב הרפורמה מעבר ליחידות שהוכרו", pre_reform_carry)
     running_total = U_base
     year_breakdown = []
     for sy in sorted(accepted_hours_by_year.keys(), key=lambda y: SCHOOL_YEAR_START.get(y, "9999")):
