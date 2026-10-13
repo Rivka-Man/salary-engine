@@ -100,7 +100,9 @@
      משלנו בפורמט DD/MM/YYYY קבוע, שמתעדכנת לפי ה-value האמיתי (שהוא
      תמיד ISO, בלי קשר לתצוגה). */
   .date-wrap{ position:relative; display:inline-block; }
-  .date-wrap input[type=date]{ color:transparent; }
+  /* direction:ltr קבוע - אחרת בדפדפנים מסוימים בדף RTL אייקון לוח השנה עובר
+     לצד שמאל ומכסה את תחילת התווית (שמשאירה לו מקום רק מימין). */
+  .date-wrap input[type=date]{ color:transparent; direction:ltr; text-align:left; }
   .date-wrap input[type=date]::-webkit-datetime-edit{ color:transparent; }
   .date-overlay{ position:absolute; top:0; bottom:0; left:11px; right:26px; display:flex; align-items:center;
     pointer-events:none; font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); direction:ltr; justify-content:flex-start; }

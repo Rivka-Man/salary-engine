@@ -129,7 +129,7 @@
   /* תאריכון בפורמט DD/MM/YYYY קבוע - כמו ב-my_base.html: הטקסט הפנימי של
      השדה (שתלוי בשפת הדפדפן, למשל mm/dd/yyyy) מוסתר ומוצגת מעליו תווית משלנו. */
   .date-wrap { position: relative; display: block; }
-  .date-wrap input[type=date] { color: transparent; }
+  .date-wrap input[type=date] { color: transparent; direction: ltr; text-align: left; }
   .date-wrap input[type=date]::-webkit-datetime-edit { color: transparent; }
   .date-overlay { position: absolute; top: 0; bottom: 0; left: 0.65rem; right: 2rem; display: flex; align-items: center;
     pointer-events: none; font-size: 0.9rem; color: var(--ink); direction: ltr; justify-content: flex-start; overflow: hidden; white-space: nowrap; }
