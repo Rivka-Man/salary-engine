@@ -189,6 +189,7 @@ def init_db(reset: bool = True):
     conn = get_connection()
     if reset:
         conn.executescript("""
+            DROP TABLE IF EXISTS teacher_documents CASCADE;
             DROP TABLE IF EXISTS calculation_runs CASCADE;
             DROP TABLE IF EXISTS employment_status_by_year CASCADE;
             DROP TABLE IF EXISTS courses CASCADE;

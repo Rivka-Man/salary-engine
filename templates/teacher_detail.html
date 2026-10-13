@@ -193,6 +193,31 @@ function copyPersonalLink() {
   </div>
 </div>
 
+{% if documents %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">קבצים שנטענו</span>
+    <span class="panel-note">{{ documents|length }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>סוג</th><th>שם הקובץ</th><th>נטען בתאריך</th><th>גודל</th><th></th></tr></thead>
+      <tbody>
+        {% for d in documents %}
+        <tr>
+          <td>{{ doc_type_labels.get(d.doc_type, d.doc_type) }}</td>
+          <td class="mono" dir="ltr" style="text-align:right;">{{ d.filename }}</td>
+          <td class="mono">{{ d.uploaded_at | dmy }} {{ d.uploaded_at[11:16] }}</td>
+          <td class="mono">{{ [1, (d.size / 1024) | round | int] | max }} KB</td>
+          <td><a href="{{ url_for('teacher_document', teacher_id=teacher.teacher_id, doc_id=d.doc_id) }}" target="_blank" rel="noopener">פתיחה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
 {% if runs %}
 <section class="panel">
   <div class="panel-head">

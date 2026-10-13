@@ -108,6 +108,14 @@
     pointer-events:none; font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); direction:ltr; justify-content:flex-start; }
   .date-overlay.placeholder{ color:var(--ink-soft); font-weight:500; }
 
+  .saved-docs{ margin-top:18px; padding-top:14px; border-top:1px dashed var(--line); }
+  .saved-docs-title{ font-family:'Heebo',sans-serif; font-weight:600; font-size:13px; color:var(--ink-soft); margin-bottom:8px; }
+  .saved-doc{ display:flex; align-items:center; gap:10px; padding:7px 4px; font-size:13px; color:var(--ink); text-decoration:none; border-radius:8px; }
+  .saved-doc:hover{ background:var(--paper); }
+  .saved-doc-type{ font-weight:600; white-space:nowrap; }
+  .saved-doc-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--teal); text-decoration:underline; direction:ltr; text-align:right; }
+  .saved-doc-date{ color:var(--ink-soft); white-space:nowrap; font-size:12px; }
+
   .doc-nav{ display:flex; justify-content:space-between; margin-top:24px; }
   .btn-primary{ background:var(--teal); color:#fff; border:none; font-family:'Heebo',sans-serif; font-weight:600; font-size:15px; padding:13px 26px; border-radius:12px; cursor:pointer; box-shadow:0 8px 20px -8px rgba(45,110,110,.5); }
   .btn-primary:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }

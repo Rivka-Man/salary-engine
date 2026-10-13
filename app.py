@@ -6,9 +6,10 @@ import io
 import json
 import re
 import secrets
-from datetime import date
+from datetime import date, datetime
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+import psycopg2
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
 
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
@@ -78,6 +79,41 @@ def get_teacher_by_token(conn, token):
     if not token:
         return None
     return conn.execute("SELECT * FROM teachers WHERE access_token=%s", (token,)).fetchone()
+
+
+DOC_TYPE_LABELS = {
+    "maktav": "מכתב העסקה",
+    "heikef": "היקף משרה",
+    "courses": "הקורסים שלי",
+}
+
+
+def save_document(conn, teacher_id, doc_type, filename, content):
+    """שומר עותק של קובץ שנטען (גם אם הפענוח שלו נכשל) - לתיעוד ולבדיקה חוזרת."""
+    conn.execute(
+        "INSERT INTO teacher_documents (teacher_id, doc_type, filename, content, uploaded_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (teacher_id, doc_type, filename, psycopg2.Binary(content), datetime.now().isoformat(timespec="seconds")),
+    )
+
+
+def list_documents(conn, teacher_id):
+    return conn.execute(
+        "SELECT doc_id, doc_type, filename, uploaded_at, length(content) AS size FROM teacher_documents "
+        "WHERE teacher_id=%s ORDER BY uploaded_at DESC, doc_id DESC",
+        (teacher_id,),
+    ).fetchall()
+
+
+def document_response(conn, teacher_id, doc_id):
+    doc = conn.execute(
+        "SELECT filename, content FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s",
+        (doc_id, teacher_id),
+    ).fetchone()
+    if not doc:
+        return None
+    return send_file(io.BytesIO(bytes(doc["content"])), mimetype="application/pdf",
+                     as_attachment=False, download_name=doc["filename"])
 
 
 def next_teacher_id(conn):
@@ -158,9 +194,12 @@ def teacher_detail(teacher_id):
     runs = conn.execute(
         "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC", (teacher_id,)
     ).fetchall()
+    documents = list_documents(conn, teacher_id)
     conn.close()
     return render_template(
         "teacher_detail.html",
+        documents=documents,
+        doc_type_labels=DOC_TYPE_LABELS,
         teacher=teacher,
         courses=courses,
         statuses=statuses,
@@ -169,6 +208,14 @@ def teacher_detail(teacher_id):
         source_type_labels=SOURCE_TYPE_LABELS,
         today=date.today().isoformat(),
     )
+
+
+@app.route("/teachers/<teacher_id>/documents/<int:doc_id>")
+def teacher_document(teacher_id, doc_id):
+    conn = get_conn()
+    resp = document_response(conn, teacher_id, doc_id)
+    conn.close()
+    return resp or abort(404)
 
 
 @app.route("/teachers/<teacher_id>/edit", methods=["GET", "POST"])
@@ -291,8 +338,13 @@ def import_courses_parse(teacher_id):
         flash("הקובץ חייב להיות PDF.", "error")
         return redirect(url_for("import_courses_form", teacher_id=teacher_id))
 
+    data = uploaded.read()
+    conn = get_conn()
+    save_document(conn, teacher["teacher_id"], "courses", uploaded.filename, data)
+    conn.commit()
+    conn.close()
     try:
-        rows = parse_courses_pdf(io.BytesIO(uploaded.read()))
+        rows = parse_courses_pdf(io.BytesIO(data))
     except Exception as exc:
         flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
         return redirect(url_for("import_courses_form", teacher_id=teacher_id))
@@ -411,6 +463,7 @@ def delete_teacher(teacher_id):
     conn.execute("DELETE FROM courses WHERE teacher_id=%s", (teacher_id,))
     conn.execute("DELETE FROM employment_status_by_year WHERE teacher_id=%s", (teacher_id,))
     conn.execute("DELETE FROM calculation_runs WHERE teacher_id=%s", (teacher_id,))
+    conn.execute("DELETE FROM teacher_documents WHERE teacher_id=%s", (teacher_id,))
     conn.execute("DELETE FROM teachers WHERE teacher_id=%s", (teacher_id,))
     conn.commit()
     conn.close()
@@ -520,10 +573,12 @@ def my_wizard_employment(token):
         conn.close()
         return redirect(url_for("my_wizard_education", token=token))
 
+    documents = list_documents(conn, teacher["teacher_id"])
     conn.close()
     return render_template(
         "my_step_employment.html", token=token, teacher=teacher,
         school_years=SCHOOL_YEARS, journey_step=0,
+        documents=documents, doc_type_labels=DOC_TYPE_LABELS,
     )
 
 
@@ -545,8 +600,10 @@ def my_wizard_docs_upload(token):
 
     f = request.files.get("file_heikef")
     if f and f.filename:
+        data = f.read()
+        save_document(conn, tid, "heikef", f.filename, data)
         try:
-            found = parse_heikef_misra_pdf(io.BytesIO(f.read()))
+            found = parse_heikef_misra_pdf(io.BytesIO(data))
             if found.get("reform_start_date"):
                 d = found["reform_start_date"]
                 conn.execute(
@@ -561,8 +618,10 @@ def my_wizard_docs_upload(token):
 
     f = request.files.get("file_maktav")
     if f and f.filename:
+        data = f.read()
+        save_document(conn, tid, "maktav", f.filename, data)
         try:
-            found = parse_maktav_haasaka_pdf(io.BytesIO(f.read()))
+            found = parse_maktav_haasaka_pdf(io.BytesIO(data))
             sets, params = [], []
             if found.get("certification_date"):
                 sets.append("certification_date=%s"); params.append(found["certification_date"])
@@ -589,8 +648,10 @@ def my_wizard_docs_upload(token):
 
     f = request.files.get("file_courses")
     if f and f.filename:
+        data = f.read()
+        save_document(conn, tid, "courses", f.filename, data)
         try:
-            rows = parse_courses_pdf(io.BytesIO(f.read()))
+            rows = parse_courses_pdf(io.BytesIO(data))
             if rows:
                 conn.execute("DELETE FROM courses WHERE teacher_id=%s", (tid,))
                 for r in rows:
@@ -624,6 +685,15 @@ def my_wizard_docs_upload(token):
     for e in errs:
         flash(e, "error")
     return redirect(url_for("my_wizard_employment", token=token))
+
+
+@app.route("/my/<token>/documents/<int:doc_id>")
+def my_document(token, doc_id):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    resp = document_response(conn, teacher["teacher_id"], doc_id) if teacher else None
+    conn.close()
+    return resp or abort(404)
 
 
 @app.route("/my/<token>/wizard/education", methods=["GET", "POST"])
@@ -879,8 +949,13 @@ def my_import_parse(token):
         flash("הקובץ חייב להיות PDF.", "error")
         return redirect(url_for("my_wizard_courses", token=token))
 
+    data = uploaded.read()
+    conn = get_conn()
+    save_document(conn, teacher["teacher_id"], "courses", uploaded.filename, data)
+    conn.commit()
+    conn.close()
     try:
-        rows = parse_courses_pdf(io.BytesIO(uploaded.read()))
+        rows = parse_courses_pdf(io.BytesIO(data))
     except Exception as exc:
         flash(f"לא הצלחתי לקרוא את הקובץ: {exc}", "error")
         return redirect(url_for("my_wizard_courses", token=token))

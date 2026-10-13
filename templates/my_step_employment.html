@@ -47,6 +47,19 @@
 
         <div style="text-align:center; margin-top:14px;"><button type="submit" class="btn-primary" style="padding:10px 24px; font-size:14px;">טעינת הקבצים</button></div>
         <div class="dz-sub" style="margin-top:8px; text-align:center;">אפשר לטעון קובץ אחד, שניים או שלושה מתוך השלושה.</div>
+
+        {% if documents %}
+        <div class="saved-docs">
+          <div class="saved-docs-title">קבצים שטענת</div>
+          {% for d in documents %}
+          <a class="saved-doc" href="{{ url_for('my_document', token=token, doc_id=d.doc_id) }}" target="_blank" rel="noopener">
+            <span class="saved-doc-type">{{ doc_type_labels.get(d.doc_type, d.doc_type) }}</span>
+            <span class="saved-doc-name">{{ d.filename }}</span>
+            <span class="saved-doc-date">{{ d.uploaded_at | dmy }}</span>
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </form>
 
