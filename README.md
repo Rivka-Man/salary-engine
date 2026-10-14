@@ -51,6 +51,9 @@
    DATABASE_URL=postgresql://user:password@host:port/dbname
    ```
    ב-Supabase — Settings → Database → Connection string → **Session pooler** (לא "Direct connection"; לרוב לא זמין ל-IPv4).
+3. בשרת (Render → Environment) מגדירים גם:
+   - `ADMIN_PASSWORD` — סיסמת הכניסה לממשק הניהול. בלעדיה ממשק הניהול נעול לגמרי (חוץ מהרצה מקומית ב-localhost, שם הוא פתוח לפיתוח). הקישורים האישיים של המורים (`/my/...`) לא דורשים סיסמה.
+   - `SECRET_KEY` — מחרוזת אקראית ארוכה לחתימת ה-session.
 
 ## איך להריץ
 

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}כניסה — פנקס הגמול{% endblock %}
+{% block content %}
+<section class="panel" style="max-width:420px; margin:0 auto;">
+  <div class="panel-head">
+    <span class="panel-title">כניסה לממשק הניהול</span>
+  </div>
+  <form class="panel-body" method="post">
+    <div class="field">
+      <label for="password">סיסמה</label>
+      <input type="password" id="password" name="password" required autofocus autocomplete="current-password">
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn btn-primary">כניסה</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

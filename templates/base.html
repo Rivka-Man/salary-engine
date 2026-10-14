@@ -145,7 +145,12 @@
       <span class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</span>
       {% else %}
       <a href="{{ url_for('index') }}" class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</a>
-      <nav class="top-nav"><a href="{{ url_for('new_teacher') }}">+ מורה חדש</a></nav>
+      <nav class="top-nav">
+        <a href="{{ url_for('new_teacher') }}">+ מורה חדש</a>
+        {% if session.get('is_admin') %}
+        <form method="post" action="{{ url_for('admin_logout') }}" style="display:inline"><button type="submit" class="btn btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.85rem;">יציאה</button></form>
+        {% endif %}
+      </nav>
       {% endif %}
     </div>
   </header>

@@ -2,23 +2,72 @@
 ממשק ווב להזנת נתוני מורים והרצת מנוע גמול ההשתלמות.
 מריץ מעל אותו PostgreSQL (Supabase) שמשתמש בו engine.py.
 """
+import hmac
 import io
 import json
+import os
 import re
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import psycopg2
-from flask import Flask, abort, flash, redirect, render_template, request, send_file, url_for
+from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
 
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf, parse_heikef_misra_pdf, parse_maktav_haasaka_pdf
 
 app = Flask(__name__)
-app.secret_key = "salary-engine-local-dev"
+# בשרת: SECRET_KEY ממשתנה סביבה. בלעדיו - מפתח אקראי לכל הפעלה (התחברויות
+# מתאפסות באתחול השרת, אבל אף פעם לא מפתח קבוע וידוע מהקוד).
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.permanent_session_lifetime = timedelta(hours=12)
+
+# סיסמת ממשק הניהול. בלי ADMIN_PASSWORD ממשק הניהול נעול לגמרי, חוץ מהרצה
+# מקומית (localhost) לפיתוח.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD") or ""
 
 init_db(reset=False)
+
+
+def _is_local_request():
+    return request.host.split(":")[0] in ("localhost", "127.0.0.1") and request.remote_addr == "127.0.0.1"
+
+
+@app.before_request
+def require_admin_login():
+    # הממשק העצמאי של המורה (/my/<token>) מוגן ע"י האסימון האישי, וקבצים
+    # סטטיים פתוחים. כל השאר הוא ממשק ניהול.
+    if request.endpoint in (None, "static", "admin_login", "admin_logout") or request.path.startswith("/my/"):
+        return None
+    if session.get("is_admin"):
+        return None
+    if not ADMIN_PASSWORD and _is_local_request():
+        return None
+    return redirect(url_for("admin_login", next=request.full_path if request.method == "GET" else None))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        password = request.form.get("password") or ""
+        if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):
+            session.clear()
+            session.permanent = True
+            session["is_admin"] = True
+            nxt = request.args.get("next") or ""
+            # רק נתיב פנימי - לא הפניה לאתר חיצוני
+            if not nxt.startswith("/") or nxt.startswith("//"):
+                nxt = url_for("index")
+            return redirect(nxt)
+        flash("סיסמה שגויה." if ADMIN_PASSWORD else "לא הוגדרה סיסמת ניהול בשרת (ADMIN_PASSWORD).", "error")
+    return render_template("login.html", hide_admin_nav=True)
+
+
+@app.route("/logout", methods=["POST"])
+def admin_logout():
+    session.clear()
+    return redirect(url_for("admin_login"))
 
 RULE_TITLES = {r["rule_id"]: r["title"] for r in RULES_METADATA}
 RULE_DESCRIPTIONS = {r["rule_id"]: r["description"] for r in RULES_METADATA}
