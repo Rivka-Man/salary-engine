@@ -77,6 +77,18 @@
   .doc-card h2{ font-family:'Heebo',sans-serif; font-size:22px; font-weight:600; margin:0 0 8px; }
   .doc-card .doc-explain{ font-size:20px; line-height:1.6; color:var(--ink-soft); margin:0 0 20px; }
 
+  .file-row .file-howto{ font-family:'Heebo',sans-serif; font-size:12px; font-weight:500; color:var(--ink-soft); background:none; border:none; padding:6px 4px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; flex-shrink:0; }
+  .file-row .file-howto:hover{ color:var(--teal); }
+
+  .guide-dialog{ width:min(720px, calc(100vw - 32px)); max-height:calc(100vh - 48px); border:none; border-radius:16px; padding:20px 22px; background:var(--paper-raised); color:var(--ink); box-shadow:var(--shadow); direction:rtl; }
+  .guide-dialog::backdrop{ background:rgba(11,47,99,.45); }
+  .guide-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .guide-title{ font-family:'Heebo',sans-serif; font-weight:700; font-size:17px; }
+  .guide-close{ background:none; border:none; font-size:18px; color:var(--ink-soft); cursor:pointer; padding:4px 8px; border-radius:8px; }
+  .guide-close:hover{ background:var(--teal-bg); }
+  .guide-steps{ margin:0 0 14px; padding-inline-start:20px; font-size:14.5px; line-height:1.75; }
+  .guide-dialog img{ display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:10px; }
+
   .dropzone{ border:2px dashed var(--teal-soft); border-radius:14px; padding:30px 20px; text-align:center; background:var(--teal-bg); }
   .dropzone .dz-icon{ font-size:26px; color:var(--teal); margin-bottom:8px; }
   .dropzone .dz-title{ font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); margin-bottom:4px; }
@@ -190,6 +202,11 @@
   .file-row .file-action{ font-family:'Heebo',sans-serif; font-size:12px; font-weight:600; color:var(--teal); background:var(--teal-bg); padding:6px 14px; border-radius:999px; flex-shrink:0; }
   .file-row.filled{ background:var(--brand-teal-soft); border-color:var(--brand-teal-soft); }
   .file-row.filled .file-action{ background:var(--brand-teal); color:#fff; }
+  @media (max-width:520px){
+    .file-row{ gap:8px; padding:11px 10px; }
+    .file-row .file-name{ white-space:normal; }
+    .file-row .file-action{ padding:6px 10px; }
+  }
   .file-input-hidden{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; pointer-events:none; }
   .upload-divider{ display:flex; align-items:center; gap:10px; margin:20px 0 18px; font-family:'Heebo',sans-serif; font-size:12px; font-weight:600; color:var(--ink-soft); }
   .upload-divider::before, .upload-divider::after{ content:""; flex:1; height:1px; background:var(--line); }
