@@ -115,6 +115,13 @@ RULES_METADATA = [
                      "שהוכרו ערב הרפורמה) - לא נכנס שוב לחישוב השנתי, כדי למנוע ספירה כפולה.",
          source_doc="לוגיקת_מערכת", source_ref="מניעת ספירה כפולה מול U_pre/H_pre", priority=16,
          applies_when="reform_start_date is set AND course.start_date < reform_start_date"),
+    dict(rule_id="R08C_PRE_REFORM_COMPUTED", topic="גמול_השתלמות", title="יחידות/שעות ערב הרפורמה",
+         description="אם הוזנו יחידות/שעות שהוכרו ערב הרפורמה (U_pre/H_pre) - משתמשים בהן. אחרת הן מחושבות "
+                     "מהקורסים שתחילתם לפני ההצטרפות לעוז לתמורה, לפי חוקי חוזר המנכ\"ל שלפני הרפורמה: "
+                     "112 שעות ליחידה (168 לגמלאי), הרכב עם ציון, פסילה ללא אישור מוקדם ותקרה 16 - "
+                     "ללא תקרת יחידה לשנה וללא תקרת השתלמות בית-ספרית (שתיהן מהסכם עוז לתמורה).",
+         source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 + לוגיקת מערכת", priority=17,
+         applies_when="in_reform=1 AND U_pre=0 AND H_pre=0 AND יש קורסים לפני reform_start_date"),
     dict(rule_id="R09_THRESH_18", topic="גמול_השתלמות", title="סף הכרה קורסים ליחידה 18",
          description="קורס מוכר ליחידה ה-18 רק אם תחילתו לא לפני max(תשע\"ב, R_reform).",
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ג)-(ד)", priority=40, applies_when="in_reform=1"),
@@ -310,6 +317,50 @@ def get_status_by_year(conn, teacher_id):
     return {row["school_year"]: row["status"] for row in cur.fetchall()}
 
 
+def _course_label(c):
+    """תווית קורס לפירוט: שם הקורס במקום course_id הפנימי (שאין לו משמעות למורה)."""
+    desc = (c.get("description") or "").strip()
+    return f"קורס \"{desc}\"" if desc else "קורס"
+
+
+def _compute_pre_reform_from_courses(conn, pre_courses, H_unit, calc_date, trace):
+    """
+    R08C: גזירת U_pre/H_pre מקורסים שלפני ההצטרפות לעוז לתמורה, לפי חוזר המנכ"ל
+    (החוקים שלפני הרפורמה): R17 פסילה ללא אישור, R01/R15 שעות ליחידה, R01B הרכב
+    עם ציון, R02 תקרה 16. בלי R11 (יחידה בשנה) ובלי R13 (תקרה בית-ספרית) - שניהם
+    מהסכם עוז לתמורה עצמו. מסלול תואר מתקדם (R14) לא נכלל, כמו לפני כן.
+    מחזיר (U_pre, H_pre, H_pre_graded).
+    """
+    total = graded = 0.0
+    for c in pre_courses:
+        if not c["pre_approved"]:
+            trace.log("R17_NO_PREAPPROVAL", f"{_course_label(c)} (לפני הרפורמה) נפסל - אין אישור מוקדם")
+            continue
+        if c["is_advanced_degree_track"]:
+            continue
+        if c["hours_graded"] is not None or c["hours_ungraded"] is not None:
+            course_graded = c["hours_graded"] or 0
+        else:
+            course_graded = c["hours"]
+        if course_graded and c["grade"] is not None and c["grade"] < 60:
+            course_graded = 0
+        total += c["hours"]
+        graded += min(course_graded, c["hours"])
+
+    base_cap = int(get_param(conn, "R02_BASE_CAP", "units_cap", calc_date))
+    min_graded_fraction = get_param(conn, "R01B_GRADED_COMPOSITION", "min_graded_fraction", calc_date)
+    by_hours = math.floor(total / H_unit)
+    by_composition = math.floor(graded / (H_unit * min_graded_fraction)) if min_graded_fraction > 0 else by_hours
+    U_pre = min(by_hours, by_composition, base_cap)
+    H_pre = total - U_pre * H_unit
+    H_pre_graded = max(0.0, graded - U_pre * H_unit * (graded / total)) if total else 0.0
+    trace.log("R08C_PRE_REFORM_COMPUTED",
+              f"לא הוזנו יחידות/שעות ערב הרפורמה - חושבו מ-{len(pre_courses)} קורסים שלפני ההצטרפות "
+              f"לפי חוזר המנכ\"ל: {total:.0f} שעות ({graded:.0f} עם ציון) => {U_pre} יח' "
+              f"(תקרה {base_cap}), ויתרה של {H_pre:.0f} שעות", U_pre)
+    return U_pre, H_pre, H_pre_graded
+
+
 def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     """
     מריץ את מנוע חוקי גמול ההשתלמות על מורה נתון, עד לתאריך calc_date.
@@ -347,10 +398,19 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
     # --- R08: יחידת מעבר לרפורמה ---
     # H_pre = שעות שנצברו ערב הרפורמה מעבר ליחידות שכבר הוכרו (U_pre) - יתרה, לא סה"כ שעות.
-    U_base = teacher["u_pre"] or 0
+    U_pre = teacher["u_pre"] or 0
     H_pre = (teacher["h_pre"] or 0) if teacher["in_reform"] else 0
+    H_pre_graded = H_pre  # ערכים שהוזנו ידנית - אין פירוט, נחשבים כעם ציון
+    pre_courses = [c for c in courses
+                   if teacher["reform_start_date"] and c["start_date"] < teacher["reform_start_date"]]
+    if teacher["in_reform"] and not U_pre and not H_pre and pre_courses:
+        U_pre, H_pre, H_pre_graded = _compute_pre_reform_from_courses(conn, pre_courses, H_unit, calc_date, trace)
+    elif teacher["in_reform"] and (U_pre or H_pre):
+        trace.log("R08C_PRE_REFORM_COMPUTED",
+                  f"יחידות/שעות ערב הרפורמה נלקחו מהערכים שהוזנו: {U_pre:.0f} יח', {H_pre:.0f} שעות", U_pre)
+    U_base = U_pre
     pre_reform_carry = H_pre
-    if teacher["in_reform"] and teacher["u_pre"] == 16 and H_pre > 0:
+    if teacher["in_reform"] and U_pre == 16 and H_pre > 0:
         U_base = 17
         pre_reform_carry = 0  # השעות העודפות נוצלו ליחידת המעבר
         trace.log("R08_TRANSITION_UNIT",
@@ -376,12 +436,12 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     for c in courses:
         if not c["pre_approved"]:
             rejected.append({"course_id": c["course_id"], "reason": "אין אישור מוקדם מהמפקח (R17)"})
-            trace.log("R17_NO_PREAPPROVAL", f"קורס {c['course_id']} נפסל - אין אישור מוקדם")
+            trace.log("R17_NO_PREAPPROVAL", f"{_course_label(c)} נפסל - אין אישור מוקדם")
             continue
 
         if teacher["reform_start_date"] and c["start_date"] < teacher["reform_start_date"]:
             trace.log("R08B_PRE_REFORM_EXCLUDED",
-                      f"קורס {c['course_id']} - מתאריך {c['start_date']}, לפני ההצטרפות לעוז לתמורה "
+                      f"{_course_label(c)} - מתאריך {c['start_date']}, לפני ההצטרפות לעוז לתמורה "
                       f"({teacher['reform_start_date']}) - כבר מגולם ביחידות/שעות שהוכרו ערב הרפורמה, לא נספר שוב")
             continue
 
@@ -390,7 +450,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
         if c["is_advanced_degree_track"]:
             advanced_degree_hours += hours
-            trace.log("R14_ADVANCED_DEGREE", f"קורס {c['course_id']} - מסלול תואר מתקדם, {hours} שעות", hours)
+            trace.log("R14_ADVANCED_DEGREE", f"{_course_label(c)} - מסלול תואר מתקדם, {hours} שעות", hours)
             continue  # לא נכנס לחישוב הרגיל - יש לו מסלול נפרד
 
         if c["source_type"] == "school_based":
@@ -399,7 +459,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
             counted = min(hours, allowed)
             if counted < hours:
                 trace.log("R13_SCHOOL_HOURS_CAP",
-                          f"קורס {c['course_id']} - נחתך מ-{hours} ל-{counted} שעות (תקרת {school_hours_cap:.0f}/שנה)")
+                          f"{_course_label(c)} - נחתך מ-{hours} ל-{counted} שעות (תקרת {school_hours_cap:.0f}/שנה)")
             school_hours_by_year[sy] = prev + counted
             hours = counted
 
@@ -427,7 +487,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         # אך עדיין נספרות בסך הכל (accepted_hours_by_year, כבר עודכן למעלה).
         if course_graded and c["grade"] is not None and c["grade"] < 60:
             trace.log("R01B_GRADED_COMPOSITION",
-                      f"קורס {c['course_id']} - ציון {c['grade']:.0f} מתחת ל-60, {course_graded:.0f} שעות עם "
+                      f"{_course_label(c)} - ציון {c['grade']:.0f} מתחת ל-60, {course_graded:.0f} שעות עם "
                       f"ציון לא נספרות לדרישת ההרכב (56/112)", 0)
             course_ungraded += course_graded
             course_graded = 0
@@ -440,11 +500,12 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     min_graded_fraction = get_param(conn, "R01B_GRADED_COMPOSITION", "min_graded_fraction", calc_date)
     tashpa_start = SCHOOL_YEAR_START['תש"פ']
     delta_u_by_year = {}
-    # יתרת השעות מערב הרפורמה נכנסת כיתרת פתיחה. אין פירוט עם/בלי ציון לשעות
-    # האלה, והן כבר הוכרו לפני הרפורמה - לכן נחשבות כשעות עם ציון.
+    # יתרת השעות מערב הרפורמה נכנסת כיתרת פתיחה. כשהוזנה ידנית אין פירוט עם/בלי
+    # ציון, והן כבר הוכרו לפני הרפורמה - לכן נחשבות כשעות עם ציון. כשחושבה
+    # מהקורסים (R08C), הפירוט ידוע.
     carry = float(pre_reform_carry)
-    carry_graded = float(pre_reform_carry)
-    carry_ungraded = 0.0
+    carry_graded = min(float(H_pre_graded), carry)
+    carry_ungraded = carry - carry_graded
     if pre_reform_carry > 0:
         trace.log("R08_TRANSITION_UNIT",
                   f"יתרת פתיחה: {pre_reform_carry:.0f} שעות שנצברו ערב הרפורמה מעבר ליחידות שהוכרו", pre_reform_carry)
