@@ -601,7 +601,7 @@ def my_wizard_employment(token):
             UPDATE teachers SET
                 is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
                 in_reform=1, reform_start_date=%s, reform_start_year=%s,
-                certification_date=%s, u_pre=%s, h_pre=%s
+                certification_date=%s
             WHERE teacher_id=%s
             """,
             (
@@ -613,8 +613,6 @@ def my_wizard_employment(token):
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
                 certification_date,
-                int(float(request.form.get("u_pre") or 0)),
-                int(float(request.form.get("h_pre") or 0)),
                 teacher["teacher_id"],
             ),
         )
