@@ -286,7 +286,7 @@ def edit_teacher(teacher_id):
             """
             UPDATE teachers SET
                 full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
-                in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
+                in_reform=%s, reform_start_year=%s,
                 has_double_degree_gimul=%s, has_beinayim_gimul=%s, has_additional_double_degree_gimul=%s
             WHERE teacher_id=%s
             """,
@@ -297,8 +297,6 @@ def edit_teacher(teacher_id):
                 1 if request.form.get("is_pensioner") else 0,
                 1 if request.form.get("in_reform") else 0,
                 request.form.get("reform_start_year") or None,
-                float(request.form.get("U_pre") or 0),
-                float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
                 1 if request.form.get("has_beinayim_gimul") else 0,
                 1 if request.form.get("has_additional_double_degree_gimul") else 0,
