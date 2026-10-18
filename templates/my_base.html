@@ -35,6 +35,10 @@
   .jdot{ width:26px;height:26px;border-radius:50%; background:var(--line); color:var(--ink-soft); display:flex;align-items:center;justify-content:center; font-size:12.5px; font-weight:700; flex-shrink:0; }
   .jdot.done{ background:var(--brand-teal); color:#fff; }
   .jdot.active{ background:var(--gold); color:#fff; }
+  .jlink{ text-decoration:none; cursor:pointer; color:var(--ink-soft); }
+  button.jlink{ background:none; border:none; padding:0; margin:0; font:inherit; }
+  .jlink:hover .jdot{ box-shadow:0 0 0 3px var(--gold-soft); }
+  .jlink:hover span{ color:var(--ink); }
   .jline{ flex:1; min-width:8px; height:2px; background:var(--line); }
   .jline.filled{ background:var(--brand-teal); }
   @media (max-width:640px){ .jstep span{ display:none; } }
@@ -259,13 +263,26 @@
   {% if teacher %}<div class="journey-hello">שלום, {{ teacher.full_name.split(' ')[0] }}</div>{% endif %}
   <div class="journey">
     {% set labels = ['פרטי העסקה','השכלה','השתלמויות','תקופות העסקה','סיכום'] %}
+    {% set step_urls = [url_for('my_wizard_employment', token=token), url_for('my_wizard_education', token=token),
+                        url_for('my_wizard_courses', token=token), url_for('my_wizard_periods', token=token)] %}
     {% for i in range(5) %}
-    <div class="jstep">
+    {% set dot %}
       <div class="jdot {% if i < journey_step %}done{% elif i == journey_step %}active{% endif %}">
         {% if i < journey_step %}✓{% else %}{{ i + 1 }}{% endif %}
       </div>
       <span>{{ labels[i] }}</span>
-    </div>
+    {% endset %}
+    {# כל עיגול הוא קישור לשלב שלו, כדי שאפשר יהיה לעבור בין השלבים שלא לפי הסדר.
+       הסיכום מחושב ב-POST, ולכן הוא כפתור בטופס ולא קישור. #}
+    {% if i == journey_step %}
+    <div class="jstep" aria-current="step">{{ dot }}</div>
+    {% elif i < 4 %}
+    <a class="jstep jlink" href="{{ step_urls[i] }}">{{ dot }}</a>
+    {% else %}
+    <form class="jstep" method="post" action="{{ url_for('my_wizard_summary', token=token) }}">
+      <button type="submit" class="jstep jlink">{{ dot }}</button>
+    </form>
+    {% endif %}
     {% if i < 4 %}<div class="jline {% if i < journey_step %}filled{% endif %}"></div>{% endif %}
     {% endfor %}
   </div>
