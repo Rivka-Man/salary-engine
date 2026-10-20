@@ -112,12 +112,14 @@ RULES_METADATA = [
          source_doc="הסכם_עוז_לתמורה", source_ref="סעיף 18(ב)", priority=22, applies_when="in_reform=1 and U_pre=16"),
     dict(rule_id="R08B_PRE_REFORM_EXCLUDED", topic="גמול_השתלמות", title="קורסים מלפני ההצטרפות - לא נספרים שוב",
          description="קורס שתאריך תחילתו לפני תאריך ההצטרפות לעוז לתמורה כבר מגולם ב-U_pre/H_pre (יחידות/שעות "
-                     "שהוכרו ערב הרפורמה) - לא נכנס שוב לחישוב השנתי, כדי למנוע ספירה כפולה.",
+                     "שהוכרו ערב הרפורמה) - לא נכנס שוב לחישוב השנתי, כדי למנוע ספירה כפולה. כך גם קורס "
+                     "שבקובץ \"הקורסים שלי\" אין לו ערך בעמודת \"משתתף בגמולי עוז לתמורה\" - הוא נספר רק "
+                     "בחישוב טרום הרפורמה.",
          source_doc="לוגיקת_מערכת", source_ref="מניעת ספירה כפולה מול U_pre/H_pre", priority=16,
-         applies_when="reform_start_date is set AND course.start_date < reform_start_date"),
+         applies_when="(reform_start_date is set AND course.start_date < reform_start_date) OR counts_for_oz=0"),
     dict(rule_id="R08C_PRE_REFORM_COMPUTED", topic="גמול_השתלמות", title="יחידות/שעות ערב הרפורמה",
          description="אם הוזנו יחידות/שעות שהוכרו ערב הרפורמה (U_pre/H_pre) - משתמשים בהן. אחרת הן מחושבות "
-                     "מהקורסים שתחילתם לפני ההצטרפות לעוז לתמורה, לפי חוקי חוזר המנכ\"ל שלפני הרפורמה: "
+                     "מהקורסים שתחילתם לפני ההצטרפות לעוז לתמורה (ומקורסים שלא נספרים לעוז לתמורה), לפי חוקי חוזר המנכ\"ל שלפני הרפורמה: "
                      "112 שעות ליחידה (168 לגמלאי), הרכב עם ציון, פסילה ללא אישור מוקדם ותקרה 16 - "
                      "ללא תקרת יחידה לשנה וללא תקרת השתלמות בית-ספרית (שתיהן מהסכם עוז לתמורה).",
          source_doc="חוזר_מנכל_השתלמויות", source_ref="3.4.2 + לוגיקת מערכת", priority=17,
@@ -241,6 +243,8 @@ def init_db(reset: bool = True):
         conn.execute("ALTER TABLE courses ADD COLUMN hours_graded REAL")
     if "hours_ungraded" not in course_cols:
         conn.execute("ALTER TABLE courses ADD COLUMN hours_ungraded REAL")
+    if "counts_for_oz" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN counts_for_oz INTEGER DEFAULT 1")
 
     cur = conn.cursor()
     for r in RULES_METADATA:
@@ -323,6 +327,14 @@ def _course_label(c):
     return f"קורס \"{desc}\"" if desc else "קורס"
 
 
+def _is_pre_reform_course(teacher, c):
+    """קורס ששייך לחישוב טרום הרפורמה: התחיל לפני ההצטרפות לעוז לתמורה, או שלפי
+    הפורטל הוא לא משתתף בגמולי עוז לתמורה בכלל (counts_for_oz=0)."""
+    if c.get("counts_for_oz") == 0:
+        return True
+    return bool(teacher["reform_start_date"]) and c["start_date"] < teacher["reform_start_date"]
+
+
 def _compute_pre_reform_from_courses(conn, pre_courses, H_unit, calc_date, trace):
     """
     R08C: גזירת U_pre/H_pre מקורסים שלפני ההצטרפות לעוז לתמורה, לפי חוזר המנכ"ל
@@ -401,8 +413,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
     U_pre = teacher["u_pre"] or 0
     H_pre = (teacher["h_pre"] or 0) if teacher["in_reform"] else 0
     H_pre_graded = H_pre  # ערכים שהוזנו ידנית - אין פירוט, נחשבים כעם ציון
-    pre_courses = [c for c in courses
-                   if teacher["reform_start_date"] and c["start_date"] < teacher["reform_start_date"]]
+    pre_courses = [c for c in courses if _is_pre_reform_course(teacher, c)]
     if teacher["in_reform"] and not U_pre and not H_pre and pre_courses:
         U_pre, H_pre, H_pre_graded = _compute_pre_reform_from_courses(conn, pre_courses, H_unit, calc_date, trace)
     elif teacher["in_reform"] and (U_pre or H_pre):
@@ -437,6 +448,12 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         if not c["pre_approved"]:
             rejected.append({"course_id": c["course_id"], "reason": "אין אישור מוקדם מהמפקח (R17)"})
             trace.log("R17_NO_PREAPPROVAL", f"{_course_label(c)} נפסל - אין אישור מוקדם")
+            continue
+
+        if c.get("counts_for_oz") == 0:
+            trace.log("R08B_PRE_REFORM_EXCLUDED",
+                      f"{_course_label(c)} - לא משתתף בגמולי עוז לתמורה לפי הפורטל - נספר רק בחישוב "
+                      f"היחידות/שעות ערב הרפורמה, לא בחישוב השנתי")
             continue
 
         if teacher["reform_start_date"] and c["start_date"] < teacher["reform_start_date"]:

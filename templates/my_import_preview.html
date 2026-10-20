@@ -33,7 +33,11 @@
           {% for r in rows %}
           <tr>
             <td><input type="checkbox" name="include_{{ loop.index0 }}" checked></td>
-            <td class="label-col">{{ r.name }}</td>
+            <td class="label-col">
+              {{ r.name }}
+              <input type="hidden" name="counts_for_oz_{{ loop.index0 }}" value="{{ 1 if r.counts_for_oz else 0 }}">
+              {% if not r.counts_for_oz %}<br><small style="color:var(--ink-soft, #666);">לא נספר לעוז לתמורה — נספר רק בטרום הרפורמה</small>{% endif %}
+            </td>
             <td class="label-col">{{ r.institution }}</td>
             <td class="narrow"><input class="mini-input" type="date" name="start_date_{{ loop.index0 }}" value="{{ r.start_date }}"></td>
             <td class="narrow"><input class="mini-input" type="number" step="0.01" name="hours_{{ loop.index0 }}" value="{{ r.hours }}"></td>

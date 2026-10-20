@@ -44,7 +44,7 @@
         {% for c in courses %}
         <tr>
           <td>{{ c.start_date | dmy }}</td>
-          <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
+          <td>{{ source_type_labels.get(c.source_type, c.source_type) }}{% if c.counts_for_oz == 0 %}<br><small style="color:var(--ink-soft, #666);">טרום רפורמה בלבד</small>{% endif %}</td>
           <td>
             {%- if c.hours_graded is not none -%}
               {{ c.hours_graded | num }}

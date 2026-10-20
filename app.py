@@ -286,7 +286,7 @@ def edit_teacher(teacher_id):
             """
             UPDATE teachers SET
                 full_name=%s, is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
-                in_reform=%s, reform_start_year=%s,
+                in_reform=%s, reform_start_year=%s, u_pre=%s, h_pre=%s,
                 has_double_degree_gimul=%s, has_beinayim_gimul=%s, has_additional_double_degree_gimul=%s
             WHERE teacher_id=%s
             """,
@@ -297,6 +297,8 @@ def edit_teacher(teacher_id):
                 1 if request.form.get("is_pensioner") else 0,
                 1 if request.form.get("in_reform") else 0,
                 request.form.get("reform_start_year") or None,
+                float(request.form.get("U_pre") or 0),
+                float(request.form.get("H_pre") or 0),
                 1 if request.form.get("has_double_degree_gimul") else 0,
                 1 if request.form.get("has_beinayim_gimul") else 0,
                 1 if request.form.get("has_additional_double_degree_gimul") else 0,
@@ -444,8 +446,8 @@ def import_courses_confirm(teacher_id):
             """
             INSERT INTO courses
             (teacher_id, start_date, school_year, hours, hours_graded, hours_ungraded,
-             source_type, graded, grade, pre_approved, is_advanced_degree_track)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0)
+             source_type, graded, grade, pre_approved, is_advanced_degree_track, counts_for_oz)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0, %s)
             """,
             (
                 teacher_id,
@@ -455,6 +457,7 @@ def import_courses_confirm(teacher_id):
                 float(hg) if hg else None,
                 float(hu) if hu else None,
                 request.form.get(f"source_type_{i}", "institutional"),
+                0 if request.form.get(f"counts_for_oz_{i}") == "0" else 1,
             ),
         )
         added += 1
@@ -599,7 +602,7 @@ def my_wizard_employment(token):
             UPDATE teachers SET
                 is_active_teacher=%s, has_seniority_year=%s, is_pensioner=%s,
                 in_reform=1, reform_start_date=%s, reform_start_year=%s,
-                certification_date=%s
+                certification_date=%s, u_pre=%s, h_pre=%s
             WHERE teacher_id=%s
             """,
             (
@@ -611,6 +614,8 @@ def my_wizard_employment(token):
                 reform_start_date,
                 school_year_of(reform_start_date) if reform_start_date else None,
                 certification_date,
+                int(float(request.form.get("u_pre") or 0)),
+                int(float(request.form.get("h_pre") or 0)),
                 teacher["teacher_id"],
             ),
         )
@@ -708,14 +713,17 @@ def my_wizard_docs_upload(token):
                         """
                         INSERT INTO courses
                         (teacher_id, start_date, school_year, hours, hours_graded, hours_ungraded,
-                         source_type, graded, grade, pre_approved, is_advanced_degree_track)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0)
+                         source_type, graded, grade, pre_approved, is_advanced_degree_track, counts_for_oz)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, NULL, 1, 0, %s)
                         """,
                         (tid, r["start_date"], sy, float(r["hours"]),
                          r.get("hours_graded"), r.get("hours_ungraded"),
-                         r.get("source_type_guess", "institutional")),
+                         r.get("source_type_guess", "institutional"),
+                         1 if r.get("counts_for_oz", True) else 0),
                     )
-                ok.append(f"הקורסים שלי: נטענו {len(rows)} קורסים (מחליפים את הרשימה הקודמת).")
+                not_oz = sum(1 for r in rows if not r.get("counts_for_oz", True))
+                note = f", מהם {not_oz} שלא נספרים לעוז לתמורה (רק בטרום הרפורמה)" if not_oz else ""
+                ok.append(f"הקורסים שלי: נטענו {len(rows)} קורסים{note} (מחליפים את הרשימה הקודמת).")
             else:
                 errs.append("הקורסים שלי: לא זוהו קורסים. ודאי שזה קובץ \"הקורסים שלי\" מהפורטל.")
         except Exception as exc:
@@ -1058,8 +1066,8 @@ def my_import_confirm(token):
             """
             INSERT INTO courses
             (teacher_id, start_date, school_year, hours, source_type, graded, grade,
-             pre_approved, is_advanced_degree_track)
-            VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0)
+             pre_approved, is_advanced_degree_track, counts_for_oz)
+            VALUES (%s, %s, %s, %s, %s, 0, NULL, 1, 0, %s)
             """,
             (
                 teacher["teacher_id"],
@@ -1067,6 +1075,7 @@ def my_import_confirm(token):
                 sy,
                 float(hours),
                 request.form.get(f"source_type_{i}", "institutional"),
+                0 if request.form.get(f"counts_for_oz_{i}") == "0" else 1,
             ),
         )
         added += 1

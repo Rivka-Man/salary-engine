@@ -181,14 +181,43 @@ def parse_heikef_misra_pdf(file_path_or_buffer):
     return {}
 
 
+def _hval(tok):
+    if not tok or tok == "--":
+        return None
+    try:
+        return float(tok)
+    except ValueError:
+        return None
+
+
+def _data_row_index(tokens):
+    """
+    שורת נתונים של קורס מסתיימת תמיד ב (מימין לשמאל):
+      ... | עם ציון | בלי ציון | תאריך פתיחה | תאריך סיום | קורס גמולים (כן/לא) | עוז לתמורה
+    מחזיר את האינדקס של טוקן ה"כן"/"לא" (עמודת "קורס גמולים - לא ברפורמה"),
+    או None אם זו לא שורת נתונים. תאריך הפתיחה יכול להיות "--" (בקורסים ישנים
+    הפורטל מציג רק תאריך סיום), לכן מזהים לפי תאריך הסיום שצמוד ל"כן"/"לא".
+    """
+    for k in range(len(tokens) - 1, 3, -1):
+        if tokens[k] in ("כן", "לא") and DATE_RE.match(tokens[k - 1]) \
+                and (tokens[k - 2] == "--" or DATE_RE.match(tokens[k - 2])):
+            return k
+    return None
+
+
 def parse_courses_pdf(file_path_or_buffer):
     """
-    מחזיר רשימת dict-ים, אחד לכל קורס שיש לו ערך בעמודת "משתתף בגמולי
-    עוז לתמורה" (מספר שעות, לא "--"). קורסים בלי ערך שם לא מוחזרים
-    כלל - הם לא נספרים לעניין זה לפי הפורטל עצמו.
+    מחזיר רשימת dict-ים, אחד לכל קורס בקובץ שיש לו שעות:
+      - יש ערך בעמודת "משתתף בגמולי עוז לתמורה" - hours הוא הערך הזה,
+        counts_for_oz=True.
+      - אין ערך שם ("--") - הקורס לא נספר לעוז לתמורה, רק בטרום הרפורמה:
+        counts_for_oz=False, hours = היקף השעות עם+בלי ציון. זה כולל גם קורסים
+        שבעמודת "קורס גמולים (לא ברפורמה)" מסומנים "לא" (לבקשת המשתמשת).
+    לקורס בלי תאריך פתיחה ("--", נפוץ בקורסים ישנים) start_date = תאריך הסיום.
 
     כל item: {name, institution, start_date (ISO), end_date (ISO,
-    לתצוגה בלבד - אין בסכמה שדה כזה), hours, source_type_guess}
+    לתצוגה בלבד - אין בסכמה שדה כזה), hours, hours_graded,
+    hours_ungraded, source_type_guess, counts_for_oz}
     """
     rows = []
     pending_tokens = []
@@ -197,73 +226,44 @@ def parse_courses_pdf(file_path_or_buffer):
     with pdfplumber.open(file_path_or_buffer) as pdf:
         for page in pdf.pages:
             for tokens in _lines_for_page(page):
-                joined = " ".join(tokens)
-                dates = [t for t in tokens if DATE_RE.match(t)]
-
-                if len(dates) != 2 and any(m in joined for m in HEADER_MARKERS):
-                    seen_header = True
+                k = _data_row_index(tokens)
+                if k is None:
+                    if any(m in " ".join(tokens) for m in HEADER_MARKERS):
+                        seen_header = True
+                    elif seen_header:
+                        pending_tokens.extend(tokens)
+                        pending_tokens = pending_tokens[-15:]
                     continue
 
-                if len(dates) == 2:
-                    idx1 = tokens.index(dates[0])
-                    before = tokens[:idx1]
-                    after = tokens[tokens.index(dates[1]) + 1:]
+                # המיקום של כל עמודה נקבע מימין לשמאל ביחס ל"כן"/"לא" - שם הקורס
+                # עצמו יכול להכיל מספרים (למשל "הכשרת המחנך החדש-5643"), ולכן לא
+                # מחפשים "כל טוקן שנראה כמו מספר".
+                hours_graded = _hval(tokens[k - 4]) if k >= 4 else None
+                hours_ungraded = _hval(tokens[k - 3])
+                start_tok, end_tok = tokens[k - 2], tokens[k - 1]
+                oz_value = _hval(tokens[k + 1]) if len(tokens) > k + 1 else None
 
-                    # שני "משבצות השעות" (עם ציון / בלי ציון) יושבות תמיד צמוד
-                    # לתאריך התחלה - לא מספיק לחפש כל טוקן שנראה כמו מספר בכל
-                    # השורה, כי שם הקורס עצמו יכול להכיל מספר (למשל קורס
-                    # "הכשרת המחנך החדש-5643"). לא משתמשים בערך שלהן בפועל -
-                    # רק כדי לדעת איפה נגמר שם הקורס/המוסד ומתחילות השעות.
-                    hour_slot_size = 0
-                    for t in reversed(before):
-                        if t == "--" or t.replace(".", "", 1).isdigit():
-                            hour_slot_size += 1
-                            if hour_slot_size == 2:
-                                break
-                        else:
-                            break
+                name, institution = _split_name_institution(pending_tokens + tokens[: max(k - 4, 0)])
+                pending_tokens = []
 
-                    label_tail = before[: len(before) - hour_slot_size]
-                    name, institution = _split_name_institution(pending_tokens + label_tail)
-                    pending_tokens = []
+                if oz_value is not None:
+                    hours, counts_for_oz = oz_value, True
+                else:
+                    hours, counts_for_oz = (hours_graded or 0) + (hours_ungraded or 0), False
+                if not hours:
+                    continue
 
-                    # שתי משבצות השעות הכלליות: before[-2]=עם ציון, before[-1]=בלי ציון
-                    def _hval(tok):
-                        if not tok or tok == "--":
-                            return None
-                        try:
-                            return float(tok)
-                        except ValueError:
-                            return None
-                    hours_graded = _hval(before[-2]) if len(before) >= 2 else None
-                    hours_ungraded = _hval(before[-1]) if len(before) >= 1 else None
-
-                    # השעות נלקחות מעמודת "משתתף בגמולי עוז לתמורה" עצמה
-                    # (הטוקן האחרון בשורה) - זה המספר הרלוונטי לחישוב עוז
-                    # לתמורה, לא "היקף שעות עם/בלי ציון" הכללי. קורס בלי ערך
-                    # שם ("--") לא נספר לעניין זה ולא מוחזר בכלל.
-                    oz_letmura_value = after[1] if len(after) > 1 else None
-                    hours = None
-                    if oz_letmura_value and oz_letmura_value != "--":
-                        try:
-                            hours = float(oz_letmura_value)
-                        except ValueError:
-                            hours = None
-
-                    if hours is not None:
-                        source_type_guess = "school_based" if "השתלמות" in institution else "institutional"
-                        rows.append({
-                            "name": name,
-                            "institution": institution,
-                            "start_date": _to_iso_date(dates[0]),
-                            "end_date": _to_iso_date(dates[1]),
-                            "hours": hours,
-                            "hours_graded": hours_graded,
-                            "hours_ungraded": hours_ungraded,
-                            "source_type_guess": source_type_guess,
-                        })
-                elif seen_header:
-                    pending_tokens.extend(tokens)
-                    pending_tokens = pending_tokens[-15:]
+                end_date = _to_iso_date(end_tok)
+                rows.append({
+                    "name": name,
+                    "institution": institution,
+                    "start_date": _to_iso_date(start_tok) if DATE_RE.match(start_tok) else end_date,
+                    "end_date": end_date,
+                    "hours": hours,
+                    "hours_graded": hours_graded,
+                    "hours_ungraded": hours_ungraded,
+                    "source_type_guess": "school_based" if "השתלמות" in institution else "institutional",
+                    "counts_for_oz": counts_for_oz,
+                })
 
     return rows

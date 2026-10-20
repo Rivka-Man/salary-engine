@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS courses (
     graded          INTEGER DEFAULT 0,    -- 1 = עם ציון
     grade           REAL,                 -- הציון שהתקבל (אם עם ציון)
     pre_approved    INTEGER DEFAULT 1,    -- קיבל אישור מפקח מראש (כשנדרש)
-    is_advanced_degree_track INTEGER DEFAULT 0
+    is_advanced_degree_track INTEGER DEFAULT 0,
+    counts_for_oz   INTEGER DEFAULT 1     -- 0 = בקובץ אין ערך בעמודת "משתתף בגמולי עוז לתמורה" ("--"); נספר רק בטרום הרפורמה
 );
 
 -- טבלת סטטוס תעסוקתי שנתי (לצורך פטור משבתון/חצי-שבתון/חל"ת)

@@ -63,7 +63,7 @@ function copyPersonalLink() {
             {% for c in courses %}
             <tr>
               <td>{{ c.school_year or "—" }}</td>
-              <td>{{ c.description or "—" }}</td>
+              <td>{{ c.description or "—" }}{% if c.counts_for_oz == 0 %} <span class="chip neutral">טרום רפורמה בלבד</span>{% endif %}</td>
               <td class="mono">{{ c.start_date | dmy }}</td>
               <td class="mono">{{ c.end_date | dmy or "—" }}</td>
               <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>
@@ -141,6 +141,8 @@ function copyPersonalLink() {
         <dl class="kv-list">
           <div class="kv-row"><dt>סטטוס</dt><dd>{% if teacher.is_active_teacher %}עובד הוראה פעיל{% else %}לא פעיל{% endif %}</dd></div>
           <div class="kv-row"><dt>ותק</dt><dd>{% if teacher.has_seniority_year %}יש שנת ותק{% else %}אין{% endif %}</dd></div>
+          <div class="kv-row"><dt>יחידות שהוכרו ערב הרפורמה</dt><dd class="mono">{{ teacher.u_pre | num }}</dd></div>
+          <div class="kv-row"><dt>שעות שנצברו ערב הרפורמה</dt><dd class="mono">{{ teacher.h_pre | num }}</dd></div>
           <div class="kv-row"><dt>קיים גמול כפל תואר</dt><dd>{% if teacher.has_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>קיים גם כפל שני</dt><dd>{% if teacher.has_additional_double_degree_gimul %}כן{% else %}לא{% endif %}</dd></div>
           <div class="kv-row"><dt>קיים גמול ביניים</dt><dd>{% if teacher.has_beinayim_gimul %}כן{% else %}לא{% endif %}</dd></div>

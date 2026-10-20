@@ -22,7 +22,7 @@
   </div>
   <div class="panel-body">
     <p style="color:var(--ink-soft); font-size:0.85rem; margin:0;">
-      בדקי כל שורה לפני האישור. הוצגו רק קורסים שבקובץ מסומנים כמשתתפים בחישוב גמולים. "סוג מקור" הוא ניחוש של המערכת לפי המוסד — יכול להיות שגוי, אפשר לתקן. עמודות "תיאור"/"מוסד"/"תאריך סיום" הן טקסט גולמי מהקובץ לצורך זיהוי בלבד (לא נשמר ב-DB — הטבלה לא כוללת שדות כאלה).
+      בדקי כל שורה לפני האישור. קורסים שבקובץ לא מסומנים כמשתתפים בגמולי עוז לתמורה מסומנים "טרום רפורמה בלבד" — הם נשמרים עם סך היקף השעות שלהם ונספרים רק בחישוב היחידות/שעות ערב הרפורמה. "סוג מקור" הוא ניחוש של המערכת לפי המוסד — יכול להיות שגוי, אפשר לתקן. עמודות "תיאור"/"מוסד"/"תאריך סיום" הן טקסט גולמי מהקובץ לצורך זיהוי בלבד (לא נשמר ב-DB — הטבלה לא כוללת שדות כאלה).
     </p>
 
     {% if earliest_school_year %}
@@ -52,7 +52,11 @@
             {% for r in rows %}
             <tr>
               <td><input type="checkbox" name="include_{{ loop.index0 }}" checked></td>
-              <td class="label-col">{{ r.name }}</td>
+              <td class="label-col">
+                {{ r.name }}
+                <input type="hidden" name="counts_for_oz_{{ loop.index0 }}" value="{{ 1 if r.counts_for_oz else 0 }}">
+                {% if not r.counts_for_oz %}<br><span class="chip neutral">טרום רפורמה בלבד</span>{% endif %}
+              </td>
               <td class="label-col">{{ r.institution }}</td>
               <td class="narrow"><input class="mini-input" type="date" name="start_date_{{ loop.index0 }}" value="{{ r.start_date }}"></td>
               <td class="narrow mono">{{ r.end_date | dmy }}</td>
