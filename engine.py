@@ -494,9 +494,14 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
             # קורסים ישנים לגיטימיים היו מאבדים זכאות ליחידה בגלל חוסר בנתון, לא בפועל.
             course_graded = c["hours"]
             course_ungraded = 0
-        if hours != c["hours"] and c["hours"]:
-            # תקרת השתלמות בית-ספרית צמצמה את hours - מצמצמים גם את הפיצול יחסית.
-            ratio = hours / c["hours"]
+        # הפיצול עם/בלי ציון לא יכול לעלות על השעות שנספרות בפועל. זה קורה כשתקרת
+        # השתלמות בית-ספרית צמצמה את hours, או כשעמודת עוז לתמורה בקובץ קטנה
+        # מהיקף השעות הכללי (למשל 60 עם ציון, מהן 30 בעוז). אחרת היחס עם ציון
+        # עולה על 100% ונוצרת יתרה "בלי ציון" שלא קיימת.
+        split_total = course_graded + course_ungraded
+        base = max(c["hours"] or 0, split_total)
+        if base and hours < base:
+            ratio = hours / base
             course_graded *= ratio
             course_ungraded *= ratio
 
