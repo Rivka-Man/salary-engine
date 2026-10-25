@@ -15,7 +15,7 @@ from flask import Flask, abort, flash, redirect, render_template, request, send_
 
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
-from pdf_import import parse_courses_pdf, parse_heikef_misra_pdf, parse_maktav_haasaka_pdf
+from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
 
 app = Flask(__name__)
 # בשרת: SECRET_KEY ממשתנה סביבה. בלעדיו - מפתח אקראי לכל הפעלה (התחברויות
@@ -132,7 +132,8 @@ def get_teacher_by_token(conn, token):
 
 DOC_TYPE_LABELS = {
     "maktav": "מכתב העסקה",
-    "heikef": "היקף משרה",
+    "oz_join": "הצטרפות לעוז לתמורה",
+    "heikef": "היקף משרה",  # קבצים ישנים, לפני שהוחלף בעמוד הצטרפות לעוז לתמורה
     "courses": "הקורסים שלי",
 }
 
@@ -635,7 +636,7 @@ def my_wizard_employment(token):
 @app.route("/my/<token>/wizard/docs", methods=["POST"])
 def my_wizard_docs_upload(token):
     """
-    טעינה מרוכזת של שלושת קובצי הפורטל בשלב 1: מכתב העסקה, היקף משרה,
+    טעינה מרוכזת של שלושת קובצי הפורטל בשלב 1: מכתב העסקה, הצטרפות לעוז לתמורה,
     הקורסים שלי. כל קובץ עובר לפרסר המתאים לו והנתונים נשמרים; מה שלא
     זוהה נשאר להזנה ידנית בהמשך.
     """
@@ -648,23 +649,23 @@ def my_wizard_docs_upload(token):
     tid = teacher["teacher_id"]
     ok, errs = [], []
 
-    f = request.files.get("file_heikef")
+    f = request.files.get("file_oz_join")
     if f and f.filename:
         data = f.read()
-        save_document(conn, tid, "heikef", f.filename, data)
+        save_document(conn, tid, "oz_join", f.filename, data)
         try:
-            found = parse_heikef_misra_pdf(io.BytesIO(data))
+            found = parse_oz_join_pdf(io.BytesIO(data))
             if found.get("reform_start_date"):
                 d = found["reform_start_date"]
                 conn.execute(
                     "UPDATE teachers SET reform_start_date=%s, reform_start_year=%s WHERE teacher_id=%s",
                     (d, school_year_of(d), tid),
                 )
-                ok.append(f"היקף משרה: תאריך הצטרפות לעוז לתמורה — {d}")
+                ok.append(f"הצטרפות לעוז לתמורה: תאריך משרה ראשונה בעוז לתמורה — {d}")
             else:
-                errs.append("היקף משרה: לא זוהה תאריך הצטרפות. ודאי שזה קובץ \"היקף משרה\" מהפורטל.")
+                errs.append("הצטרפות לעוז לתמורה: לא זוהה תאריך. ודאי שזה קובץ \"עוז לתמורה - הצטרפות ויציאה\" מהפורטל.")
         except Exception as exc:
-            errs.append(f"היקף משרה: לא הצלחתי לקרוא את הקובץ ({exc}).")
+            errs.append(f"הצטרפות לעוז לתמורה: לא הצלחתי לקרוא את הקובץ ({exc}).")
 
     f = request.files.get("file_maktav")
     if f and f.filename:

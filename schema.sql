@@ -97,12 +97,12 @@ CREATE TABLE IF NOT EXISTS calculation_runs (
     result_json     TEXT NOT NULL         -- הפלט המלא + trace (JSON)
 );
 
--- קבצי PDF שהמורה/המנהל טענו (מכתב העסקה, היקף משרה, הקורסים שלי).
+-- קבצי PDF שהמורה/המנהל טענו (מכתב העסקה, הצטרפות לעוז לתמורה, הקורסים שלי).
 -- נשמרים ב-DB ולא בדיסק, כי הדיסק של השרת (Render) נמחק בכל הפעלה מחדש.
 CREATE TABLE IF NOT EXISTS teacher_documents (
     doc_id        SERIAL PRIMARY KEY,
     teacher_id    TEXT NOT NULL REFERENCES teachers(teacher_id),
-    doc_type      TEXT NOT NULL,          -- 'maktav' | 'heikef' | 'courses'
+    doc_type      TEXT NOT NULL,          -- 'maktav' | 'oz_join' | 'courses' ('heikef' בקבצים ישנים)
     filename      TEXT NOT NULL,
     content       BYTEA NOT NULL,
     uploaded_at   TEXT NOT NULL

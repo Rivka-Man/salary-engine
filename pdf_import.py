@@ -130,15 +130,14 @@ def parse_maktav_haasaka_pdf(file_path_or_buffer):
     return found
 
 
-def parse_heikef_misra_pdf(file_path_or_buffer):
+def parse_oz_join_pdf(file_path_or_buffer):
     """
-    שולף את "תאריך הצטרפות לעוז לתמורה" מקובץ PDF שהופק מעמוד "היקף משרה"
-    בפורטל עו"ה. אותה בעיית קידוד עברית הפוכה תו-אחר-תו כמו בקובץ
-    הקורסים - וגם כאן העמוד בנוי כרשת של תוויות/ערכים לפי מיקום (לא
-    טבלה אמיתית), עם כמה "עמודות" זו לצד זו באותה שורה. במקום לנתח את
-    כל הרשת, מאתרים ספציפית את התווית "תאריך הצטרפות לעוז [שורה הבאה]
-    לתמורה" ולוקחים את התאריך הראשון שמופיע מתחתיה **באותו טווח X**
-    (כדי לא להתבלבל עם "תאריך הצטרפות לאופק חדש" שמופיע בעמודה אחרת).
+    שולף את "תאריך משרה ראשונה בעוז לתמורה" מקובץ PDF שהופק מעמוד
+    "עוז לתמורה - הצטרפות ויציאה" בפורטל עו"ה (מרחב מנהלי ← אופק חדש ועוז
+    לתמורה ← עוז לתמורה). כמו בשאר עמודי הפורטל - עברית הפוכה תו-אחר-תו
+    ופריסה לפי מיקום, וליד התווית יש עמודות נוספות ("עמידה בתנאי ההצטרפות").
+    מאתרים את שורת התווית (מכילה "משרה", "ראשונה", "בעוז") ולוקחים את
+    התאריך הראשון שמתחתיה בטווח ה-X של התווית.
 
     מחזיר {"reform_start_date": ISO date} או {} אם לא נמצא.
     """
@@ -150,59 +149,28 @@ def parse_heikef_misra_pdf(file_path_or_buffer):
                 if w["text"] == "!":
                     continue
                 key = round(w["top"] / 3) * 3
-                rows.setdefault(key, []).append((w["x0"], _fix_word(w["text"])))
+                rows.setdefault(key, []).append((w["x0"], w["x1"], _fix_word(w["text"])))
 
             label_row = next(
-                (r for r, items in rows.items()
-                 if {"תאריך", "הצטרפות", "לעוז"} <= {t for _, t in items}),
+                (r for r in sorted(rows)
+                 if {"משרה", "ראשונה", "בעוז"} <= {t for _, _, t in rows[r]}),
                 None,
             )
             if label_row is None:
                 continue
 
-            x_taarich = next(x0 for x0, t in rows[label_row] if t == "תאריך")
-            x_leoz = next(x0 for x0, t in rows[label_row] if t == "לעוז")
-            col_lo, col_hi = x_leoz - 20, x_taarich + 20
-
-            cont_row = next(
-                (r for r in sorted(rows) if label_row < r <= label_row + 40
-                 and any(t == "לתמורה" and col_lo - 30 <= x0 <= col_hi + 30 for x0, t in rows[r])),
-                None,
-            )
-            if cont_row is None:
-                continue
+            label_words = [(x0, x1) for x0, x1, t in rows[label_row]
+                           if t in ("תאריך", "משרה", "ראשונה", "בעוז", "לתמורה")]
+            col_lo = min(x0 for x0, _ in label_words) - 40
+            col_hi = max(x1 for _, x1 in label_words) + 40
 
             for r in sorted(rows):
-                if r <= cont_row or r > cont_row + 40:
+                if r <= label_row or r > label_row + 60:
                     continue
-                for x0, t in rows[r]:
-                    if DATE_RE.match(t) and col_lo - 60 <= x0 <= col_hi + 60:
+                for x0, x1, t in rows[r]:
+                    if DATE_RE.match(t) and x1 >= col_lo and x0 <= col_hi:
                         return {"reform_start_date": _to_iso_date(t)}
     return {}
-
-
-def _hval(tok):
-    if not tok or tok == "--":
-        return None
-    try:
-        return float(tok)
-    except ValueError:
-        return None
-
-
-def _data_row_index(tokens):
-    """
-    שורת נתונים של קורס מסתיימת תמיד ב (מימין לשמאל):
-      ... | עם ציון | בלי ציון | תאריך פתיחה | תאריך סיום | קורס גמולים (כן/לא) | עוז לתמורה
-    מחזיר את האינדקס של טוקן ה"כן"/"לא" (עמודת "קורס גמולים - לא ברפורמה"),
-    או None אם זו לא שורת נתונים. תאריך הפתיחה יכול להיות "--" (בקורסים ישנים
-    הפורטל מציג רק תאריך סיום), לכן מזהים לפי תאריך הסיום שצמוד ל"כן"/"לא".
-    """
-    for k in range(len(tokens) - 1, 3, -1):
-        if tokens[k] in ("כן", "לא") and DATE_RE.match(tokens[k - 1]) \
-                and (tokens[k - 2] == "--" or DATE_RE.match(tokens[k - 2])):
-            return k
-    return None
 
 
 def parse_courses_pdf(file_path_or_buffer):

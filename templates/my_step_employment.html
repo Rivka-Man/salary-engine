@@ -16,7 +16,7 @@
       <div class="help-wrap">
         <button type="button" class="help-btn" aria-describedby="help-employment">?</button>
         <div class="help-tip" id="help-employment">
-          מכתב העסקה: "שירות ותמיכה" ← "אישורים" ← "אישור נתוני העסקה" ← "הפקת אישור" ← הורדה. היקף משרה: "מרחב מנהלי" ← "פרטי העסקה" ← "היקף משרה" ← "הדפס" ← "שמירה כ-PDF". הקורסים שלי: "פיתוח מקצועי והדרכה" ← "הקורסים שלי" ← "הדפס" ← "שמירה כ-PDF".
+          מכתב העסקה: "שירות ותמיכה" ← "אישורים" ← "אישור נתוני העסקה" ← "הפקת אישור" ← הורדה. הצטרפות לעוז לתמורה: "מרחב מנהלי" ← "אופק חדש ועוז לתמורה" ← "עוז לתמורה" ← "עוז לתמורה - הצטרפות ויציאה" ← "הדפס" ← "שמירה כ-PDF". הקורסים שלי: "פיתוח מקצועי והדרכה" ← "הקורסים שלי" ← "הדפס" ← "שמירה כ-PDF".
         </div>
       </div>
       <span class="soon-badge">סרטון הדרכה בקרוב</span>
@@ -33,12 +33,12 @@
           <span class="file-action">העלאה +</span>
           <input type="file" id="file_maktav" name="file_maktav" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
         </label>
-        <label class="file-row" for="file_heikef" id="row_file_heikef">
+        <label class="file-row" for="file_oz_join" id="row_file_oz_join">
           <span class="file-icon">📄</span>
-          <span class="file-name">2. היקף משרה</span>
-          <button type="button" class="file-howto" onclick="opOpenGuide(event, 'guide_heikef')">איך מביאים?</button>
+          <span class="file-name">2. הצטרפות לעוז לתמורה</span>
+          <button type="button" class="file-howto" onclick="opOpenGuide(event, 'guide_oz_join')">איך מביאים?</button>
           <span class="file-action">העלאה +</span>
-          <input type="file" id="file_heikef" name="file_heikef" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
+          <input type="file" id="file_oz_join" name="file_oz_join" accept="application/pdf" class="file-input-hidden" onchange="opFileRowChange(this)">
         </label>
         <label class="file-row" for="file_courses" id="row_file_courses">
           <span class="file-icon">📄</span>
@@ -74,8 +74,9 @@
         "ב\"בחירת אישור להפקה\" בוחרים <b>אישור נתוני העסקה</b> ולוחצים <b>הפקת אישור</b>.",
         "כשהסטטוס \"טופס מוכן\" — מורידים את הקובץ בסמל ההורדה.",
       ]),
-      ("guide_heikef", "היקף משרה", "heikef.png", [
-        "בתפריט העליון: <b>מרחב מנהלי</b> ← <b>פרטי העסקה</b> ← <b>היקף משרה</b>.",
+      ("guide_oz_join", "עוז לתמורה - הצטרפות ויציאה", "oz_join.png", [
+        "בתפריט העליון: <b>מרחב מנהלי</b> ← <b>אופק חדש ועוז לתמורה</b> ← <b>עוז לתמורה</b> ← <b>עוז לתמורה - הצטרפות ויציאה</b>.",
+        "בודקים שמופיע &quot;תאריך משרה ראשונה בעוז לתמורה&quot;.",
         "לוחצים <b>הדפס</b> ובוחרים יעד הדפסה <b>שמירה כ-PDF</b>.",
       ]),
       ("guide_courses", "הקורסים שלי", "courses.png", [
