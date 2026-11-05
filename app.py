@@ -166,6 +166,16 @@ def document_response(conn, teacher_id, doc_id):
                      as_attachment=False, download_name=doc["filename"])
 
 
+def delete_document(conn, teacher_id, doc_id):
+    """מוחק רק את עותק הקובץ מהרשימה - נתונים שכבר נקלטו ממנו נשארים. מחזיר אם נמחק."""
+    cur = conn.execute(
+        "DELETE FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s",
+        (doc_id, teacher_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
 def next_teacher_id(conn):
     rows = conn.execute("SELECT teacher_id FROM teachers").fetchall()
     max_n = 0
@@ -266,6 +276,17 @@ def teacher_document(teacher_id, doc_id):
     resp = document_response(conn, teacher_id, doc_id)
     conn.close()
     return resp or abort(404)
+
+
+@app.route("/teachers/<teacher_id>/documents/<int:doc_id>/delete", methods=["POST"])
+def teacher_document_delete(teacher_id, doc_id):
+    conn = get_conn()
+    deleted = delete_document(conn, teacher_id, doc_id)
+    conn.close()
+    if not deleted:
+        abort(404)
+    flash("הקובץ נמחק מהרשימה.", "success")
+    return redirect(url_for("teacher_detail", teacher_id=teacher_id))
 
 
 @app.route("/teachers/<teacher_id>/edit", methods=["GET", "POST"])
@@ -748,6 +769,18 @@ def my_document(token, doc_id):
     resp = document_response(conn, teacher["teacher_id"], doc_id) if teacher else None
     conn.close()
     return resp or abort(404)
+
+
+@app.route("/my/<token>/documents/<int:doc_id>/delete", methods=["POST"])
+def my_document_delete(token, doc_id):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    deleted = delete_document(conn, teacher["teacher_id"], doc_id) if teacher else False
+    conn.close()
+    if not deleted:
+        abort(404)
+    flash("הקובץ נמחק מהרשימה.", "success")
+    return redirect(url_for("my_wizard_employment", token=token))
 
 
 @app.route("/my/<token>/wizard/education", methods=["GET", "POST"])

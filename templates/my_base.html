@@ -139,7 +139,10 @@
 
   .saved-docs{ margin-top:18px; padding-top:14px; border-top:1px dashed var(--line); }
   .saved-docs-title{ font-family:'Heebo',sans-serif; font-weight:600; font-size:13px; color:var(--ink-soft); margin-bottom:8px; }
-  .saved-doc{ display:flex; align-items:center; gap:10px; padding:7px 4px; font-size:13px; color:var(--ink); text-decoration:none; border-radius:8px; }
+  .saved-doc-row{ display:flex; align-items:center; gap:8px; }
+  .saved-doc-delete{ flex:none; background:none; border:none; padding:6px 8px; font-family:inherit; font-size:12px; color:var(--ink-soft); text-decoration:underline; cursor:pointer; border-radius:8px; }
+  .saved-doc-delete:hover{ background:var(--paper); }
+  .saved-doc{ flex:1; min-width:0; display:flex; align-items:center; gap:10px; padding:7px 4px; font-size:13px; color:var(--ink); text-decoration:none; border-radius:8px; }
   .saved-doc:hover{ background:var(--paper); }
   .saved-doc-type{ font-weight:600; white-space:nowrap; }
   .saved-doc-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--teal); text-decoration:underline; direction:ltr; text-align:right; }

@@ -55,16 +55,24 @@
         <div class="saved-docs">
           <div class="saved-docs-title">קבצים שטענת</div>
           {% for d in documents %}
-          <a class="saved-doc" href="{{ url_for('my_document', token=token, doc_id=d.doc_id) }}" target="_blank" rel="noopener">
-            <span class="saved-doc-type">{{ doc_type_labels.get(d.doc_type, d.doc_type) }}</span>
-            <span class="saved-doc-name">{{ d.filename }}</span>
-            <span class="saved-doc-date">{{ d.uploaded_at | dmy }}</span>
-          </a>
+          <div class="saved-doc-row">
+            <a class="saved-doc" href="{{ url_for('my_document', token=token, doc_id=d.doc_id) }}" target="_blank" rel="noopener">
+              <span class="saved-doc-type">{{ doc_type_labels.get(d.doc_type, d.doc_type) }}</span>
+              <span class="saved-doc-name">{{ d.filename }}</span>
+              <span class="saved-doc-date">{{ d.uploaded_at | dmy }}</span>
+            </a>
+            {# הטופס של המחיקה נמצא מחוץ לטופס ההעלאה (אסור לקנן טפסים) ומקושר דרך form= #}
+            <button type="submit" form="delete-doc-{{ d.doc_id }}" class="saved-doc-delete" aria-label="מחיקת הקובץ {{ d.filename }}">מחיקה</button>
+          </div>
           {% endfor %}
         </div>
         {% endif %}
       </div>
     </form>
+
+    {% for d in documents %}
+    <form id="delete-doc-{{ d.doc_id }}" method="post" action="{{ url_for('my_document_delete', token=token, doc_id=d.doc_id) }}" onsubmit="return confirm('למחוק את הקובץ מהרשימה? נתונים שכבר נטענו ממנו יישארו.');"></form>
+    {% endfor %}
 
     <div class="upload-divider">או הזנה ידנית למטה</div>
 
