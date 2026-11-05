@@ -173,6 +173,30 @@ def parse_oz_join_pdf(file_path_or_buffer):
     return {}
 
 
+def _hval(tok):
+    if not tok or tok == "--":
+        return None
+    try:
+        return float(tok)
+    except ValueError:
+        return None
+
+
+def _data_row_index(tokens):
+    """
+    שורת נתונים של קורס מסתיימת תמיד ב (מימין לשמאל):
+      ... | עם ציון | בלי ציון | תאריך פתיחה | תאריך סיום | קורס גמולים (כן/לא) | עוז לתמורה
+    מחזיר את האינדקס של טוקן ה"כן"/"לא" (עמודת "קורס גמולים - לא ברפורמה"),
+    או None אם זו לא שורת נתונים. תאריך הפתיחה יכול להיות "--" (בקורסים ישנים
+    הפורטל מציג רק תאריך סיום), לכן מזהים לפי תאריך הסיום שצמוד ל"כן"/"לא".
+    """
+    for k in range(len(tokens) - 1, 3, -1):
+        if tokens[k] in ("כן", "לא") and DATE_RE.match(tokens[k - 1]) \
+                and (tokens[k - 2] == "--" or DATE_RE.match(tokens[k - 2])):
+            return k
+    return None
+
+
 def parse_courses_pdf(file_path_or_buffer):
     """
     מחזיר רשימת dict-ים, אחד לכל קורס בקובץ שיש לו שעות:
