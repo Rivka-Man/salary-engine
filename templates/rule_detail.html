@@ -30,12 +30,21 @@
   </td>
   <td class="cell-input"><select name="cond-{{ i }}-field" class="cond-field">{{ field_options(c.field if c else "", true, "— בחירת שדה —") }}</select></td>
   <td class="cell-input">
-    <select name="cond-{{ i }}-operator">
+    <select name="cond-{{ i }}-operator" class="cond-operator">
       {% for code, op in operators.items() %}<option value="{{ code }}" {% if c and c.operator == code %}selected{% endif %}>{{ op[0] }}</option>{% endfor %}
     </select>
   </td>
-  <td class="cell-input"><input type="text" name="cond-{{ i }}-value" class="cond-value" value="{{ c.edit_value if c else '' }}"></td>
-  <td class="cell-input"><select name="cond-{{ i }}-value_field">{{ field_options(c.value_field if c else "", true, "— ערך קבוע —") }}</select></td>
+  {# שדה הערך מתחלף לפי סוג השדה שנבחר: כן/לא, תאריך, מספר, רשימת אפשרויות, או טקסט
+     (לרשימת ערכים ב"אחד מ-"). רק לפקד הפעיל יש name, ולכן רק הוא נשלח. בלי JS
+     נשאר שדה הטקסט, והשרת מבין גם אותו. #}
+  <td class="cell-input cond-value-cell" data-raw="{{ c.value if c and c.value is not none else '' }}">
+    <span class="vctl" data-kind="text"><input type="text" name="cond-{{ i }}-value" class="cond-value" value="{{ c.edit_value if c else '' }}"></span>
+    <span class="vctl" data-kind="bool" hidden><select data-name="cond-{{ i }}-value"><option value="1">כן</option><option value="0">לא</option></select></span>
+    <span class="vctl" data-kind="date" hidden><input type="date" data-name="cond-{{ i }}-value"></span>
+    <span class="vctl" data-kind="number" hidden><input type="number" step="any" data-name="cond-{{ i }}-value"></span>
+    <span class="vctl" data-kind="choice" hidden><select data-name="cond-{{ i }}-value"></select></span>
+  </td>
+  <td class="cell-input"><select name="cond-{{ i }}-value_field" class="cond-value-field">{{ field_options(c.value_field if c else "", true, "— ערך קבוע —") }}</select></td>
   <td>{% if c %}<label class="panel-note" style="white-space:nowrap;"><input type="checkbox" name="cond-{{ i }}-delete" value="1"> מחיקה</label>{% endif %}</td>
 </tr>
 {% endmacro %}
@@ -62,7 +71,8 @@
       </table>
     </div>
     <p class="panel-note" style="margin:0;">
-      בלי תנאים החוק חל תמיד. ערך: כן/לא, תאריך בצורה DD/MM/YYYY, מספר, או כמה ערכים מופרדים בפסיק עבור "אחד מ-".
+      בלי תנאים החוק חל תמיד. שדה הערך מתאים את עצמו לסוג השדה: כן/לא, תאריך, מספר או רשימת אפשרויות.
+      עבור "אחד מ-" כותבים כמה ערכים מופרדים בפסיק.
       כדי להוסיף יותר תנאים, שומרים ונפתחות שורות ריקות חדשות.
     </p>
     <div class="form-grid">
@@ -90,22 +100,62 @@
   </form>
 </section>
 <script>
-  // רמז בשדה הערך לפי סוג השדה שנבחר בתנאי
+  // פקד הערך לפי סוג השדה: כן/לא -> רשימה, תאריך -> בוחר תאריך, מספר -> מספר,
+  // שדה עם אפשרויות קבועות -> רשימת האפשרויות. "אחד מ-" -> טקסט עם פסיקים.
+  // "יש ערך"/"אין ערך", או השוואה לשדה אחר -> בלי ערך.
   (function () {
-    var hints = {bool: "כן / לא", date: "DD/MM/YYYY", number: "מספר",
-                 choice: {{ choices | tojson }}};
+    var choices = {{ choices | tojson }};
+    var noValueOps = {set: 1, unset: 1};
     document.querySelectorAll(".cond-row").forEach(function (row) {
-      var sel = row.querySelector(".cond-field"), val = row.querySelector(".cond-value");
-      function update() {
-        var opt = sel.options[sel.selectedIndex], t = opt && opt.dataset.type;
-        if (t === "choice") {
-          var c = hints.choice[sel.value] || {};
-          val.placeholder = Object.keys(c).map(function (k) { return c[k]; }).join(" / ");
-        } else {
-          val.placeholder = hints[t] || "";
-        }
+      var fieldSel = row.querySelector(".cond-field"),
+          opSel = row.querySelector(".cond-operator"),
+          cmpSel = row.querySelector(".cond-value-field"),
+          cell = row.querySelector(".cond-value-cell"),
+          text = row.querySelector(".cond-value"),
+          raw = cell.dataset.raw,
+          name = text.name,
+          ctls = {};
+      cell.querySelectorAll(".vctl").forEach(function (s) { ctls[s.dataset.kind] = s; });
+      function ctl(kind) { return ctls[kind].querySelector("input, select"); }
+
+      function fillChoices() {
+        var sel = ctl("choice"), opts = choices[fieldSel.value] || [], keep = sel.value || raw;
+        sel.innerHTML = "";
+        opts.forEach(function (pair) {
+          var o = document.createElement("option");
+          o.value = pair[0]; o.textContent = pair[1];
+          sel.appendChild(o);
+        });
+        if (keep && opts.some(function (p) { return p[0] === keep; })) sel.value = keep;
       }
-      sel.addEventListener("change", update);
+
+      function update() {
+        var opt = fieldSel.options[fieldSel.selectedIndex],
+            type = (opt && opt.dataset.type) || "text",
+            op = opSel.value, kind;
+        if (noValueOps[op] || cmpSel.value) kind = null;
+        else if (op === "in" || !ctls[type]) kind = "text";
+        else kind = type;
+        if (type === "choice") fillChoices();
+        Object.keys(ctls).forEach(function (k) {
+          var on = k === kind;
+          ctls[k].hidden = !on;
+          var c = ctl(k);
+          if (on) c.name = name; else c.removeAttribute("name");
+        });
+        text.placeholder = op === "in"
+          ? (type === "choice" ? (choices[fieldSel.value] || []).map(function (p) { return p[1]; }).join(", ")
+             : type === "bool" ? "כן, לא" : "ערכים מופרדים בפסיק")
+          : "";
+      }
+
+      // ערכים התחלתיים מהערך השמור (ISO לתאריך, 1/0 לכן/לא, קוד לאפשרות)
+      if (raw) {
+        ctl("bool").value = raw;
+        ctl("date").value = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+        ctl("number").value = isNaN(parseFloat(raw)) ? "" : raw;
+      }
+      [fieldSel, opSel, cmpSel].forEach(function (s) { s.addEventListener("change", update); });
       update();
     });
   })();

@@ -386,7 +386,9 @@ def rule_detail(constitution_id, rule_id):
         "rule_detail.html", constitution=constitution, rule=rule, param_groups=param_groups, gaps=gaps,
         log=_log_entries(log), conditions=conds, applies=describe_conditions(conds),
         new_condition_rows=NEW_CONDITION_ROWS, fields=FIELDS, operators=OPERATORS, connectors=CONNECTORS,
-        actions=ACTIONS, action_labels=RULE_ACTION_LABELS, choices=CHOICES,
+        actions=ACTIONS, action_labels=RULE_ACTION_LABELS,
+        # רשימה ולא dict - כדי שסדר האפשרויות יישמר ב-JSON (tojson ממיין מפתחות)
+        choices={f: list(opts.items()) for f, opts in CHOICES.items()},
     )
 
 
