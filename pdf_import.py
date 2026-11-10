@@ -202,9 +202,12 @@ def parse_courses_pdf(file_path_or_buffer):
     מחזיר רשימת dict-ים, אחד לכל קורס בקובץ שיש לו שעות:
       - יש ערך בעמודת "משתתף בגמולי עוז לתמורה" - hours הוא הערך הזה,
         counts_for_oz=True.
-      - אין ערך שם ("--") - הקורס לא נספר לעוז לתמורה, רק בטרום הרפורמה:
-        counts_for_oz=False, hours = היקף השעות עם+בלי ציון. זה כולל גם קורסים
-        שבעמודת "קורס גמולים (לא ברפורמה)" מסומנים "לא" (לבקשת המשתמשת).
+      - אין ערך שם ("--") ובעמודת "קורס גמולים (לא ברפורמה)" מסומן "כן" - הקורס
+        לא נספר לעוז לתמורה, רק בטרום הרפורמה: counts_for_oz=False, hours = היקף
+        השעות עם+בלי ציון.
+      - אין ערך שם ובעמודת "קורס גמולים (לא ברפורמה)" מסומן "לא" - השעות לא
+        נצברות לגמולים בכלל (לא ברפורמה ולא בעולם הישן), והקורס לא מוחזר.
+        כך גם משרד החינוך מחשב.
     לקורס בלי תאריך פתיחה ("--", נפוץ בקורסים ישנים) start_date = תאריך הסיום.
 
     כל item: {name, institution, start_date (ISO), end_date (ISO,
@@ -240,6 +243,8 @@ def parse_courses_pdf(file_path_or_buffer):
 
                 if oz_value is not None:
                     hours, counts_for_oz = oz_value, True
+                elif tokens[k] == "לא":
+                    continue  # לא נצבר לגמולים בכלל
                 else:
                     hours, counts_for_oz = (hours_graded or 0) + (hours_ungraded or 0), False
                 if not hours:
