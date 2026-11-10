@@ -28,7 +28,23 @@ CREATE TABLE IF NOT EXISTS rules (
     valid_to      TEXT,                   -- תאריך סיום תוקף, NULL = עדיין בתוקף
     overrides     TEXT,                   -- rule_id של חוק שהחוק הזה גובר עליו (אם יש)
     active        INTEGER NOT NULL DEFAULT 1,
-    constitution_id INTEGER REFERENCES constitutions(constitution_id)
+    constitution_id INTEGER REFERENCES constitutions(constitution_id),
+    action        TEXT,                   -- מה החוק עושה (קוד מ-rule_vocab.ACTIONS)
+    result_value  TEXT,                   -- תוצאה לחוק בלי פרמטרים (למשל "יחידה 17")
+    logic_seeded  INTEGER NOT NULL DEFAULT 0  -- 1 = התנאים/הפעולה כבר נזרעו או נערכו
+);
+
+-- תנאי "חל על" של כל חוק, שורה לכל תנאי (החוקה הטבלאית). מתעד את הלוגיקה
+-- במבנה קבוע; המנוע עדיין מחשב לפי הקוד ולא קורא את הטבלה הזו.
+CREATE TABLE IF NOT EXISTS rule_conditions (
+    condition_id  SERIAL PRIMARY KEY,
+    rule_id       TEXT NOT NULL REFERENCES rules(rule_id) ON DELETE CASCADE,
+    seq           INTEGER NOT NULL,       -- סדר התנאים בחוק
+    connector     TEXT NOT NULL DEFAULT 'AND',  -- AND / OR - מחבר לתנאי הקודם
+    field         TEXT NOT NULL,          -- קוד שדה מ-rule_vocab.FIELDS
+    operator      TEXT NOT NULL,          -- eq/ne/lt/le/gt/ge/in/set/unset
+    value         TEXT,                   -- ערך להשוואה (ISO לתאריך, 1/0 לכן/לא, רשימה מופרדת בפסיקים)
+    value_field   TEXT                    -- או: השוואה לשדה אחר במקום לערך קבוע
 );
 
 -- פרמטרים מספריים של החוקים (התקרות/אחוזים/שעות עצמם) - נפרד מהלוגיקה

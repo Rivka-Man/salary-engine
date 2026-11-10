@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{# בסיס לכל דפי החוקות: גופן גדול יותר, לוגו גדול יותר, ובתפריט "חוקה חדשה" במקום "מורה חדש". #}
+{% block extra_style %}<style>
+  html { font-size: 118%; }
+  .brand img { height: 56px; }
+</style>{% endblock %}
+{% block nav_action %}<a href="{{ url_for('backoffice.new_constitution') }}">+ חוקה חדשה</a>{% endblock %}

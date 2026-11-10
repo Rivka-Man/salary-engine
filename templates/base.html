@@ -154,6 +154,7 @@
     pointer-events: none; font-size: 0.9rem; color: var(--ink); direction: ltr; justify-content: flex-start; overflow: hidden; white-space: nowrap; }
   .date-overlay.placeholder { color: var(--ink-soft); }
 </style>
+{% block extra_style %}{% endblock %}
 </head>
 <body>
 <div class="page">
@@ -166,7 +167,7 @@
       <a href="{{ url_for('index') }}" class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</a>
       <nav class="top-nav">
         <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a>
-        <a href="{{ url_for('new_teacher') }}">+ מורה חדש</a>
+        {% block nav_action %}<a href="{{ url_for('new_teacher') }}">+ מורה חדש</a>{% endblock %}
         {% if session.get('is_admin') %}
         <form method="post" action="{{ url_for('admin_logout') }}" style="display:inline"><button type="submit" class="btn btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.85rem;">יציאה</button></form>
         {% endif %}

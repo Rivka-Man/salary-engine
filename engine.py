@@ -19,6 +19,7 @@ from datetime import date, datetime
 from dataclasses import dataclass, field
 
 from db import get_connection
+from rule_vocab import seed_rule_logic
 
 # ----------------------------------------------------------------
 # מיפוי שנות לימודים עבריות לתאריך תחילה משוער (1 בספטמבר)
@@ -211,6 +212,7 @@ def init_db(reset: bool = True):
             DROP TABLE IF EXISTS employment_status_by_year CASCADE;
             DROP TABLE IF EXISTS courses CASCADE;
             DROP TABLE IF EXISTS rule_parameters CASCADE;
+            DROP TABLE IF EXISTS rule_conditions CASCADE;
             DROP TABLE IF EXISTS teachers CASCADE;
             DROP TABLE IF EXISTS rules CASCADE;
             DROP TABLE IF EXISTS constitution_change_log CASCADE;
@@ -261,6 +263,13 @@ def init_db(reset: bool = True):
     ).fetchall()]
     if "constitution_id" not in rule_cols:
         conn.execute("ALTER TABLE rules ADD COLUMN constitution_id INTEGER REFERENCES constitutions(constitution_id)")
+    for col, ddl in (
+        ("action", "ALTER TABLE rules ADD COLUMN action TEXT"),
+        ("result_value", "ALTER TABLE rules ADD COLUMN result_value TEXT"),
+        ("logic_seeded", "ALTER TABLE rules ADD COLUMN logic_seeded INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if col not in rule_cols:
+            conn.execute(ddl)
 
     # מכאן והלאה ה-DB הוא מקור האמת של החוקה (נערכת מהבקאופיס): הקוד רק זורע
     # חוקות/חוקים/פרמטרים שעוד לא קיימים, ולא דורס ערכים שנערכו. שינוי תיאור
@@ -307,6 +316,8 @@ def init_db(reset: bool = True):
             INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to)
             VALUES (%(rule_id)s, %(param_name)s, %(param_value)s, %(valid_from)s, %(valid_to)s)
         """, p)
+
+    seed_rule_logic(conn)
 
     conn.commit()
     conn.close()

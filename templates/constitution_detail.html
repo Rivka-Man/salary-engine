@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "constitutions_base.html" %}
 {% block title %}פנקס הגמול — {{ constitution.name }}{% endblock %}
 {% block content %}
 <div class="breadcrumb"><a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹ {{ constitution.name }}</div>
@@ -11,8 +11,9 @@
   <div class="panel-body">
     {% if constitution.description %}<p style="margin:0;">{{ constitution.description }}</p>{% endif %}
     <p class="panel-note" style="margin:0;">
-      הלוגיקה של כל חוק (על מי הוא חל) כתובה בקוד ואינה נערכת מכאן. ערכי הפרמטרים ותקופות התוקף שלהם
-      משפיעים ישירות על החישוב. שאר פרטי החוק הם תיעוד.
+      כל שורה בטבלה היא חוק: על מי הוא חל, מה הוא עושה ומה התוצאה. ערכי הפרמטרים ותקופות התוקף שלהם
+      משפיעים ישירות על החישוב. העמודות "חל על" ו"פעולה" מתעדות את הלוגיקה בצורה מובנית, אבל המנוע עדיין
+      מחשב לפי הקוד ולא קורא אותן. שינוי בהן לא ישנה חישוב.
     </p>
   </div>
   <details class="trail">
@@ -49,8 +50,10 @@
           <th>סדר</th>
           <th>קוד</th>
           <th>כותרת</th>
+          <th>חל על</th>
+          <th>פעולה</th>
+          <th>תוצאה (ערך · תוקף)</th>
           <th>מקור</th>
-          <th>פרמטרים (ערך · תוקף)</th>
           <th></th>
         </tr>
       </thead>
@@ -60,18 +63,59 @@
           <td class="mono">{{ r.priority }}</td>
           <td><span class="rule-code mono">{{ r.rule_id }}</span></td>
           <td class="wrap-text"><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">{{ r.title }}</a></td>
-          <td class="wrap-text">{{ r.source_doc | replace("_", " ") }}{% if r.source_ref %} · {{ r.source_ref }}{% endif %}</td>
+          <td class="wrap-text">{{ applies[r.rule_id] }}</td>
+          <td class="wrap-text">{{ action_labels.get(r.action, r.action) if r.action else "—" }}</td>
           <td class="wrap-text">
             {% for p in params_by_rule.get(r.rule_id, []) %}
-            <div><span class="mono">{{ p.param_name }}</span> = <b class="mono">{{ p.param_value | num }}</b>
+            <div><b class="mono">{{ p.param_value | num }}</b>
               <span class="panel-note">{% if p.valid_from or p.valid_to %}({{ p.valid_from | dmy or "…" }} – {{ p.valid_to | dmy or "…" }}){% endif %}</span></div>
-            {% else %}<span class="panel-note">—</span>{% endfor %}
+            {% endfor %}
+            {% if r.result_value %}<div>{{ r.result_value }}</div>{% endif %}
+            {% if not params_by_rule.get(r.rule_id) and not r.result_value %}<span class="panel-note">—</span>{% endif %}
           </td>
+          <td class="wrap-text">{{ r.source_doc | replace("_", " ") }}{% if r.source_ref %} · {{ r.source_ref }}{% endif %}</td>
           <td><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">עריכה ←</a></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <details class="trail">
+    <summary>+ חוק חדש <span class="caret">›</span></summary>
+    <form class="panel-body" method="post" action="{{ url_for('backoffice.new_rule', constitution_id=constitution.constitution_id) }}">
+      <div class="form-grid">
+        <div class="field">
+          <label for="nr_rule_id">קוד * (באנגלית, למשל R30_NEW_RULE)</label>
+          <input type="text" id="nr_rule_id" name="rule_id" required pattern="[A-Za-z][A-Za-z0-9_]*" dir="ltr">
+        </div>
+        <div class="field">
+          <label for="nr_priority">סדר</label>
+          <input type="number" id="nr_priority" name="priority" step="1" value="{{ (rules | map(attribute='priority') | max) + 1 if rules else 10 }}">
+        </div>
+        <div class="field span-all">
+          <label for="nr_title">כותרת *</label>
+          <input type="text" id="nr_title" name="title" required>
+        </div>
+        <div class="field span-all">
+          <label for="nr_description">תיאור</label>
+          <textarea id="nr_description" name="description"></textarea>
+        </div>
+        <div class="field">
+          <label for="nr_source_doc">מסמך מקור</label>
+          <input type="text" id="nr_source_doc" name="source_doc">
+        </div>
+        <div class="field">
+          <label for="nr_source_ref">סעיף במקור</label>
+          <input type="text" id="nr_source_ref" name="source_ref">
+        </div>
+        <div class="field span-all">
+          <label for="nr_reason">סיבה</label>
+          <input type="text" id="nr_reason" name="reason">
+        </div>
+      </div>
+      <p class="panel-note" style="margin:0;">אחרי ההוספה עוברים לדף החוק, ושם מגדירים על מי הוא חל, מה הוא עושה ומה התוצאה.</p>
+      <div class="actions-row"><button type="submit" class="btn btn-primary">הוספת החוק</button></div>
+    </form>
+  </details>
 </section>
 {% endblock %}

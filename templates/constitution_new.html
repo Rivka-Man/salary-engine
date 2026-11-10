@@ -1,0 +1,28 @@
+{% extends "constitutions_base.html" %}
+{% block title %}פנקס הגמול — חוקה חדשה{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('backoffice.constitutions') }}">ניהול חוקות שכר</a> ‹ חוקה חדשה</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">חוקה חדשה</span>
+  </div>
+  <form class="panel-body" method="post" action="{{ url_for('backoffice.new_constitution') }}">
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">שם *</label>
+        <input type="text" id="name" name="name" required value="{{ form.name }}">
+      </div>
+      <div class="field span-all">
+        <label for="description">תיאור</label>
+        <textarea id="description" name="description">{{ form.description }}</textarea>
+      </div>
+      <div class="field span-all">
+        <label for="reason">סיבה</label>
+        <input type="text" id="reason" name="reason">
+      </div>
+    </div>
+    <div class="actions-row"><button type="submit" class="btn btn-primary">יצירה</button></div>
+  </form>
+</section>
+{% endblock %}
