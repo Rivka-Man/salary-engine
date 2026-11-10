@@ -1,0 +1,33 @@
+<div class="table-wrap">
+  <table class="ledger">
+    <thead>
+      <tr><th>מתי</th><th>חוק</th><th>מה</th><th>שינוי (לפני ← אחרי)</th><th>סיבה</th></tr>
+    </thead>
+    <tbody>
+      {% for e in log %}
+      <tr>
+        <td class="mono">{{ e.changed_at[:10] | dmy }} {{ e.changed_at[11:16] }}</td>
+        <td>
+          {% if e.rule_id %}
+          <a href="{{ url_for('backoffice.rule_detail', constitution_id=e.constitution_id, rule_id=e.rule_id) }}" class="mono">{{ e.rule_id }}</a>
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% set chip = {"insert": "good", "update": "accent", "delete": "critical"}[e.action] %}
+          <span class="chip {{ chip }}">{{ e.action_label }}</span>
+          {{ e.entity_label }}{% if e.param_name %} <span class="mono">{{ e.param_name }}</span>{% endif %}
+        </td>
+        <td class="wrap-text">
+          {% for label, before, after in e.changes %}
+          <div><span class="panel-note">{{ label }}:</span>
+            {% if e.action != "insert" %}<s>{{ before if before is not none else "—" }}</s> ←{% endif %}
+            {% if e.action != "delete" %}<b>{{ after if after is not none else "—" }}</b>{% endif %}
+          </div>
+          {% endfor %}
+        </td>
+        <td class="wrap-text">{{ e.reason or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

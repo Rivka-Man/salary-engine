@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}פנקס הגמול — יומן שינויים · {{ constitution.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
+  <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}">{{ constitution.name }}</a> ‹
+  יומן שינויים
+</div>
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">יומן שינויים — {{ constitution.name }}</span>
+    <span class="panel-note">{{ log|length }} שינויים</span>
+  </div>
+  {% if log %}
+  {% include "_change_log_table.html" %}
+  {% else %}
+  <div class="empty-state"><p>עדיין לא בוצעו שינויים בחוקה.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

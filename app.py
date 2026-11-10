@@ -11,8 +11,9 @@ import secrets
 from datetime import date, datetime, timedelta
 
 import psycopg2
-from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
+from backoffice import bp as backoffice_bp
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
@@ -69,20 +70,34 @@ def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
 
-RULE_TITLES = {r["rule_id"]: r["title"] for r in RULES_METADATA}
-RULE_DESCRIPTIONS = {r["rule_id"]: r["description"] for r in RULES_METADATA}
+app.register_blueprint(backoffice_bp)
+
+
+def _rule_texts():
+    """
+    כותרות ותיאורי החוקים מה-DB (נערכים בבקאופיס) - נטען פעם אחת לכל בקשה.
+    חוק שחסר ב-DB נופל חזרה לטקסט שבקוד (RULES_METADATA).
+    """
+    if "rule_texts" not in g:
+        texts = {r["rule_id"]: (r["title"], r["description"]) for r in RULES_METADATA}
+        conn = get_connection()
+        for r in conn.execute("SELECT rule_id, title, description FROM rules").fetchall():
+            texts[r["rule_id"]] = (r["title"], r["description"])
+        conn.close()
+        g.rule_texts = texts
+    return g.rule_texts
 
 
 @app.template_filter("rule_desc")
 def rule_desc(rule_id):
     """מחליף rule_id (כמו R09_THRESH_18) בכותרת המילולית של החוק, לתצוגה במורה."""
-    return RULE_TITLES.get(rule_id, rule_id)
+    return _rule_texts().get(rule_id, (rule_id, None))[0]
 
 
 @app.template_filter("rule_tooltip")
 def rule_tooltip(rule_id):
     """טקסט הסבר מלא ל-tooltip (title HTML attribute): קוד החוק + התיאור המלא."""
-    desc = RULE_DESCRIPTIONS.get(rule_id)
+    desc = _rule_texts().get(rule_id, (None, None))[1]
     return f"{rule_id} — {desc}" if desc else rule_id
 
 

@@ -43,6 +43,7 @@
   .masthead-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
   .brand { display: flex; align-items: center; gap: 0.6rem; font-size: 1.6rem; font-weight: 600; text-decoration: none; color: var(--ink); }
   .brand img { height: 34px; width: auto; }
+  .top-nav { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
   .top-nav a {
     text-decoration: none; font-size: 0.85rem; font-weight: 600; color: var(--accent-ink);
     background: var(--accent-soft); padding: 0.5rem 0.9rem; border-radius: 6px;
@@ -94,11 +95,19 @@
   .field { display: flex; flex-direction: column; gap: 0.35rem; }
   .field.span-2 { grid-column: span 2; }
   .field label { font-size: 0.78rem; font-weight: 600; color: var(--ink-soft); }
-  .field input[type=text], .field input[type=date], .field input[type=number], .field select {
+  .field input[type=text], .field input[type=date], .field input[type=number], .field select, .field textarea {
     font: inherit; font-size: 0.9rem; padding: 0.5rem 0.65rem; border: 1px solid var(--line-strong);
     border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%;
   }
-  .field input:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field textarea { min-height: 6rem; resize: vertical; line-height: 1.5; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field.span-all { grid-column: 1 / -1; }
+  .cell-input input { font: inherit; font-size: 0.85rem; padding: 0.4rem 0.55rem; border: 1px solid var(--line-strong);
+    border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%; min-width: 7.5rem; }
+  .cell-input input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .breadcrumb { font-size: 0.82rem; color: var(--ink-soft); }
+  .breadcrumb a { text-decoration: none; }
+  .wrap-text { white-space: normal !important; }
   .checkbox-row { display: flex; align-items: center; gap: 0.5rem; flex-direction: row-reverse; justify-content: flex-end; }
   .checkbox-row label { font-size: 0.86rem; font-weight: 500; color: var(--ink); }
   .checkbox-row input { width: 16px; height: 16px; accent-color: var(--accent); }
@@ -156,6 +165,7 @@
       {% else %}
       <a href="{{ url_for('index') }}" class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</a>
       <nav class="top-nav">
+        <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a>
         <a href="{{ url_for('new_teacher') }}">+ מורה חדש</a>
         {% if session.get('is_admin') %}
         <form method="post" action="{{ url_for('admin_logout') }}" style="display:inline"><button type="submit" class="btn btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.85rem;">יציאה</button></form>

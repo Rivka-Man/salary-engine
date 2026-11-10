@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}פנקס הגמול — {{ rule.title }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
+  <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}">{{ constitution.name }}</a> ‹
+  <span class="mono">{{ rule.rule_id }}</span>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">פרמטרים — משפיעים על החישוב</span>
+    <span class="panel-note">הערך שחל נבחר לפי תאריך החישוב. תאריך ריק = מאז ומתמיד / ללא סיום. "בתוקף עד" לא כולל את היום עצמו.</span>
+  </div>
+  {% if param_groups %}
+  {% for name, periods in param_groups.items() %}
+  <div class="panel-body" style="border-bottom:1px solid var(--line);">
+    <div><span class="rule-code mono">{{ name }}</span></div>
+    {% if gaps[name] %}
+    <div class="flash error">
+      יש תאריכים בלי ערך לפרמטר הזה ({% for a, b in gaps[name] %}{{ a | dmy }} – {{ b | dmy }}{% if not loop.last %}, {% endif %}{% endfor %}).
+      חישוב לתאריך כזה ייכשל.
+    </div>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="ledger">
+        <thead>
+          <tr><th>ערך</th><th>בתוקף מ-</th><th>בתוקף עד</th><th>סיבת השינוי</th><th></th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in periods %}
+          {% set fid = "pf-" ~ p.param_id %}
+          <tr>
+            <td class="cell-input"><input type="number" step="any" name="param_value" form="{{ fid }}" value="{{ p.param_value | num }}" required style="max-width:8rem;"></td>
+            <td class="cell-input"><input type="date" name="valid_from" form="{{ fid }}" value="{{ p.valid_from or '' }}"></td>
+            <td class="cell-input"><input type="date" name="valid_to" form="{{ fid }}" value="{{ p.valid_to or '' }}"></td>
+            <td class="cell-input"><input type="text" name="reason" form="{{ fid }}" placeholder="למשל: הסכם 2026, סעיף 4"></td>
+            <td>
+              <form id="{{ fid }}" method="post" action="{{ url_for('backoffice.edit_param', constitution_id=constitution.constitution_id, rule_id=rule.rule_id, param_id=p.param_id) }}">
+                <button type="submit" class="btn btn-ghost" style="padding:0.4rem 0.8rem;">שמירה</button>
+              </form>
+            </td>
+            <td>
+              {% if periods|length > 1 %}
+              <form method="post" action="{{ url_for('backoffice.delete_param', constitution_id=constitution.constitution_id, rule_id=rule.rule_id, param_id=p.param_id) }}" onsubmit="return confirm('למחוק את התקופה הזו של הפרמטר?');">
+                <button type="submit" class="btn-danger">מחיקה</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <details class="trail" style="border:1px solid var(--line); border-radius:8px;">
+      <summary style="border-bottom:none;">+ תקופה חדשה ל-{{ name }} <span class="caret">›</span></summary>
+      <form class="panel-body" method="post" action="{{ url_for('backoffice.add_param_period', constitution_id=constitution.constitution_id, rule_id=rule.rule_id) }}">
+        <input type="hidden" name="param_name" value="{{ name }}">
+        <div class="form-grid">
+          <div class="field"><label>ערך *</label><input type="number" step="any" name="param_value" required></div>
+          <div class="field"><label>בתוקף מ- *</label><input type="date" name="valid_from" required></div>
+          <div class="field"><label>בתוקף עד (ריק = ללא סיום)</label><input type="date" name="valid_to"></div>
+          <div class="field"><label>סיבת השינוי</label><input type="text" name="reason"></div>
+        </div>
+        <p class="panel-note" style="margin:0;">תקופה פתוחה (ללא תאריך סיום) סוגרת אוטומטית את התקופה הפתוחה הקודמת ביום תחילתה.</p>
+        <div class="actions-row"><button type="submit" class="btn btn-primary">הוספת תקופה</button></div>
+      </form>
+    </details>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty-state"><p>לחוק הזה אין פרמטרים מספריים. הלוגיקה שלו כולה בקוד.</p></div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">פרטי החוק — תיעוד</span>
+    <span class="panel-note">סדר הרצה {{ rule.priority }}{% if rule.overrides %} · גובר על <span class="mono">{{ rule.overrides }}</span>{% endif %}</span>
+  </div>
+  <form class="panel-body" method="post" action="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=rule.rule_id) }}">
+    <div class="form-grid">
+      <div class="field span-all">
+        <label for="title">כותרת *</label>
+        <input type="text" id="title" name="title" required value="{{ rule.title }}">
+      </div>
+      <div class="field span-all">
+        <label for="description">תיאור *</label>
+        <textarea id="description" name="description" required>{{ rule.description }}</textarea>
+      </div>
+      <div class="field">
+        <label for="source_doc">מסמך מקור *</label>
+        <input type="text" id="source_doc" name="source_doc" required value="{{ rule.source_doc }}">
+      </div>
+      <div class="field">
+        <label for="source_ref">סעיף במקור</label>
+        <input type="text" id="source_ref" name="source_ref" value="{{ rule.source_ref or '' }}">
+      </div>
+      <div class="field span-all">
+        <label for="applies_when">תנאי הפעלה</label>
+        <input type="text" id="applies_when" name="applies_when" value="{{ rule.applies_when or '' }}">
+      </div>
+      <div class="field">
+        <label for="valid_from">בתוקף מ-</label>
+        <input type="date" id="valid_from" name="valid_from" value="{{ rule.valid_from or '' }}">
+      </div>
+      <div class="field">
+        <label for="valid_to">בתוקף עד</label>
+        <input type="date" id="valid_to" name="valid_to" value="{{ rule.valid_to or '' }}">
+      </div>
+      <div class="field span-all">
+        <label for="reason">סיבת השינוי</label>
+        <input type="text" id="reason" name="reason">
+      </div>
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn btn-primary">שמירת פרטי החוק</button>
+      <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}" class="btn btn-ghost">חזרה לחוקה</a>
+    </div>
+  </form>
+</section>
+
+{% if log %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">שינויים אחרונים בחוק</span>
+    <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}">כל היומן ←</a>
+  </div>
+  {% include "_change_log_table.html" %}
+</section>
+{% endif %}
+{% endblock %}

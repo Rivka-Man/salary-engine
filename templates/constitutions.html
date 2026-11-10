@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}פנקס הגמול — חוקות{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">חוקות</span>
+    <span class="panel-note">{{ constitutions|length }} חוקות במערכת</span>
+  </div>
+  {% if constitutions %}
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>שם החוקה</th>
+          <th>תיאור</th>
+          <th>חוקים</th>
+          <th>ערכי פרמטרים</th>
+          <th>שינוי אחרון</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in constitutions %}
+        <tr>
+          <td><a href="{{ url_for('backoffice.constitution_detail', constitution_id=c.constitution_id) }}"><b>{{ c.name }}</b></a></td>
+          <td class="wrap-text">{{ c.description or "—" }}</td>
+          <td class="mono">{{ c.rule_count }}</td>
+          <td class="mono">{{ c.param_count }}</td>
+          <td>{{ (c.last_change or "")[:10] | dmy or "—" }}</td>
+          <td><a href="{{ url_for('backoffice.constitution_detail', constitution_id=c.constitution_id) }}">פתיחה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><p>אין חוקות במערכת.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

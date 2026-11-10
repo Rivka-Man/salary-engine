@@ -162,6 +162,13 @@ RULES_METADATA = [
 # כאן, כדי שאפשר יהיה לעדכן אותו בלי לגעת ב-engine.py.
 # ==================================================================
 
+CONSTITUTIONS_METADATA = [
+    dict(code="gimul_hishtalmut", name="חוקת גמולי השתלמות",
+         description="חוקי חישוב גמול השתלמות לעובדי הוראה - הסכם עוז לתמורה (סעיף 18) וחוזרי מנכ\"ל השתלמויות."),
+]
+# כל החוקים ב-RULES_METADATA שייכים לחוקה הזו (אלא אם חוק מגדיר "constitution" אחר).
+DEFAULT_CONSTITUTION_CODE = "gimul_hishtalmut"
+
 PARAMETERS_METADATA = [
     dict(rule_id="R01_UNIT_HOURS", param_name="unit_hours", param_value=112,
          valid_from=None, valid_to=None),
@@ -205,6 +212,8 @@ def init_db(reset: bool = True):
             DROP TABLE IF EXISTS rule_parameters CASCADE;
             DROP TABLE IF EXISTS teachers CASCADE;
             DROP TABLE IF EXISTS rules CASCADE;
+            DROP TABLE IF EXISTS constitution_change_log CASCADE;
+            DROP TABLE IF EXISTS constitutions CASCADE;
         """)
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")
     with open(schema_path, encoding="utf-8") as f:
@@ -246,7 +255,26 @@ def init_db(reset: bool = True):
     if "counts_for_oz" not in course_cols:
         conn.execute("ALTER TABLE courses ADD COLUMN counts_for_oz INTEGER DEFAULT 1")
 
+    rule_cols = [r["column_name"] for r in conn.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='rules'"
+    ).fetchall()]
+    if "constitution_id" not in rule_cols:
+        conn.execute("ALTER TABLE rules ADD COLUMN constitution_id INTEGER REFERENCES constitutions(constitution_id)")
+
+    # מכאן והלאה ה-DB הוא מקור האמת של החוקה (נערכת מהבקאופיס): הקוד רק זורע
+    # חוקות/חוקים/פרמטרים שעוד לא קיימים, ולא דורס ערכים שנערכו. שינוי תיאור
+    # או ערך של חוק קיים ב-RULES_METADATA/PARAMETERS_METADATA לא יגיע ל-DB -
+    # עורכים אותו בבקאופיס.
     cur = conn.cursor()
+    for c in CONSTITUTIONS_METADATA:
+        cur.execute("""
+            INSERT INTO constitutions (code, name, description)
+            VALUES (%(code)s, %(name)s, %(description)s)
+            ON CONFLICT (code) DO NOTHING
+        """, c)
+    constitution_ids = {r["code"]: r["constitution_id"] for r in conn.execute(
+        "SELECT code, constitution_id FROM constitutions").fetchall()}
+
     for r in RULES_METADATA:
         params = {
             "rule_id": r["rule_id"], "topic": r["topic"], "title": r["title"],
@@ -254,22 +282,26 @@ def init_db(reset: bool = True):
             "source_ref": r.get("source_ref"), "priority": r["priority"],
             "applies_when": r.get("applies_when"), "valid_from": r.get("valid_from"),
             "overrides": r.get("overrides"),
+            "constitution_id": constitution_ids[r.get("constitution", DEFAULT_CONSTITUTION_CODE)],
         }
         cur.execute("""
             INSERT INTO rules
             (rule_id, topic, title, description, source_doc, source_ref, priority,
-             applies_when, valid_from, valid_to, overrides, active)
+             applies_when, valid_from, valid_to, overrides, active, constitution_id)
             VALUES (%(rule_id)s, %(topic)s, %(title)s, %(description)s, %(source_doc)s, %(source_ref)s,
-                    %(priority)s, %(applies_when)s, %(valid_from)s, NULL, %(overrides)s, 1)
-            ON CONFLICT (rule_id) DO UPDATE SET
-                topic=EXCLUDED.topic, title=EXCLUDED.title, description=EXCLUDED.description,
-                source_doc=EXCLUDED.source_doc, source_ref=EXCLUDED.source_ref,
-                priority=EXCLUDED.priority, applies_when=EXCLUDED.applies_when,
-                valid_from=EXCLUDED.valid_from, overrides=EXCLUDED.overrides, active=1
+                    %(priority)s, %(applies_when)s, %(valid_from)s, NULL, %(overrides)s, 1, %(constitution_id)s)
+            ON CONFLICT (rule_id) DO NOTHING
         """, params)
+        # חוקים שנזרעו לפני שהייתה טבלת חוקות - משייכים לחוקה שלהם
+        cur.execute("UPDATE rules SET constitution_id=%(constitution_id)s "
+                    "WHERE rule_id=%(rule_id)s AND constitution_id IS NULL", params)
 
-    cur.execute("DELETE FROM rule_parameters")
+    # פרמטר נזרע רק אם אין ב-DB אף שורה (תקופה) עבור rule_id + param_name
+    existing = {(r["rule_id"], r["param_name"]) for r in conn.execute(
+        "SELECT DISTINCT rule_id, param_name FROM rule_parameters").fetchall()}
     for p in PARAMETERS_METADATA:
+        if (p["rule_id"], p["param_name"]) in existing:
+            continue
         cur.execute("""
             INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to)
             VALUES (%(rule_id)s, %(param_name)s, %(param_value)s, %(valid_from)s, %(valid_to)s)

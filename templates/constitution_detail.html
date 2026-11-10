@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}פנקס הגמול — {{ constitution.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹ {{ constitution.name }}</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title display" style="font-size:1.3rem;">{{ constitution.name }}</span>
+    <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}">יומן שינויים ←</a>
+  </div>
+  <div class="panel-body">
+    {% if constitution.description %}<p style="margin:0;">{{ constitution.description }}</p>{% endif %}
+    <p class="panel-note" style="margin:0;">
+      הלוגיקה של כל חוק (על מי הוא חל) כתובה בקוד ואינה נערכת מכאן. ערכי הפרמטרים ותקופות התוקף שלהם
+      משפיעים ישירות על החישוב. שאר פרטי החוק הם תיעוד.
+    </p>
+  </div>
+  <details class="trail">
+    <summary>עריכת שם ותיאור החוקה <span class="caret">›</span></summary>
+    <form class="panel-body" method="post" action="{{ url_for('backoffice.edit_constitution', constitution_id=constitution.constitution_id) }}">
+      <div class="form-grid">
+        <div class="field">
+          <label for="name">שם *</label>
+          <input type="text" id="name" name="name" required value="{{ constitution.name }}">
+        </div>
+        <div class="field span-all">
+          <label for="description">תיאור</label>
+          <textarea id="description" name="description">{{ constitution.description or "" }}</textarea>
+        </div>
+        <div class="field span-all">
+          <label for="c_reason">סיבת השינוי</label>
+          <input type="text" id="c_reason" name="reason">
+        </div>
+      </div>
+      <div class="actions-row"><button type="submit" class="btn btn-primary">שמירה</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">חוקים ופרמטרים</span>
+    <span class="panel-note">{{ rules|length }} חוקים, לפי סדר הרצה</span>
+  </div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead>
+        <tr>
+          <th>סדר</th>
+          <th>קוד</th>
+          <th>כותרת</th>
+          <th>מקור</th>
+          <th>פרמטרים (ערך · תוקף)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rules %}
+        <tr>
+          <td class="mono">{{ r.priority }}</td>
+          <td><span class="rule-code mono">{{ r.rule_id }}</span></td>
+          <td class="wrap-text"><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">{{ r.title }}</a></td>
+          <td class="wrap-text">{{ r.source_doc | replace("_", " ") }}{% if r.source_ref %} · {{ r.source_ref }}{% endif %}</td>
+          <td class="wrap-text">
+            {% for p in params_by_rule.get(r.rule_id, []) %}
+            <div><span class="mono">{{ p.param_name }}</span> = <b class="mono">{{ p.param_value | num }}</b>
+              <span class="panel-note">{% if p.valid_from or p.valid_to %}({{ p.valid_from | dmy or "…" }} – {{ p.valid_to | dmy or "…" }}){% endif %}</span></div>
+            {% else %}<span class="panel-note">—</span>{% endfor %}
+          </td>
+          <td><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">עריכה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

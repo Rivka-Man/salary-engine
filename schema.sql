@@ -2,6 +2,15 @@
 -- סכמת DB למנוע חישוב שכר - עוז לתמורה / גמול השתלמות
 -- ============================================================
 
+-- חוקות: קבוצת חוקים בעלת שם (למשל "חוקת גמולי השתלמות"). כל חוק שייך
+-- לחוקה אחת. מנוהל מהבקאופיס (/constitutions).
+CREATE TABLE IF NOT EXISTS constitutions (
+    constitution_id SERIAL PRIMARY KEY,
+    code            TEXT NOT NULL UNIQUE,  -- מזהה קבוע בקוד, למשל 'gimul_hishtalmut'
+    name            TEXT NOT NULL,
+    description     TEXT
+);
+
 -- טבלת מטא-דאטה של החוקים (המקור, התוקף, הסדר)
 -- הלוגיקה בפועל של כל חוק ממומשת כפונקציית פייתון (engine.py),
 -- מזוהה על-ידי rule_id. הטבלה הזו היא "ספר החוקים" - שכבת ניהול
@@ -18,7 +27,8 @@ CREATE TABLE IF NOT EXISTS rules (
     valid_from    TEXT,                   -- תאריך תחילת תוקף (ISO), NULL = מאז ומתמיד
     valid_to      TEXT,                   -- תאריך סיום תוקף, NULL = עדיין בתוקף
     overrides     TEXT,                   -- rule_id של חוק שהחוק הזה גובר עליו (אם יש)
-    active        INTEGER NOT NULL DEFAULT 1
+    active        INTEGER NOT NULL DEFAULT 1,
+    constitution_id INTEGER REFERENCES constitutions(constitution_id)
 );
 
 -- פרמטרים מספריים של החוקים (התקרות/אחוזים/שעות עצמם) - נפרד מהלוגיקה
@@ -31,6 +41,21 @@ CREATE TABLE IF NOT EXISTS rule_parameters (
     param_value   REAL NOT NULL,
     valid_from    TEXT,                   -- תאריך תחילת תוקף (ISO), NULL = מאז ומתמיד
     valid_to      TEXT                    -- תאריך סיום תוקף, NULL = עדיין בתוקף
+);
+
+-- יומן שינויים בחוקות (מהבקאופיס): כל שמירה נרשמת עם המצב לפני/אחרי.
+-- rule_id בלי FK - כדי שההיסטוריה תישאר גם אם חוק יימחק בעתיד.
+CREATE TABLE IF NOT EXISTS constitution_change_log (
+    change_id       SERIAL PRIMARY KEY,
+    constitution_id INTEGER NOT NULL REFERENCES constitutions(constitution_id),
+    rule_id         TEXT,
+    entity          TEXT NOT NULL,        -- 'constitution' | 'rule' | 'parameter'
+    action          TEXT NOT NULL,        -- 'insert' | 'update' | 'delete'
+    before_json     TEXT,                 -- המצב לפני (NULL בהוספה)
+    after_json      TEXT,                 -- המצב אחרי (NULL במחיקה)
+    reason          TEXT,                 -- סיבה/הערה חופשית
+    source          TEXT NOT NULL DEFAULT 'manual',  -- 'manual' (בעתיד: טעינת הסכם)
+    changed_at      TEXT NOT NULL
 );
 
 -- טבלת קלט: נתוני מורה (snapshot של הקלט לחישוב)
