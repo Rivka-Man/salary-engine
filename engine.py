@@ -216,6 +216,8 @@ def init_db(reset: bool = True):
             DROP TABLE IF EXISTS teachers CASCADE;
             DROP TABLE IF EXISTS rules CASCADE;
             DROP TABLE IF EXISTS constitution_change_log CASCADE;
+            DROP TABLE IF EXISTS constitution_versions CASCADE;
+            DROP TABLE IF EXISTS agreements CASCADE;
             DROP TABLE IF EXISTS constitutions CASCADE;
         """)
     schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql")

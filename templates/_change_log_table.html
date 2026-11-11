@@ -16,6 +16,7 @@
           {% set chip = {"insert": "good", "update": "accent", "delete": "critical"}[e.action] %}
           <span class="chip {{ chip }}">{{ e.action_label }}</span>
           {{ e.entity_label }}{% if e.param_name %} <span class="mono">{{ e.param_name }}</span>{% endif %}
+          {% if e.source and e.source != "manual" %}<span class="chip neutral">{{ e.source_label }}</span>{% endif %}
         </td>
         <td class="wrap-text">
           {% for label, before, after in e.changes %}

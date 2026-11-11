@@ -1,0 +1,61 @@
+{% extends "constitutions_base.html" %}
+{% block title %}פנקס הגמול — גרסאות · {{ constitution.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
+  <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}">{{ constitution.name }}</a> ‹
+  היסטוריית גרסאות
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">היסטוריית גרסאות — {{ constitution.name }}</span>
+    <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}">יומן שינויים מפורט ←</a>
+  </div>
+  <div class="panel-body">
+    <p class="panel-note" style="margin:0;">
+      גרסה היא תמונת מצב מלאה של החוקה (חוקים, תנאים, פרמטרים ותקופות), שנשמרת אוטומטית לפני כל הטמעת הסכם
+      ולפני כל שחזור. שחזור מציג קודם מה ישתנה, ושומר את המצב הנוכחי כגרסה - כך שגם שחזור אפשר לבטל.
+    </p>
+  </div>
+  {% if versions %}
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>גרסה</th><th>נשמרה</th><th>תיאור</th><th>הסכם</th><th></th></tr></thead>
+      <tbody>
+        {% for v in versions %}
+        <tr>
+          <td class="mono">#{{ v.version_id }}</td>
+          <td class="mono">{{ v.created_at[:10] | dmy }} {{ v.created_at[11:16] }}</td>
+          <td class="wrap-text">{{ v.label }}</td>
+          <td class="wrap-text">{% if v.agreement_id %}<a href="{{ url_for('agreements.agreement_detail', agreement_id=v.agreement_id) }}">{{ v.agreement_title or "הסכם" }}</a>{% else %}—{% endif %}</td>
+          <td><a href="{{ url_for('agreements.restore_version', constitution_id=constitution.constitution_id, version_id=v.version_id) }}">שחזור ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><p>עדיין אין גרסאות שמורות. גרסה נשמרת בפעם הראשונה שמטמיעים הסכם.</p></div>
+  {% endif %}
+</section>
+
+{% if applied %}
+<section class="panel">
+  <div class="panel-head"><span class="panel-title">הסכמים שהוטמעו בחוקה</span></div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>הסכם</th><th>הוטמע</th></tr></thead>
+      <tbody>
+        {% for a in applied %}
+        <tr>
+          <td class="wrap-text"><a href="{{ url_for('agreements.agreement_detail', agreement_id=a.agreement_id) }}">{{ a.title or a.filename }}</a></td>
+          <td class="mono">{{ (a.applied_at or "")[:10] | dmy }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

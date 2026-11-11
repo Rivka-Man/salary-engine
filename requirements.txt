@@ -3,3 +3,4 @@ gunicorn
 pdfplumber
 psycopg2-binary
 python-dotenv
+anthropic

@@ -6,7 +6,11 @@
 <section class="panel">
   <div class="panel-head">
     <span class="panel-title display" style="font-size:1.3rem;">{{ constitution.name }}</span>
-    <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}">יומן שינויים ←</a>
+    <span>
+      <a href="{{ url_for('agreements.constitution_versions', constitution_id=constitution.constitution_id) }}">היסטוריית גרסאות ושחזור ←</a>
+      ·
+      <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}">יומן שינויים ←</a>
+    </span>
   </div>
   <div class="panel-body">
     {% if constitution.description %}<p style="margin:0;">{{ constitution.description }}</p>{% endif %}

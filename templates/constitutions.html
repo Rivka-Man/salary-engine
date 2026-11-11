@@ -4,7 +4,7 @@
 <section class="panel">
   <div class="panel-head">
     <span class="panel-title">ניהול חוקות שכר</span>
-    <span class="panel-note">{{ constitutions|length }} חוקות במערכת</span>
+    <span class="panel-note">{{ constitutions|length }} חוקות במערכת · <a href="{{ url_for('agreements.agreements') }}">טעינת הסכם חדש ←</a></span>
   </div>
   {% if constitutions %}
   <div class="table-wrap">

@@ -47,6 +47,7 @@ NEW_CONDITION_ROWS = 3
 
 ENTITY_LABELS = {"constitution": "חוקה", "rule": "חוק", "parameter": "פרמטר"}
 ACTION_LABELS = {"insert": "הוספה", "update": "עדכון", "delete": "מחיקה"}
+SOURCE_LABELS = {"manual": "ידני", "agreement": "הסכם", "restore": "שחזור"}
 
 
 def _now():
@@ -66,16 +67,17 @@ def _row_snapshot(row, fields):
     return {f: row[f] for f in fields}
 
 
-def log_change(conn, constitution_id, entity, action, before, after, reason, rule_id=None):
+def log_change(conn, constitution_id, entity, action, before, after, reason, rule_id=None, source="manual"):
+    """source: 'manual' (עריכה בבקאופיס) / 'agreement' (החלת הסכם) / 'restore' (שחזור גרסה)."""
     conn.execute(
         "INSERT INTO constitution_change_log "
-        "(constitution_id, rule_id, entity, action, before_json, after_json, reason, changed_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        "(constitution_id, rule_id, entity, action, before_json, after_json, reason, source, changed_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             constitution_id, rule_id, entity, action,
             json.dumps(before, ensure_ascii=False) if before is not None else None,
             json.dumps(after, ensure_ascii=False) if after is not None else None,
-            (reason or "").strip() or None, _now(),
+            (reason or "").strip() or None, source, _now(),
         ),
     )
 
@@ -392,6 +394,31 @@ def rule_detail(constitution_id, rule_id):
     )
 
 
+def validate_condition(field, operator, connector, raw_value, value_field):
+    """
+    בודק ומנרמל תנאי אחד (מהטופס או מהצעת הסכם). מחזיר dict מוכן לשמירה,
+    או מעלה ValueError עם הודעה בעברית.
+    """
+    field = (field or "").strip()
+    if field not in FIELDS:
+        raise ValueError(f"שדה לא מוכר בתנאי: {field}.")
+    operator = operator or "eq"
+    if operator not in OPERATORS:
+        raise ValueError(f"השוואה לא מוכרת בתנאי: {operator}.")
+    if connector not in CONNECTORS:
+        connector = "AND"
+    value_field = (value_field or "").strip() or None
+    if value_field:
+        if value_field not in FIELDS:
+            raise ValueError(f"שדה ההשוואה לא מוכר: {value_field}.")
+        if operator in ("in", "set", "unset"):
+            raise ValueError(f"השוואה ל\"{FIELDS[value_field][0]}\" אפשרית רק עם =, ≠, <, ≤, >, ≥.")
+        value = None
+    else:
+        value = normalize_value(field, operator, raw_value)
+    return dict(connector=connector, field=field, operator=operator, value=value, value_field=value_field)
+
+
 def _parse_conditions(form):
     """
     קורא את שורות התנאים מהטופס (cond-<i>-field וכו'). שורה בלי שדה, או
@@ -403,26 +430,33 @@ def _parse_conditions(form):
         field = (form.get(f"cond-{i}-field") or "").strip()
         if not field or form.get(f"cond-{i}-delete"):
             continue
-        if field not in FIELDS:
-            raise ValueError("שדה לא מוכר בתנאי.")
-        operator = form.get(f"cond-{i}-operator") or "eq"
-        if operator not in OPERATORS:
-            raise ValueError("השוואה לא מוכרת בתנאי.")
-        connector = form.get(f"cond-{i}-connector") or "AND"
-        if connector not in CONNECTORS:
-            connector = "AND"
-        value_field = (form.get(f"cond-{i}-value_field") or "").strip() or None
-        if value_field:
-            if value_field not in FIELDS:
-                raise ValueError("שדה ההשוואה לא מוכר.")
-            if operator in ("in", "set", "unset"):
-                raise ValueError(f"השוואה ל\"{FIELDS[value_field][0]}\" אפשרית רק עם =, ≠, <, ≤, >, ≥.")
-            value = None
-        else:
-            value = normalize_value(field, operator, form.get(f"cond-{i}-value"))
-        conds.append(dict(connector=connector, field=field, operator=operator, value=value,
-                          value_field=value_field))
+        conds.append(validate_condition(field, form.get(f"cond-{i}-operator"), form.get(f"cond-{i}-connector"),
+                                        form.get(f"cond-{i}-value"), form.get(f"cond-{i}-value_field")))
     return conds
+
+
+def save_rule_logic(conn, constitution_id, rule, new_conds, action, result_value, reason, source="manual"):
+    """
+    מחליף את התנאים/הפעולה/התוצאה של חוק ורושם ביומן. מחזיר (לפני, אחרי),
+    או None כשאין שינוי. לא עושה commit.
+    """
+    rule_id = rule["rule_id"]
+    old_conds = _conditions_by_rule(conn, [rule_id]).get(rule_id, [])
+    before = _logic_snapshot(rule, old_conds)
+    after = _logic_snapshot(dict(rule, action=action, result_value=result_value), new_conds)
+    if before == after:
+        return None
+    conn.execute("DELETE FROM rule_conditions WHERE rule_id=%s", (rule_id,))
+    for seq, c in enumerate(new_conds, start=1):
+        conn.execute(
+            "INSERT INTO rule_conditions (rule_id, seq, connector, field, operator, value, value_field) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (rule_id, seq, c["connector"], c["field"], c["operator"], c["value"], c["value_field"]),
+        )
+    conn.execute("UPDATE rules SET action=%s, result_value=%s, logic_seeded=1 WHERE rule_id=%s",
+                 (action, result_value, rule_id))
+    log_change(conn, constitution_id, "rule", "update", before, after, reason, rule_id=rule_id, source=source)
+    return before, after
 
 
 @bp.route("/<int:constitution_id>/rules/<rule_id>/logic", methods=["POST"])
@@ -445,24 +479,11 @@ def edit_rule_logic(constitution_id, rule_id):
         return _back_to_rule(constitution_id, rule_id)
     result_value = (request.form.get("result_value") or "").strip() or None
 
-    old_conds = _conditions_by_rule(conn, [rule_id]).get(rule_id, [])
-    before = _logic_snapshot(rule, old_conds)
-    after = _logic_snapshot(dict(rule, action=action, result_value=result_value), new_conds)
-    if before == after:
+    if save_rule_logic(conn, constitution_id, rule, new_conds, action, result_value,
+                       request.form.get("reason")) is None:
         conn.close()
         flash("לא בוצעו שינויים.", "success")
         return _back_to_rule(constitution_id, rule_id)
-
-    conn.execute("DELETE FROM rule_conditions WHERE rule_id=%s", (rule_id,))
-    for seq, c in enumerate(new_conds, start=1):
-        conn.execute(
-            "INSERT INTO rule_conditions (rule_id, seq, connector, field, operator, value, value_field) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (rule_id, seq, c["connector"], c["field"], c["operator"], c["value"], c["value_field"]),
-        )
-    conn.execute("UPDATE rules SET action=%s, result_value=%s, logic_seeded=1 WHERE rule_id=%s",
-                 (action, result_value, rule_id))
-    log_change(conn, constitution_id, "rule", "update", before, after, request.form.get("reason"), rule_id=rule_id)
     conn.commit()
     conn.close()
     flash("ההגדרה של החוק עודכנה.", "success")
@@ -526,6 +547,61 @@ def edit_param(constitution_id, rule_id, param_id):
     return _back_to_rule(constitution_id, rule_id)
 
 
+def add_param_period_db(conn, constitution_id, rule_id, param_name, value, valid_from, valid_to, reason,
+                        source="manual"):
+    """
+    מוסיף תקופת תוקף לפרמטר קיים ורושם ביומן; לא עושה commit. תקופה פתוחה
+    חדשה סוגרת את התקופה הפתוחה שקדמה לה. תקופה עם אותם תאריכים בדיוק כמו
+    תקופה קיימת מעדכנת את הערך שלה. מחזיר הודעה, או מעלה ValueError.
+    """
+    periods = _param_periods(conn, rule_id, param_name)
+    if not periods:
+        raise ValueError(f"לחוק {rule_id} אין פרמטר בשם {param_name} - המנוע לא יקרא אותו.")
+    if not valid_from:
+        raise ValueError("לתקופה חדשה חובה תאריך תחילת תוקף.")
+    same = [p for p in periods if p["valid_from"] == valid_from and p["valid_to"] == valid_to]
+    if same:
+        p = same[0]
+        if float(p["param_value"]) == float(value):
+            raise ValueError(f"לפרמטר {param_name} כבר יש את הערך {value} בתקופה הזו.")
+        before = _row_snapshot(p, PARAM_FIELDS)
+        conn.execute("UPDATE rule_parameters SET param_value=%s WHERE param_id=%s", (value, p["param_id"]))
+        log_change(conn, constitution_id, "parameter", "update", before, dict(before, param_value=value),
+                   reason, rule_id=rule_id, source=source)
+        return f"הערך של {param_name} בתקופה הזו עודכן."
+
+    new_period = dict(param_id=None, param_name=param_name, param_value=value,
+                      valid_from=valid_from, valid_to=valid_to)
+    trimmed = []
+    updated = []
+    for p in periods:
+        p = dict(p)
+        covers_start = (p["valid_from"] or "") < valid_from and (p["valid_to"] is None or p["valid_to"] > valid_from)
+        if valid_to is None and covers_start and p["valid_to"] is None:
+            trimmed.append((_row_snapshot(p, PARAM_FIELDS), p["param_id"]))
+            p["valid_to"] = valid_from
+        updated.append(p)
+    error = _check_periods(updated + [new_period])
+    if error:
+        raise ValueError(error)
+
+    for before, pid in trimmed:
+        conn.execute("UPDATE rule_parameters SET valid_to=%s WHERE param_id=%s", (valid_from, pid))
+        log_change(conn, constitution_id, "parameter", "update", before, dict(before, valid_to=valid_from),
+                   reason, rule_id=rule_id, source=source)
+    conn.execute(
+        "INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (rule_id, param_name, value, valid_from, valid_to),
+    )
+    log_change(conn, constitution_id, "parameter", "insert", None,
+               {k: new_period[k] for k in PARAM_FIELDS}, reason, rule_id=rule_id, source=source)
+    msg = f"נוספה תקופה חדשה לפרמטר {param_name}."
+    if trimmed:
+        msg += f" התקופה הקודמת נסגרה ב-{valid_from}."
+    return msg
+
+
 @bp.route("/<int:constitution_id>/rules/<rule_id>/params/new", methods=["POST"])
 def add_param_period(constitution_id, rule_id):
     """
@@ -550,45 +626,15 @@ def add_param_period(constitution_id, rule_id):
         conn.close()
         flash(str(exc), "error")
         return _back_to_rule(constitution_id, rule_id)
-    if not valid_from:
+    try:
+        msg = add_param_period_db(conn, constitution_id, rule_id, param_name, value, valid_from, valid_to,
+                                  request.form.get("reason"))
+    except ValueError as exc:
         conn.close()
-        flash("לתקופה חדשה חובה תאריך תחילת תוקף.", "error")
+        flash(str(exc), "error")
         return _back_to_rule(constitution_id, rule_id)
-
-    new_period = dict(param_id=None, param_name=param_name, param_value=value,
-                      valid_from=valid_from, valid_to=valid_to)
-    trimmed = []
-    updated = []
-    for p in periods:
-        p = dict(p)
-        covers_start = (p["valid_from"] or "") < valid_from and (p["valid_to"] is None or p["valid_to"] > valid_from)
-        if valid_to is None and covers_start and p["valid_to"] is None:
-            trimmed.append((_row_snapshot(p, PARAM_FIELDS), p["param_id"]))
-            p["valid_to"] = valid_from
-        updated.append(p)
-    error = _check_periods(updated + [new_period])
-    if error:
-        conn.close()
-        flash(error, "error")
-        return _back_to_rule(constitution_id, rule_id)
-
-    reason = request.form.get("reason")
-    for before, pid in trimmed:
-        conn.execute("UPDATE rule_parameters SET valid_to=%s WHERE param_id=%s", (valid_from, pid))
-        log_change(conn, constitution_id, "parameter", "update", before, dict(before, valid_to=valid_from),
-                   reason, rule_id=rule_id)
-    conn.execute(
-        "INSERT INTO rule_parameters (rule_id, param_name, param_value, valid_from, valid_to) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (rule_id, param_name, value, valid_from, valid_to),
-    )
-    log_change(conn, constitution_id, "parameter", "insert", None,
-               {k: new_period[k] for k in PARAM_FIELDS}, reason, rule_id=rule_id)
     conn.commit()
     conn.close()
-    msg = f"נוספה תקופה חדשה לפרמטר {param_name}."
-    if trimmed:
-        msg += f" התקופה הקודמת נסגרה ב-{valid_from}."
     flash(msg, "success")
     return _back_to_rule(constitution_id, rule_id)
 
@@ -632,6 +678,7 @@ def _log_entries(rows):
             r,
             entity_label=ENTITY_LABELS.get(r["entity"], r["entity"]),
             action_label=ACTION_LABELS.get(r["action"], r["action"]),
+            source_label=SOURCE_LABELS.get(r.get("source"), r.get("source")),
             param_name=(after or before or {}).get("param_name"),
             changes=_changed_fields(before, after),
         ))

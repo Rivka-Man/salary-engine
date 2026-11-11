@@ -167,6 +167,7 @@
       <a href="{{ url_for('index') }}" class="brand display"><img src="{{ url_for('static', filename='logo.png') }}" alt="OptyPay"> פנקס הגמול</a>
       <nav class="top-nav">
         <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a>
+        <a href="{{ url_for('agreements.agreements') }}">הסכמים</a>
         {% block nav_action %}<a href="{{ url_for('new_teacher') }}">+ מורה חדש</a>{% endblock %}
         {% if session.get('is_admin') %}
         <form method="post" action="{{ url_for('admin_logout') }}" style="display:inline"><button type="submit" class="btn btn-ghost" style="padding:0.3rem 0.7rem; font-size:0.85rem;">יציאה</button></form>

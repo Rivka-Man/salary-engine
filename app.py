@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 import psycopg2
 from flask import Flask, abort, flash, g, redirect, render_template, request, send_file, session, url_for
 
+from agreements import bp as agreements_bp
 from backoffice import bp as backoffice_bp
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
@@ -23,6 +24,9 @@ app = Flask(__name__)
 # מתאפסות באתחול השרת, אבל אף פעם לא מפתח קבוע וידוע מהקוד).
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.permanent_session_lifetime = timedelta(hours=12)
+# התחברות מנהל: נגמרת כשסוגרים את הדפדפן, וגם אחרי זמן בלי פעילות. נבדק בשרת
+# (לא רק לפי עוגיית הדפדפן), כי דפדפנים ששומרים לשוניות שומרים גם עוגיות.
+ADMIN_IDLE_TIMEOUT = timedelta(minutes=30)
 
 # סיסמת ממשק הניהול. בלי ADMIN_PASSWORD ממשק הניהול נעול לגמרי, חוץ מהרצה
 # מקומית (localhost) לפיתוח.
@@ -42,8 +46,15 @@ def require_admin_login():
     if request.endpoint in (None, "static", "admin_login", "admin_logout") or request.path.startswith("/my/"):
         return None
     if session.get("is_admin"):
-        return None
-    if not ADMIN_PASSWORD and _is_local_request():
+        now = datetime.now().timestamp()
+        last_seen = session.get("admin_last_seen")
+        # התחברות ישנה בלי חותמת זמן (מלפני השינוי הזה) נחשבת פגה
+        if last_seen and now - last_seen < ADMIN_IDLE_TIMEOUT.total_seconds():
+            session["admin_last_seen"] = now
+            return None
+        session.clear()
+        flash("פג תוקף ההתחברות. יש להיכנס שוב.", "error")
+    elif not ADMIN_PASSWORD and _is_local_request():
         return None
     return redirect(url_for("admin_login", next=request.full_path if request.method == "GET" else None))
 
@@ -54,8 +65,9 @@ def admin_login():
         password = request.form.get("password") or ""
         if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):
             session.clear()
-            session.permanent = True
+            session.permanent = False  # העוגייה נמחקת כשסוגרים את הדפדפן
             session["is_admin"] = True
+            session["admin_last_seen"] = datetime.now().timestamp()
             nxt = request.args.get("next") or ""
             # רק נתיב פנימי - לא הפניה לאתר חיצוני
             if not nxt.startswith("/") or nxt.startswith("//"):
@@ -71,6 +83,7 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 app.register_blueprint(backoffice_bp)
+app.register_blueprint(agreements_bp)
 
 
 def _rule_texts():

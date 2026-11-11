@@ -1,0 +1,57 @@
+{% extends "constitutions_base.html" %}
+{% block title %}פנקס הגמול — הסכמים{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹ הסכמים</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">טעינת הסכם חדש</span>
+  </div>
+  <form class="panel-body" method="post" action="{{ url_for('agreements.upload_agreement') }}" enctype="multipart/form-data">
+    <p class="panel-note" style="margin:0;">
+      ההסכם נקרא אוטומטית (Claude) ומושווה לחוקות הקיימות. בשלב הבא יוצגו החוקות שיושפעו והחוקים שישתנו,
+      לפני ← אחרי, וכל שינוי מאושר בנפרד. שום דבר לא נכנס לחוקה לפני לחיצה על "אישור והטמעה".
+      הניתוח יכול לטעות, ולכן חשוב לעבור על כל שינוי מול הציטוט מההסכם.
+    </p>
+    <div class="form-grid">
+      <div class="field">
+        <label for="agreement_file">קובץ ההסכם (PDF, Word או טקסט) *</label>
+        <input type="file" id="agreement_file" name="agreement_file" required accept=".pdf,.docx,.txt">
+      </div>
+      <div class="field">
+        <label for="title">שם ההסכם (לא חובה)</label>
+        <input type="text" id="title" name="title" placeholder="יזוהה מתוך ההסכם">
+      </div>
+    </div>
+    <div class="actions-row"><button type="submit" class="btn btn-primary">טעינה וניתוח</button></div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">הסכמים שנטענו</span>
+    <span class="panel-note">{{ agreements|length }} הסכמים</span>
+  </div>
+  {% if agreements %}
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>הסכם</th><th>קובץ</th><th>נטען</th><th>מצב</th><th>שינויים מוצעים</th><th></th></tr></thead>
+      <tbody>
+        {% for a in agreements %}
+        <tr>
+          <td class="wrap-text"><a href="{{ url_for('agreements.agreement_detail', agreement_id=a.agreement_id) }}"><b>{{ a.title or a.filename }}</b></a></td>
+          <td class="wrap-text panel-note">{{ a.filename }}</td>
+          <td class="mono">{{ a.uploaded_at[:10] | dmy }}</td>
+          <td><span class="chip {{ a.status_label[1] }}">{{ a.status_label[0] }}</span></td>
+          <td class="mono">{{ a.change_count if a.change_count is not none else "—" }}</td>
+          <td><a href="{{ url_for('agreements.agreement_detail', agreement_id=a.agreement_id) }}">פתיחה ←</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><p>עדיין לא נטענו הסכמים.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

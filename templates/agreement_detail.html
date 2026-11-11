@@ -1,0 +1,194 @@
+{% extends "constitutions_base.html" %}
+{% block title %}פנקס הגמול — {{ a.title or a.filename }}{% endblock %}
+{% block extra_style %}{{ super() }}
+{% if a.status == "analyzing" and not stale %}<meta http-equiv="refresh" content="8">{% endif %}
+<style>
+  .change-row.is-off { opacity: 0.55; }
+  .quote { border-inline-start: 3px solid var(--line-strong); padding-inline-start: 0.6rem; margin: 0.35rem 0 0; color: var(--ink-soft); font-size: 0.82rem; }
+  .affected { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .affected-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.7rem 0.9rem; min-width: 220px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
+  <a href="{{ url_for('agreements.agreements') }}">הסכמים</a> ‹ {{ a.title or a.filename }}
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title display" style="font-size:1.3rem;">{{ a.title or a.filename }}</span>
+    <span class="chip {{ status_label[1] }}">{{ status_label[0] }}</span>
+  </div>
+  <div class="panel-body">
+    <p class="panel-note" style="margin:0;">
+      קובץ: <a href="{{ url_for('agreements.agreement_file', agreement_id=a.agreement_id) }}">{{ a.filename }}</a>
+      · נטען {{ a.uploaded_at[:10] | dmy }} {{ a.uploaded_at[11:16] }}
+      {% if a.applied_at %} · הוטמע {{ a.applied_at[:10] | dmy }} {{ a.applied_at[11:16] }}{% endif %}
+    </p>
+    {% if a.summary %}<p style="margin:0;">{{ a.summary }}</p>{% endif %}
+
+    {% if a.status == "analyzing" %}
+      {% if stale %}
+      <p class="flash error" style="margin:0;">הניתוח לא הסתיים. ייתכן שהשרת הופעל מחדש באמצע. אפשר לשלוח לניתוח מחדש.</p>
+      {% else %}
+      <p style="margin:0;">ההסכם בניתוח… הדף יתרענן מעצמו. זה לוקח בדרך כלל דקה עד כמה דקות.</p>
+      {% endif %}
+    {% elif a.status == "failed" %}
+      <p class="flash error" style="margin:0;">{{ a.error }}</p>
+    {% endif %}
+
+    {% if a.status in ("analyzing", "failed", "ready") %}
+    <div class="actions-row">
+      {% if a.status != "analyzing" or stale %}
+      <form method="post" action="{{ url_for('agreements.reanalyze_agreement', agreement_id=a.agreement_id) }}">
+        <button type="submit" class="btn btn-ghost">ניתוח מחדש</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('agreements.reject_agreement', agreement_id=a.agreement_id) }}"
+            onsubmit="return confirm('לדחות את ההסכם? החוקות לא ישתנו.');">
+        <button type="submit" class="btn btn-ghost">דחיית ההסכם</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if a.status == "ready" and proposal %}
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">חוקות שיושפעו</span>
+    <span class="panel-note">{{ proposal.changes|length }} שינויים מוצעים</span>
+  </div>
+  <div class="panel-body">
+    {% if affected %}
+    <div class="affected">
+      {% for g in affected %}
+      <div class="affected-card">
+        <div><b>{% if g.constitution_id %}<a href="{{ url_for('backoffice.constitution_detail', constitution_id=g.constitution_id) }}">{{ g.name }}</a>{% else %}{{ g.name }}{% endif %}</b></div>
+        <div class="panel-note">{{ g.ok }} שינויים שאפשר להטמיע{% if g.rules %} · חוקים: <span class="mono">{{ g.rules | join(", ") }}</span>{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="margin:0;">לפי הניתוח, ההסכם לא מחייב שינוי באף חוקה.</p>
+    {% endif %}
+  </div>
+</section>
+
+<form method="post" action="{{ url_for('agreements.apply_agreement', agreement_id=a.agreement_id) }}"
+      onsubmit="return confirm('להטמיע בחוקה את השינויים שסומנו? הגרסה הנוכחית תישמר וניתן יהיה לשחזר אותה.');">
+  {% for (cname, cid), rows in groups.items() %}
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-title">{{ cname }}</span>
+      <span class="panel-note">חוקים שישתנו</span>
+    </div>
+    <div class="table-wrap">
+      <table class="ledger">
+        <thead><tr><th>להטמיע</th><th>חוק</th><th>סוג</th><th>שינוי (לפני ← אחרי)</th><th>מקור בהסכם</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr class="change-row {% if r.status != 'ok' %}is-off{% endif %}">
+            <td>
+              {% if r.status == "ok" %}
+              <input type="checkbox" name="change" value="{{ r.idx }}" checked aria-label="להטמיע שינוי {{ r.idx + 1 }}">
+              {% elif r.status == "no_change" %}
+              <span class="chip neutral">כבר קיים</span>
+              {% else %}
+              <span class="chip critical">לא ניתן</span>
+              {% endif %}
+            </td>
+            <td class="wrap-text">
+              {% if r.constitution_id and r.status == "ok" and r.ch.kind != "rule_new" %}
+              <a href="{{ url_for('backoffice.rule_detail', constitution_id=r.constitution_id, rule_id=r.ch.rule_id) }}" class="mono">{{ r.ch.rule_id }}</a>
+              {% else %}<span class="mono">{{ r.ch.rule_id }}</span>{% endif %}
+              {% if r.rule_title %}<div class="panel-note">{{ r.rule_title }}</div>{% endif %}
+            </td>
+            <td>{{ r.kind_label }}</td>
+            <td class="wrap-text">
+              {% if r.status == "error" %}<div style="color:var(--critical);">{{ r.error }}</div>{% endif %}
+              {% for e in r.log %}
+                {% if e.entity == "parameter" and e.action == "insert" %}
+                {% set p = e.after_json | fromjson %}
+                <div><span class="panel-note">פרמטר <span class="mono">{{ e.param_name }}</span> · תקופה חדשה:</span>
+                  <b>{{ p.param_value | num }}</b>
+                  <span class="panel-note">({{ p.valid_from | dmy or "…" }} – {{ p.valid_to | dmy or "ללא סיום" }})</span></div>
+                {% else %}
+                {% for label, before, after in e.changes %}
+                <div><span class="panel-note">{{ e.entity_label }}{% if e.param_name %} <span class="mono">{{ e.param_name }}</span>{% endif %} · {{ label }}:</span>
+                  {% if e.action != "insert" %}<s>{{ before | dmy if before is not none else "—" }}</s> ←{% endif %}
+                  {% if e.action != "delete" %}<b>{{ after | dmy if after is not none else "—" }}</b>{% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+              {% endfor %}
+              <div class="panel-note" style="margin-top:0.3rem;">{{ r.ch.explanation }}</div>
+              {% if r.ch.kind == "rule_new" %}<div class="panel-note">חוק חדש מתועד בחוקה, אבל המנוע לא מחשב לפיו עד שיתווסף לו קוד.</div>{% endif %}
+            </td>
+            <td class="wrap-text">
+              {% if r.ch.section %}<div><b>סעיף {{ r.ch.section }}</b></div>{% endif %}
+              {% if r.ch.quote %}<p class="quote">"{{ r.ch.quote }}"</p>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endfor %}
+
+  {% if proposal.not_mapped %}
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-title">סעיפים שלא ניתן לייצג בחוקה</span>
+      <span class="panel-note">דורשים בדיקה ידנית או שינוי קוד</span>
+    </div>
+    <div class="table-wrap">
+      <table class="ledger">
+        <thead><tr><th>סעיף</th><th>ציטוט</th><th>הסבר</th></tr></thead>
+        <tbody>
+          {% for n in proposal.not_mapped %}
+          <tr>
+            <td>{{ n.section or "—" }}</td>
+            <td class="wrap-text"><p class="quote" style="margin:0;">"{{ n.quote }}"</p></td>
+            <td class="wrap-text">{{ n.explanation }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if affected | sum(attribute="ok") %}
+  <section class="panel">
+    <div class="panel-body">
+      <div class="field">
+        <label for="reason">הערה ליומן השינויים (לא חובה)</label>
+        <input type="text" id="reason" name="reason">
+      </div>
+      <p class="panel-note" style="margin:0;">לפני ההטמעה נשמרת גרסה של כל חוקה מושפעת. השינויים שסומנו מוטמעים יחד, כולם או אף אחד.</p>
+      <div class="actions-row"><button type="submit" class="btn btn-primary">אישור והטמעת השינויים שסומנו</button></div>
+    </div>
+  </section>
+  {% endif %}
+</form>
+{% endif %}
+
+{% if a.status == "applied" %}
+<section class="panel">
+  <div class="panel-head"><span class="panel-title">ההסכם הוטמע</span></div>
+  <div class="panel-body">
+    <p style="margin:0;">הוטמעו {{ applied.applied|length }} שינויים{% if applied.no_change %} ({{ applied.no_change|length }} כבר היו קיימים){% endif %}. השינויים מופיעים ביומן השינויים של כל חוקה.</p>
+    {% for v in versions %}
+    <div>
+      <b>{{ v.name }}</b>:
+      <a href="{{ url_for('backoffice.constitution_log', constitution_id=v.constitution_id) }}">יומן שינויים</a> ·
+      <a href="{{ url_for('agreements.restore_version', constitution_id=v.constitution_id, version_id=v.version_id) }}">ביטול ההסכם (שחזור לגרסה שלפניו) ←</a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

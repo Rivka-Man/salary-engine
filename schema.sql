@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS constitution_change_log (
     before_json     TEXT,                 -- המצב לפני (NULL בהוספה)
     after_json      TEXT,                 -- המצב אחרי (NULL במחיקה)
     reason          TEXT,                 -- סיבה/הערה חופשית
-    source          TEXT NOT NULL DEFAULT 'manual',  -- 'manual' (בעתיד: טעינת הסכם)
+    source          TEXT NOT NULL DEFAULT 'manual',  -- 'manual' | 'agreement' (החלת הסכם) | 'restore' (שחזור גרסה)
     changed_at      TEXT NOT NULL
 );
 
@@ -147,4 +147,31 @@ CREATE TABLE IF NOT EXISTS teacher_documents (
     filename      TEXT NOT NULL,
     content       BYTEA NOT NULL,
     uploaded_at   TEXT NOT NULL
+);
+
+-- הסכמים שנטענו (PDF/Word). Claude קורא את ההסכם ומציע שינויים בחוקות;
+-- שום שינוי לא נכנס לחוקה לפני אישור ידני בדף ההסכם.
+CREATE TABLE IF NOT EXISTS agreements (
+    agreement_id  SERIAL PRIMARY KEY,
+    title         TEXT,                   -- שם ההסכם (מה-AI, או שם הקובץ)
+    filename      TEXT NOT NULL,
+    content       BYTEA NOT NULL,         -- הקובץ המקורי
+    uploaded_at   TEXT NOT NULL,
+    status        TEXT NOT NULL,          -- 'analyzing' | 'ready' | 'failed' | 'applied' | 'rejected'
+    summary       TEXT,                   -- תקציר ההסכם (מה-AI)
+    proposal_json TEXT,                   -- השינויים המוצעים (מה-AI), JSON
+    applied_json  TEXT,                   -- מה הוחל בפועל ומתי, JSON
+    error         TEXT,                   -- הודעת שגיאה אם הניתוח נכשל
+    applied_at    TEXT
+);
+
+-- גרסאות חוקה: תמונת מצב מלאה (חוקים, תנאים, פרמטרים) שנשמרת לפני כל החלת
+-- הסכם ולפני כל שחזור - כדי שאפשר יהיה לחזור אליה.
+CREATE TABLE IF NOT EXISTS constitution_versions (
+    version_id      SERIAL PRIMARY KEY,
+    constitution_id INTEGER NOT NULL REFERENCES constitutions(constitution_id),
+    created_at      TEXT NOT NULL,
+    label           TEXT NOT NULL,        -- למשל "לפני החלת הסכם: ..."
+    agreement_id    INTEGER REFERENCES agreements(agreement_id),
+    snapshot_json   TEXT NOT NULL
 );

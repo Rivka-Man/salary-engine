@@ -1,0 +1,39 @@
+{% extends "constitutions_base.html" %}
+{% block title %}פנקס הגמול — שחזור גרסה · {{ constitution.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
+  <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}">{{ constitution.name }}</a> ‹
+  <a href="{{ url_for('agreements.constitution_versions', constitution_id=constitution.constitution_id) }}">גרסאות</a> ‹
+  שחזור #{{ version.version_id }}
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">שחזור לגרסה #{{ version.version_id }}</span>
+    <span class="panel-note">{{ version.label }} · {{ version.created_at[:10] | dmy }} {{ version.created_at[11:16] }}</span>
+  </div>
+  <div class="panel-body">
+    {% for n in notes %}<p class="flash error" style="margin:0;">{{ n }}</p>{% endfor %}
+    {% if log %}
+    <p style="margin:0;">אלה השינויים שהשחזור יבצע בחוקה ({{ log|length }}):</p>
+    {% else %}
+    <p style="margin:0;">החוקה כבר זהה לגרסה הזו - אין מה לשחזר.</p>
+    {% endif %}
+  </div>
+  {% if log %}
+  {% include "_change_log_table.html" %}
+  <form class="panel-body" method="post"
+        onsubmit="return confirm('לשחזר את החוקה לגרסה הזו? המצב הנוכחי יישמר כגרסה חדשה.');">
+    <div class="field">
+      <label for="reason">סיבת השחזור (לא חובה)</label>
+      <input type="text" id="reason" name="reason">
+    </div>
+    <div class="actions-row">
+      <button type="submit" class="btn btn-primary">אישור שחזור</button>
+      <a href="{{ url_for('agreements.constitution_versions', constitution_id=constitution.constitution_id) }}" class="btn btn-ghost">ביטול</a>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}
