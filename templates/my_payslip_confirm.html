@@ -21,7 +21,7 @@
   <input type="hidden" name="extraction_json" value="{{ extraction_json }}">
 
   {% if extracted and not extracted.gimul %}
-  <div class="note-box" style="margin:0 0 14px;">לא מצאנו בתלוש שורת גמול השתלמות של עוז לתמורה. אם היא בכל זאת מופיעה — הזיני אותה. אם היא באמת לא שם, השאירי את היחידות ריק: נבדוק אם מגיע לך גמול.</div>
+  <div class="note-box" style="margin:0 0 14px;">לא מצאנו בתלוש שורת גמול השתלמות של עוז לתמורה. אם היא בכל זאת מופיעה — בטלי את הסימון למטה והזיני אותה.</div>
   {% endif %}
 
   <div class="field-row">
@@ -31,11 +31,16 @@
   </div>
   <div class="field-row">
     <label class="field-label" for="gimul_units">גמול השתלמות עוז לתמורה — יחידות (עמודת אחוז/כמות)</label>
-    <span><input type="text" inputmode="decimal" id="gimul_units" name="gimul_units" value="{{ form.gimul_units }}" placeholder="למשל 9.75" style="width:110px;"> יח'</span>
+    <span><input type="text" inputmode="decimal" id="gimul_units" name="gimul_units" value="{{ form.gimul_units }}" {% if form.no_line %}disabled{% endif %} placeholder="למשל 9.75" style="width:110px;"> יח'</span>
+  </div>
+  <div class="field-row">
+    <label class="field-label" for="no_line">בתלוש אין שורת גמול השתלמות של עוז לתמורה</label>
+    <input type="checkbox" id="no_line" name="no_line" value="1" {% if form.no_line %}checked{% endif %}
+           onchange="document.getElementById('gimul_units').disabled = this.checked; document.getElementById('gimul_amount').disabled = this.checked;">
   </div>
   <div class="field-row">
     <label class="field-label" for="gimul_amount">סכום חודשי</label>
-    <span><input type="text" inputmode="decimal" id="gimul_amount" name="gimul_amount" value="{{ form.gimul_amount }}" placeholder="למשל 161.88" style="width:110px;"> ₪</span>
+    <span><input type="text" inputmode="decimal" id="gimul_amount" name="gimul_amount" value="{{ form.gimul_amount }}" {% if form.no_line %}disabled{% endif %} placeholder="למשל 161.88" style="width:110px;"> ₪</span>
   </div>
   <div class="field-row">
     <label class="field-label" for="gimul_code">סמל ותיאור בתלוש</label>

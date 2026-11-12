@@ -1294,6 +1294,7 @@ def my_payslip_upload(token):
         "gimul_desc": gimul.get("description") or "ג. השת. עוז לתמורה",
         "gimul_units": "" if gimul.get("units") is None else gimul["units"],
         "gimul_amount": "" if gimul.get("amount") is None else gimul["amount"],
+        "no_line": bool(extracted) and not (extracted or {}).get("gimul"),
     }
     return _render_payslip_confirm(token, teacher, form, extracted, error, doc_id, filename)
 
@@ -1307,19 +1308,30 @@ def my_payslip_confirm(token):
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
     f = request.form
-    pay_month = (f.get("pay_month") or "").strip()
     doc_id = f.get("doc_id", type=int)
-
-    def number(name):
-        raw = (f.get(name) or "").replace(",", "").replace("%", "").replace("₪", "").strip()
-        return float(raw) if raw else None
-
+    no_line = bool(f.get("no_line"))
+    errors = []
+    pay_month = payslips.parse_month(f.get("pay_month"))
+    if not pay_month:
+        errors.append("חסר חודש התלוש (למשל ספטמבר 2026).")
+    # gimul_pct: טופס שנפתח לפני שהשדה שינה את שמו (בזמן עדכון גרסה בשרת)
+    raw_units = f.get("gimul_units", f.get("gimul_pct"))
+    units = amount = None
     try:
-        units, amount = number("gimul_units"), number("gimul_amount")
-        valid = payslips.valid_month(pay_month) and (units is None or 0 <= units <= 60)
+        units = payslips.parse_number(raw_units, decimal_comma=True)
+        if units is not None and not 0 < units <= 60:
+            errors.append(f"מספר היחידות {raw_units} לא נראה תקין (למשל 9.75).")
     except ValueError:
-        valid = False
-    if not valid:
+        errors.append(f"לא הצלחתי לקרוא את מספר היחידות \"{raw_units}\" (למשל 9.75).")
+    if units is None and not no_line and not any("היחידות" in e for e in errors):
+        errors.append("חסר מספר היחידות מהתלוש (למשל 9.75). אם בתלוש באמת אין שורת גמול השתלמות של עוז לתמורה, סמני את התיבה.")
+    if no_line:
+        units = None
+    try:
+        amount = payslips.parse_number(f.get("gimul_amount"))
+    except ValueError:
+        errors.append(f"לא הצלחתי לקרוא את הסכום \"{f.get('gimul_amount')}\" (למשל 161.88).")
+    if errors:
         conn.close()
         extracted = None
         if f.get("extraction_json"):
@@ -1327,10 +1339,10 @@ def my_payslip_confirm(token):
                 extracted = json.loads(f["extraction_json"])
             except ValueError:
                 extracted = None
-        return _render_payslip_confirm(
-            token, teacher, {k: f.get(k, "") for k in PAYSLIP_FORM_FIELDS}, extracted,
-            "יש לבחור את חודש התלוש ולהזין מספר יחידות תקין (למשל 9.75).", doc_id, f.get("filename"),
-        )
+        form = {k: f.get(k, "") for k in PAYSLIP_FORM_FIELDS}
+        form["pay_month"] = pay_month or f.get("pay_month", "")
+        form["no_line"] = no_line
+        return _render_payslip_confirm(token, teacher, form, extracted, " ".join(errors), doc_id, f.get("filename"))
     if doc_id and not conn.execute(
         "SELECT 1 FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s", (doc_id, teacher["teacher_id"])
     ).fetchone():
@@ -1340,7 +1352,7 @@ def my_payslip_confirm(token):
                                  doc_id, extraction_json, run_id, created_at)
            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING payslip_id""",
         (teacher["teacher_id"], pay_month, (f.get("gimul_code") or "").strip() or None,
-         (f.get("gimul_desc") or "").strip() or None, units, amount, doc_id,
+         (f.get("gimul_desc") or "").strip() or None, units, None if no_line else amount, doc_id,
          f.get("extraction_json") or None, None, datetime.now().isoformat(timespec="seconds")),
     ).fetchone()
     conn.commit()

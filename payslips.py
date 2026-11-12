@@ -53,6 +53,43 @@ def valid_month(value):
     return bool(value) and re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value) is not None
 
 
+def parse_month(raw):
+    """'2026-09' / '09/2026' / '9.2026' / 'ספטמבר 2026' -> '2026-09'. None אם ריק או לא מזוהה."""
+    s = re.sub(r"[^\w/.\- ]", "", raw or "").strip()
+    if not s:
+        return None
+    m = re.fullmatch(r"(\d{4})-(\d{1,2})", s) or None
+    if m:
+        y, mo = int(m.group(1)), int(m.group(2))
+    else:
+        m = re.fullmatch(r"(\d{1,2})\s*[/.\-]\s*(\d{4})", s)
+        if m:
+            mo, y = int(m.group(1)), int(m.group(2))
+        else:
+            name = next((i + 1 for i, n in enumerate(MONTHS_HE) if n in s), None)
+            year = re.search(r"\d{4}", s)
+            if not (name and year):
+                return None
+            mo, y = name, int(year.group(0))
+    return f"{y:04d}-{mo:02d}" if 1 <= mo <= 12 and 2000 <= y <= 2100 else None
+
+
+def parse_number(raw, decimal_comma=False):
+    """מספר מתוך מה שהוקלד או הודבק מהתלוש: מתעלם מתווים נסתרים (סימני כיוון),
+    מ-%, ₪, ש"ח, יח' וכו'. decimal_comma: '9,75' הוא 9.75 (ליחידות). אחרת פסיק
+    הוא מפריד אלפים ('1,277.20'). None אם ריק; ValueError אם אין בו מספר תקין."""
+    s = re.sub(r"[^0-9.,\-]", "", raw or "")
+    if not s:
+        if re.search(r"\S", re.sub(r"[‎‏‪-‮⁦-⁩]", "", raw or "")):
+            raise ValueError(raw)
+        return None
+    if "," in s and "." not in s and (decimal_comma or re.fullmatch(r"-?\d+,\d{1,2}", s)):
+        s = s.replace(",", ".")
+    else:
+        s = s.replace(",", "")
+    return float(s)
+
+
 # ------------------------------------------------------------------
 # חילוץ עם Claude
 # ------------------------------------------------------------------
