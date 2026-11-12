@@ -686,7 +686,7 @@ def my_wizard_employment(token):
     conn.close()
     return render_template(
         "my_step_employment.html", token=token, teacher=teacher,
-        school_years=SCHOOL_YEARS, journey_step=0,
+        school_years=SCHOOL_YEARS, journey_step=1,
         documents=documents, doc_type_labels=DOC_TYPE_LABELS,
     )
 
@@ -858,7 +858,7 @@ def my_wizard_education(token):
         return redirect(url_for("my_wizard_courses", token=token))
 
     conn.close()
-    return render_template("my_step_education.html", token=token, teacher=teacher, journey_step=1)
+    return render_template("my_step_education.html", token=token, teacher=teacher, journey_step=2)
 
 
 @app.route("/my/<token>/wizard/courses", methods=["GET"])
@@ -875,7 +875,7 @@ def my_wizard_courses(token):
     conn.close()
     return render_template(
         "my_step_courses.html", token=token, teacher=teacher, courses=courses,
-        source_type_labels=SOURCE_TYPE_LABELS, journey_step=2,
+        source_type_labels=SOURCE_TYPE_LABELS, journey_step=3,
     )
 
 
@@ -894,7 +894,7 @@ def my_wizard_periods(token):
     conn.close()
     return render_template(
         "my_step_periods.html", token=token, teacher=teacher, statuses=statuses,
-        school_years=SCHOOL_YEARS, journey_step=3,
+        school_years=SCHOOL_YEARS, journey_step=4,
     )
 
 
@@ -906,14 +906,24 @@ def my_wizard_summary(token):
     if not teacher:
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-    calc_date = request.form.get("calc_date") or date.today().isoformat()
+    # השלב האחרון: כשיש תלוש - מחשבים לחודש התלוש ועוברים למסך ההשוואה.
+    # בלי תלוש - סיכום החישוב כמו קודם, עם הזמנה לטעון תלוש.
+    slip = _latest_payslip(teacher["teacher_id"])
     try:
+        if slip:
+            run_id = _run_for_month(teacher["teacher_id"], slip["pay_month"])
+            conn = get_conn()
+            conn.execute("UPDATE payslips SET run_id=%s WHERE payslip_id=%s", (run_id, slip["payslip_id"]))
+            conn.commit()
+            conn.close()
+            return redirect(url_for("my_payslip", token=token, id=slip["payslip_id"]))
+        calc_date = request.form.get("calc_date") or date.today().isoformat()
         result = compute_gimul_hishtalmut(teacher["teacher_id"], calc_date)
     except Exception as exc:
         flash(f"שגיאה בהרצת החישוב: {exc}", "error")
         return redirect(url_for("my_wizard_periods", token=token))
     return render_template(
-        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=4,
+        "my_summary.html", token=token, teacher=teacher, result=result, journey_step=5, has_payslip=False,
     )
 
 
@@ -934,7 +944,8 @@ def my_view_run(token, run_id):
         flash("הרצה לא נמצאה.", "error")
         return redirect(url_for("my_dashboard", token=token))
     result = json.loads(run["result_json"])
-    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=4)
+    return render_template("my_summary.html", token=token, teacher=teacher, result=result, journey_step=5,
+                           has_payslip=_latest_payslip(teacher["teacher_id"]) is not None)
 
 
 @app.route("/my/<token>/courses", methods=["POST"])
@@ -1107,7 +1118,7 @@ def my_import_parse(token):
         earliest_school_year=earliest_school_year,
         form_action=url_for("my_import_confirm", token=token),
         cancel_url=url_for("my_wizard_courses", token=token),
-        journey_step=2,
+        journey_step=3,
     )
 
 
@@ -1163,6 +1174,15 @@ def my_import_confirm(token):
 PAYSLIP_FORM_FIELDS = ("pay_month", "gimul_code", "gimul_desc", "gimul_units", "gimul_amount")
 
 
+def _latest_payslip(teacher_id):
+    conn = get_conn()
+    slip = conn.execute(
+        "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC LIMIT 1", (teacher_id,)
+    ).fetchone()
+    conn.close()
+    return slip
+
+
 def _run_for_month(teacher_id, pay_month):
     """מריץ את החישוב לחודש התלוש ומחזיר את run_id שנשמר."""
     compute_gimul_hishtalmut(teacher_id, f"{pay_month}-01")
@@ -1196,6 +1216,13 @@ def my_payslip(token):
     all_slips = conn.execute(
         "SELECT payslip_id, pay_month FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC", (tid,)
     ).fetchall()
+    if not slip["run_id"]:
+        conn.close()
+        run_id = _run_for_month(tid, slip["pay_month"])
+        conn = get_conn()
+        conn.execute("UPDATE payslips SET run_id=%s WHERE payslip_id=%s", (run_id, slip["payslip_id"]))
+        conn.commit()
+        slip = conn.execute("SELECT * FROM payslips WHERE payslip_id=%s", (slip["payslip_id"],)).fetchone()
     run = conn.execute(
         "SELECT result_json FROM calculation_runs WHERE run_id=%s AND teacher_id=%s", (slip["run_id"], tid)
     ).fetchone() if slip["run_id"] else None
@@ -1205,7 +1232,7 @@ def my_payslip(token):
     return render_template(
         "my_payslip.html", token=token, teacher=teacher, slip=slip, result=result, cmp=cmp,
         letter=payslips.letter(cmp, slip, teacher["full_name"]) if cmp else "",
-        all_slips=all_slips, month_label=payslips.month_label,
+        all_slips=all_slips, month_label=payslips.month_label, journey_step=5,
     )
 
 
@@ -1217,13 +1244,16 @@ def my_payslip_new(token):
     if not teacher:
         flash("קישור לא תקין.", "error")
         return redirect(url_for("index"))
-    return render_template("my_payslip_upload.html", token=token, teacher=teacher)
+    return render_template(
+        "my_payslip_upload.html", token=token, teacher=teacher, journey_step=0,
+        current=_latest_payslip(teacher["teacher_id"]), month_label=payslips.month_label,
+    )
 
 
 def _render_payslip_confirm(token, teacher, form, extracted=None, error=None, doc_id=None, filename=None):
     return render_template(
         "my_payslip_confirm.html", token=token, teacher=teacher, form=form, extracted=extracted,
-        error=error, doc_id=doc_id, filename=filename,
+        error=error, doc_id=doc_id, filename=filename, journey_step=0,
         extraction_json=json.dumps(extracted, ensure_ascii=False) if extracted else "",
     )
 
@@ -1305,24 +1335,18 @@ def my_payslip_confirm(token):
         "SELECT 1 FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s", (doc_id, teacher["teacher_id"])
     ).fetchone():
         doc_id = None
-    conn.close()
-    try:
-        run_id = _run_for_month(teacher["teacher_id"], pay_month)
-    except Exception as exc:
-        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
-        return redirect(url_for("my_payslip_new", token=token))
-    conn = get_conn()
     row = conn.execute(
         """INSERT INTO payslips (teacher_id, pay_month, gimul_code, gimul_desc, gimul_units, gimul_amount,
                                  doc_id, extraction_json, run_id, created_at)
            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING payslip_id""",
         (teacher["teacher_id"], pay_month, (f.get("gimul_code") or "").strip() or None,
          (f.get("gimul_desc") or "").strip() or None, units, amount, doc_id,
-         f.get("extraction_json") or None, run_id, datetime.now().isoformat(timespec="seconds")),
+         f.get("extraction_json") or None, None, datetime.now().isoformat(timespec="seconds")),
     ).fetchone()
     conn.commit()
     conn.close()
-    return redirect(url_for("my_payslip", token=token, id=row["payslip_id"]))
+    flash(f"התלוש של {payslips.month_label(pay_month)} נשמר. עכשיו נעבור יחד על הנתונים שלך, ובסוף נשווה אותם לתלוש.", "success")
+    return redirect(url_for("my_wizard_employment", token=token))
 
 
 @app.route("/my/<token>/payslip/<int:payslip_id>/recalc", methods=["POST"])

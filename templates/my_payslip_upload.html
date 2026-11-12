@@ -3,10 +3,26 @@
 {% block content %}
 
 <div class="hero" style="margin-bottom:20px">
-  <div class="eyebrow">התלוש שלי</div>
-  <h1 style="font-size:32px">נבדוק יחד את גמול ההשתלמות בתלוש שלך</h1>
-  <p>טען תלוש שכר (PDF מהפורטל או צילום מהטלפון). נקרא ממנו את שורת גמול ההשתלמות של עוז לתמורה, נשווה לחישוב שלך, ואם יש פער — נראה בדיוק מה לעשות.</p>
+  <div class="eyebrow">שלב 1 · התלוש שלי</div>
+  <h1 style="font-size:32px">נתחיל מהתלוש שלך</h1>
+  <p>טען תלוש שכר (PDF מהפורטל או צילום מהטלפון). נקרא ממנו את שורת גמול ההשתלמות של עוז לתמורה. אחר כך נעבור יחד על הנתונים שלך, ובסוף נשווה לתלוש ונראה אם יש פער — ומה בדיוק לעשות.</p>
 </div>
+
+{% if current %}
+<div class="doc-card" style="max-width:640px; margin-bottom:18px; border-color:var(--brand-teal-soft); background:var(--brand-teal-soft);">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+    <div>
+      <div style="font-family:'Heebo',sans-serif; font-weight:700; font-size:17px;">✓ התלוש של {{ month_label(current.pay_month) }} כבר נטען</div>
+      <div style="font-size:15px; color:var(--ink-soft); margin-top:4px;">
+        {% if current.gimul_units is not none %}גמול השתלמות עוז לתמורה: {{ current.gimul_units | num }} יחידות{% if current.gimul_amount is not none %} · {{ current.gimul_amount | num }} ₪{% endif %}
+        {% else %}בתלוש אין שורת גמול השתלמות של עוז לתמורה{% endif %}
+      </div>
+    </div>
+    <a class="btn-primary" style="text-decoration:none;" href="{{ url_for('my_wizard_employment', token=token) }}">להמשיך עם התלוש הזה ←</a>
+  </div>
+</div>
+<div class="upload-divider" style="max-width:640px;">או לטעון תלוש אחר</div>
+{% endif %}
 
 <form class="doc-card" method="post" action="{{ url_for('my_payslip_upload', token=token) }}" enctype="multipart/form-data" onsubmit="if (this.payslip_file.value) document.getElementById('payslip-go').textContent='קוראת את התלוש…';" style="max-width:640px;">
   <label class="dropzone" style="display:block; cursor:pointer;">
@@ -23,7 +39,8 @@
   </div>
 </form>
 
-<div class="cta-row" style="margin-top:22px;">
-  <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-secondary">חזרה לתפריט</a>
+<div class="doc-nav" style="max-width:640px;">
+  <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-secondary">→ חזרה</a>
+  {% if not current %}<a href="{{ url_for('my_wizard_employment', token=token) }}" class="btn-secondary">אין לי תלוש כרגע — לדלג ←</a>{% endif %}
 </div>
 {% endblock %}

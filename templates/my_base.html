@@ -29,7 +29,7 @@
   .brand-name{ font-family:'Heebo',sans-serif; font-size:14px; color:var(--ink-soft); }
 
   .journey-hello{ font-family:'Heebo',sans-serif; font-size:24px; font-weight:700; color:var(--gold); margin-bottom:44px; }
-  .journey{ display:flex; align-items:center; gap:3px; margin-bottom:32px; width:100%; max-width:640px; }
+  .journey{ display:flex; align-items:center; gap:3px; margin-bottom:32px; width:100%; max-width:760px; }
   .journey-step-label{ font-family:'Heebo',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:28px; }
   .jstep{ display:flex; align-items:center; gap:6px; font-family:'Heebo',sans-serif; font-size:12.5px; font-weight:600; color:var(--ink-soft); white-space:nowrap; flex-shrink:0; }
   .jdot{ width:26px;height:26px;border-radius:50%; background:var(--line); color:var(--ink-soft); display:flex;align-items:center;justify-content:center; font-size:12.5px; font-weight:700; flex-shrink:0; }
@@ -265,10 +265,11 @@
   {% if journey_step is defined %}
   {% if teacher %}<div class="journey-hello">שלום, {{ teacher.full_name.split(' ')[0] }}</div>{% endif %}
   <div class="journey">
-    {% set labels = ['פרטי העסקה','השכלה','השתלמויות','תקופות העסקה','סיכום'] %}
-    {% set step_urls = [url_for('my_wizard_employment', token=token), url_for('my_wizard_education', token=token),
-                        url_for('my_wizard_courses', token=token), url_for('my_wizard_periods', token=token)] %}
-    {% for i in range(5) %}
+    {% set labels = ['התלוש שלי','פרטי העסקה','השכלה','השתלמויות','תקופות העסקה','התוצאה'] %}
+    {% set step_urls = [url_for('my_payslip_new', token=token), url_for('my_wizard_employment', token=token),
+                        url_for('my_wizard_education', token=token), url_for('my_wizard_courses', token=token),
+                        url_for('my_wizard_periods', token=token)] %}
+    {% for i in range(6) %}
     {% set dot %}
       <div class="jdot {% if i < journey_step %}done{% elif i == journey_step %}active{% endif %}">
         {% if i < journey_step %}✓{% else %}{{ i + 1 }}{% endif %}
@@ -279,14 +280,14 @@
        הסיכום מחושב ב-POST, ולכן הוא כפתור בטופס ולא קישור. #}
     {% if i == journey_step %}
     <div class="jstep" aria-current="step">{{ dot }}</div>
-    {% elif i < 4 %}
+    {% elif i < 5 %}
     <a class="jstep jlink" href="{{ step_urls[i] }}">{{ dot }}</a>
     {% else %}
     <form class="jstep" method="post" action="{{ url_for('my_wizard_summary', token=token) }}">
       <button type="submit" class="jstep jlink">{{ dot }}</button>
     </form>
     {% endif %}
-    {% if i < 4 %}<div class="jline {% if i < journey_step %}filled{% endif %}"></div>{% endif %}
+    {% if i < 5 %}<div class="jline {% if i < journey_step %}filled{% endif %}"></div>{% endif %}
     {% endfor %}
   </div>
   {% endif %}

@@ -32,7 +32,7 @@
 </style>
 
 <div class="hero" style="margin-bottom:16px">
-  <div class="eyebrow">התלוש שלי</div>
+  <div class="eyebrow">התוצאה</div>
   <h1 style="font-size:32px">גמול ההשתלמות בתלוש {{ month_label(slip.pay_month) }}</h1>
 </div>
 
@@ -134,7 +134,7 @@
 {% endif %}
 
 <div class="cta-row" style="margin-top:6px;">
-  <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת תלוש נוסף</a>
+  <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת תלוש אחר</a>
   <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}"><button class="btn-secondary">עדכנתי נתונים — לחשב שוב</button></form>
   <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-secondary">חזרה לתפריט</a>
 </div>

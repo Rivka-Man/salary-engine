@@ -8,6 +8,12 @@
   <p style="margin-bottom:20px;">עברנו יחד על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך. הנה התוצאה, ולמטה גם ההסבר המלא איך הגענו אליה (חושב לתאריך {{ result.calc_date | dmy }}).</p>
 </div>
 
+{% if not has_payslip %}
+<div class="note-box" style="margin:0 0 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+  <span>עוד לא טענת תלוש. עם תלוש נוכל לבדוק אם הגמול שמשולם לך נכון, ואם יש פער — מה בדיוק לעשות.</span>
+  <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-primary" style="text-decoration:none;">טעינת תלוש</a>
+</div>
+{% endif %}
 <div class="stat-row">
   <div class="stat-tile emphasis">
     <span class="stat-label">תוספת לשכר</span>
@@ -131,7 +137,7 @@
 <div class="cta-row">
   <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">סיימתי — חזרה לתפריט</a>
   <a href="{{ url_for('my_wizard_employment', token=token) }}" class="btn-secondary">לחשב שוב</a>
-  <a href="{{ url_for('my_payslip', token=token) }}" class="btn-secondary">להשוות לתלוש שלי</a>
+  {% if has_payslip %}<a href="{{ url_for('my_payslip', token=token) }}" class="btn-secondary">חזרה להשוואה לתלוש</a>{% endif %}
 </div>
 
 {% endblock %}

@@ -2,18 +2,11 @@
 {% block title %}שלום {{ teacher.full_name }} — גמולי השתלמות עוז לתמורה{% endblock %}
 {% block content %}
 
-<a class="card primary" style="width:100%; max-width:720px; margin-top:90px;" href="{{ url_for('my_wizard_employment', token=token) }}">
+<a class="card primary" style="width:100%; max-width:720px; margin-top:90px;" href="{{ url_for('my_payslip_new', token=token) }}">
   <div class="icon-badge">✓</div>
-  <h3 style="font-size:26px;">לעדכן נתונים ולחשב גמול</h3>
-  <p class="desc" style="font-size:20px; line-height:1.55;">נעבור יחד, צעד אחר צעד, על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה שלך — והחישוב עצמו יתבצע רק בסוף, אחרי שנעדכן הכל.</p>
-  <div class="card-cta" style="font-size:18px;"><span>קדימה, נתחיל בתהליך</span><span>←</span></div>
-</a>
-
-<a class="card" style="width:100%; max-width:720px; margin-top:24px;" href="{{ url_for('my_payslip', token=token) }}">
-  <div class="icon-badge">₪</div>
-  <h3 style="font-size:26px;">התלוש שלי</h3>
-  <p class="desc" style="font-size:20px; line-height:1.55;">טען תלוש ונראה אם גמול ההשתלמות בו נכון: מה כתוב בתלוש, כמה מגיע לך, ואם יש פער — מה בדיוק לעשות כדי לתקן.</p>
-  <div class="card-cta" style="font-size:18px;"><span>לבדיקת התלוש</span><span>←</span></div>
+  <h3 style="font-size:26px;">לבדוק את גמול ההשתלמות בתלוש שלי</h3>
+  <p class="desc" style="font-size:20px; line-height:1.55;">נתחיל מהתלוש שלך, נעבור יחד צעד אחר צעד על פרטי ההעסקה, ההשכלה, ההשתלמויות ותקופות ההעסקה — ובסוף נראה אם הגמול בתלוש נכון, ואם יש פער, מה בדיוק לעשות כדי לתקן.</p>
+  <div class="card-cta" style="font-size:18px;"><span>קדימה, נתחיל בתלוש</span><span>←</span></div>
 </a>
 
 {% endblock %}

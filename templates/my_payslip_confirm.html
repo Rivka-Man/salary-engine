@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="hero" style="margin-bottom:20px">
-  <div class="eyebrow">התלוש שלי</div>
+  <div class="eyebrow">שלב 1 · התלוש שלי</div>
   {% if extracted %}
   <h1 style="font-size:32px">זה מה שקראנו מהתלוש</h1>
   <p>בדקי שהמספרים תואמים לתלוש. אפשר לתקן לפני שממשיכים.</p>
@@ -63,7 +63,7 @@
   {% if extracted and extracted.notes %}<p class="pending-note" style="margin:12px 0 0;">{{ extracted.notes }}</p>{% endif %}
 
   <div class="doc-nav">
-    <button type="submit" class="btn-primary">זה נכון — להשוות לחישוב</button>
+    <button type="submit" class="btn-primary">זה נכון — להמשיך ←</button>
     <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת קובץ אחר</a>
   </div>
 </form>
