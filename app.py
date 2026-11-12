@@ -1177,7 +1177,7 @@ PAYSLIP_FORM_FIELDS = ("pay_month", "gimul_code", "gimul_desc", "gimul_units", "
 def _latest_payslip(teacher_id):
     conn = get_conn()
     slip = conn.execute(
-        "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC LIMIT 1", (teacher_id,)
+        "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY payslip_id DESC LIMIT 1", (teacher_id,)
     ).fetchone()
     conn.close()
     return slip
@@ -1208,7 +1208,7 @@ def my_payslip(token):
         slip = conn.execute("SELECT * FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (slip_id, tid)).fetchone()
     else:
         slip = conn.execute(
-            "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC LIMIT 1", (tid,)
+            "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY payslip_id DESC LIMIT 1", (tid,)
         ).fetchone()
     if not slip:
         conn.close()
@@ -1347,6 +1347,8 @@ def my_payslip_confirm(token):
         "SELECT 1 FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s", (doc_id, teacher["teacher_id"])
     ).fetchone():
         doc_id = None
+    # תלוש חדש לאותו חודש מחליף את הקודם (הקובץ עצמו נשאר ב"קבצים שנטענו")
+    conn.execute("DELETE FROM payslips WHERE teacher_id=%s AND pay_month=%s", (teacher["teacher_id"], pay_month))
     row = conn.execute(
         """INSERT INTO payslips (teacher_id, pay_month, gimul_code, gimul_desc, gimul_units, gimul_amount,
                                  doc_id, extraction_json, run_id, created_at)
