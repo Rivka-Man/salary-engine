@@ -30,6 +30,37 @@
   </p>
 </section>
 
+<section class="panel">
+  <div class="panel-head">
+    <span class="panel-title">תלושי שכר</span>
+    <span class="panel-note">השוואת גמול ההשתלמות בתלוש לחישוב</span>
+  </div>
+  <div class="panel-body">
+    {% if payslips %}
+    <div class="table-wrap">
+      <table class="ledger">
+        <thead><tr><th>חודש</th><th>אחוז בתלוש</th><th>סכום חודשי</th><th></th></tr></thead>
+        <tbody>
+          {% for p in payslips %}
+          <tr>
+            <td>{{ month_label(p.pay_month) }}</td>
+            <td>{% if p.gimul_pct is not none %}{{ p.gimul_pct | num }}%{% else %}<span style="color:var(--ink-soft);">אין שורה</span>{% endif %}</td>
+            <td>{% if p.gimul_amount is not none %}{{ p.gimul_amount | num }} ₪{% endif %}</td>
+            <td><a href="{{ url_for('my_payslip', token=teacher.access_token, id=p.payslip_id) }}" target="_blank" rel="noopener">המסך של המורה ↗</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="margin:0; color:var(--ink-soft);">עוד לא נטען תלוש.</p>
+    {% endif %}
+    <div class="actions-row">
+      <a class="btn btn-ghost" href="{{ url_for('my_payslip_new', token=teacher.access_token) }}" target="_blank" rel="noopener">טעינת תלוש למורה ↗</a>
+    </div>
+  </div>
+</section>
+
 <script>
 function copyPersonalLink() {
   var input = document.getElementById('personal-link-input');

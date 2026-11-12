@@ -149,6 +149,23 @@ CREATE TABLE IF NOT EXISTS teacher_documents (
     uploaded_at   TEXT NOT NULL
 );
 
+-- תלושי שכר שהמורה טענה (או שהוזנו ידנית), עם שורת גמול ההשתלמות של עוז
+-- לתמורה כפי שאושרה. משמשים להשוואה מול החישוב (מסך "התלוש שלי").
+-- הקובץ עצמו נשמר ב-teacher_documents (doc_type='payslip').
+CREATE TABLE IF NOT EXISTS payslips (
+    payslip_id      SERIAL PRIMARY KEY,
+    teacher_id      TEXT NOT NULL REFERENCES teachers(teacher_id),
+    pay_month       TEXT NOT NULL,          -- 'YYYY-MM'
+    gimul_code      TEXT,                   -- סמל השורה בתלוש (בדרך כלל 249)
+    gimul_desc      TEXT,                   -- התיאור בתלוש, למשל 'ג. השת. עוז לתמורה'
+    gimul_pct       REAL,                   -- האחוז בתלוש; NULL = השורה לא מופיעה
+    gimul_amount    REAL,                   -- הסכום החודשי בש"ח
+    doc_id          INTEGER,                -- הקובץ ב-teacher_documents (אם נטען)
+    extraction_json TEXT,                   -- מה ש-Claude חילץ מהקובץ, לתיעוד
+    run_id          INTEGER,                -- הרצת החישוב שמולה הושווה התלוש
+    created_at      TEXT NOT NULL
+);
+
 -- הסכמים שנטענו (PDF/Word). Claude קורא את ההסכם ומציע שינויים בחוקות;
 -- שום שינוי לא נכנס לחוקה לפני אישור ידני בדף ההסכם.
 CREATE TABLE IF NOT EXISTS agreements (

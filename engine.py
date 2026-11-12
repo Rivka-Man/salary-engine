@@ -207,6 +207,7 @@ def init_db(reset: bool = True):
     conn = get_connection()
     if reset:
         conn.executescript("""
+            DROP TABLE IF EXISTS payslips CASCADE;
             DROP TABLE IF EXISTS teacher_documents CASCADE;
             DROP TABLE IF EXISTS calculation_runs CASCADE;
             DROP TABLE IF EXISTS employment_status_by_year CASCADE;
@@ -715,6 +716,7 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         "U_regular": round(U_regular, 3),
         "U_dd_or_mid": U_dd_or_mid,
         "U_total": round(U_total, 3),
+        "pct_per_unit": pct_per_unit,
         "pct_salary_addition": pct_addition,
         "advanced_degree_hours_accumulated": advanced_degree_hours,
         "advanced_degree_units_available": round(advanced_units_available, 3),

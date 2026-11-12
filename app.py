@@ -5,6 +5,7 @@
 import hmac
 import io
 import json
+import mimetypes
 import os
 import re
 import secrets
@@ -18,6 +19,7 @@ from backoffice import bp as backoffice_bp
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
+import payslips
 
 app = Flask(__name__)
 # בשרת: SECRET_KEY ממשתנה סביבה. בלעדיו - מפתח אקראי לכל הפעלה (התחברויות
@@ -163,6 +165,7 @@ DOC_TYPE_LABELS = {
     "oz_join": "הצטרפות לעוז לתמורה",
     "heikef": "היקף משרה",  # קבצים ישנים, לפני שהוחלף בעמוד הצטרפות לעוז לתמורה
     "courses": "הקורסים שלי",
+    "payslip": "תלוש שכר",
 }
 
 
@@ -190,7 +193,8 @@ def document_response(conn, teacher_id, doc_id):
     ).fetchone()
     if not doc:
         return None
-    return send_file(io.BytesIO(bytes(doc["content"])), mimetype="application/pdf",
+    mimetype = mimetypes.guess_type(doc["filename"])[0] or "application/pdf"
+    return send_file(io.BytesIO(bytes(doc["content"])), mimetype=mimetype,
                      as_attachment=False, download_name=doc["filename"])
 
 
@@ -283,10 +287,15 @@ def teacher_detail(teacher_id):
         "SELECT * FROM calculation_runs WHERE teacher_id=%s ORDER BY run_timestamp DESC", (teacher_id,)
     ).fetchall()
     documents = list_documents(conn, teacher_id)
+    teacher_payslips = conn.execute(
+        "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC", (teacher_id,)
+    ).fetchall()
     conn.close()
     return render_template(
         "teacher_detail.html",
         documents=documents,
+        payslips=teacher_payslips,
+        month_label=payslips.month_label,
         doc_type_labels=DOC_TYPE_LABELS,
         teacher=teacher,
         courses=courses,
@@ -1145,6 +1154,217 @@ def my_import_confirm(token):
     conn.close()
     flash(f"נוספו {added} קורסים מהקובץ.", "success")
     return redirect(url_for("my_wizard_courses", token=token))
+
+
+# ==================================================================
+# "התלוש שלי": טעינת תלוש, התלוש מוסבר, פער אחד והפעולה לתיקון
+# ==================================================================
+
+PAYSLIP_FORM_FIELDS = ("pay_month", "gimul_code", "gimul_desc", "gimul_pct", "gimul_amount")
+
+
+def _run_for_month(teacher_id, pay_month):
+    """מריץ את החישוב לחודש התלוש ומחזיר את run_id שנשמר."""
+    compute_gimul_hishtalmut(teacher_id, f"{pay_month}-01")
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT max(run_id) AS run_id FROM calculation_runs WHERE teacher_id=%s", (teacher_id,)
+    ).fetchone()
+    conn.close()
+    return row["run_id"]
+
+
+@app.route("/my/<token>/payslip")
+def my_payslip(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    tid = teacher["teacher_id"]
+    slip_id = request.args.get("id", type=int)
+    if slip_id:
+        slip = conn.execute("SELECT * FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (slip_id, tid)).fetchone()
+    else:
+        slip = conn.execute(
+            "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC LIMIT 1", (tid,)
+        ).fetchone()
+    if not slip:
+        conn.close()
+        return redirect(url_for("my_payslip_new", token=token))
+    all_slips = conn.execute(
+        "SELECT payslip_id, pay_month FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC", (tid,)
+    ).fetchall()
+    run = conn.execute(
+        "SELECT result_json FROM calculation_runs WHERE run_id=%s AND teacher_id=%s", (slip["run_id"], tid)
+    ).fetchone() if slip["run_id"] else None
+    result = json.loads(run["result_json"]) if run else None
+    cmp = payslips.compare(conn, result, slip) if result else None
+    conn.close()
+    return render_template(
+        "my_payslip.html", token=token, teacher=teacher, slip=slip, result=result, cmp=cmp,
+        letter=payslips.letter(cmp, slip, teacher["full_name"]) if cmp else "",
+        all_slips=all_slips, month_label=payslips.month_label,
+    )
+
+
+@app.route("/my/<token>/payslip/new")
+def my_payslip_new(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    return render_template("my_payslip_upload.html", token=token, teacher=teacher)
+
+
+def _render_payslip_confirm(token, teacher, form, extracted=None, error=None, doc_id=None, filename=None):
+    return render_template(
+        "my_payslip_confirm.html", token=token, teacher=teacher, form=form, extracted=extracted,
+        error=error, doc_id=doc_id, filename=filename,
+        extraction_json=json.dumps(extracted, ensure_ascii=False) if extracted else "",
+    )
+
+
+@app.route("/my/<token>/payslip/upload", methods=["POST"])
+def my_payslip_upload(token):
+    """טוען את קובץ התלוש, שומר עותק ומנסה לחלץ את שורת הגמול. מציג טופס לאישור/תיקון.
+    בלי קובץ (או כשהקריאה נכשלת) - אותו טופס ריק להזנה ידנית."""
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    extracted, error, doc_id, filename = None, None, None, None
+    uploaded = request.files.get("payslip_file")
+    if uploaded and uploaded.filename:
+        data = uploaded.read()
+        filename = uploaded.filename
+        try:
+            payslips.file_block(filename, data)  # בדיקת סוג וגודל לפני שמירה
+            save_document(conn, teacher["teacher_id"], "payslip", filename, data)
+            doc_id = conn.execute(
+                "SELECT max(doc_id) AS d FROM teacher_documents WHERE teacher_id=%s", (teacher["teacher_id"],)
+            ).fetchone()["d"]
+            conn.commit()
+            extracted = payslips.extract_payslip(filename, data)
+        except payslips.PayslipError as exc:
+            error = str(exc)
+        except Exception as exc:  # לא מפילים את המסך - עוברים להזנה ידנית
+            app.logger.exception("payslip extraction failed")
+            error = f"לא הצלחתי לקרוא את התלוש ({exc.__class__.__name__}). אפשר להזין את השורה ידנית."
+    conn.close()
+    gimul = (extracted or {}).get("gimul") or {}
+    form = {
+        "pay_month": (extracted or {}).get("pay_month") or "",
+        "gimul_code": gimul.get("code") or payslips.GIMUL_CODE,
+        "gimul_desc": gimul.get("description") or "ג. השת. עוז לתמורה",
+        "gimul_pct": "" if gimul.get("pct") is None else gimul["pct"],
+        "gimul_amount": "" if gimul.get("amount") is None else gimul["amount"],
+    }
+    return _render_payslip_confirm(token, teacher, form, extracted, error, doc_id, filename)
+
+
+@app.route("/my/<token>/payslip/confirm", methods=["POST"])
+def my_payslip_confirm(token):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if not teacher:
+        conn.close()
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    f = request.form
+    pay_month = (f.get("pay_month") or "").strip()
+    doc_id = f.get("doc_id", type=int)
+
+    def number(name):
+        raw = (f.get(name) or "").replace(",", "").replace("%", "").replace("₪", "").strip()
+        return float(raw) if raw else None
+
+    try:
+        pct, amount = number("gimul_pct"), number("gimul_amount")
+        valid = payslips.valid_month(pay_month) and (pct is None or 0 <= pct <= 60)
+    except ValueError:
+        valid = False
+    if not valid:
+        conn.close()
+        extracted = None
+        if f.get("extraction_json"):
+            try:
+                extracted = json.loads(f["extraction_json"])
+            except ValueError:
+                extracted = None
+        return _render_payslip_confirm(
+            token, teacher, {k: f.get(k, "") for k in PAYSLIP_FORM_FIELDS}, extracted,
+            "יש לבחור את חודש התלוש ולהזין אחוז תקין (מספר, למשל 9.75).", doc_id, f.get("filename"),
+        )
+    if doc_id and not conn.execute(
+        "SELECT 1 FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s", (doc_id, teacher["teacher_id"])
+    ).fetchone():
+        doc_id = None
+    conn.close()
+    try:
+        run_id = _run_for_month(teacher["teacher_id"], pay_month)
+    except Exception as exc:
+        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
+        return redirect(url_for("my_payslip_new", token=token))
+    conn = get_conn()
+    row = conn.execute(
+        """INSERT INTO payslips (teacher_id, pay_month, gimul_code, gimul_desc, gimul_pct, gimul_amount,
+                                 doc_id, extraction_json, run_id, created_at)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING payslip_id""",
+        (teacher["teacher_id"], pay_month, (f.get("gimul_code") or "").strip() or None,
+         (f.get("gimul_desc") or "").strip() or None, pct, amount, doc_id,
+         f.get("extraction_json") or None, run_id, datetime.now().isoformat(timespec="seconds")),
+    ).fetchone()
+    conn.commit()
+    conn.close()
+    return redirect(url_for("my_payslip", token=token, id=row["payslip_id"]))
+
+
+@app.route("/my/<token>/payslip/<int:payslip_id>/recalc", methods=["POST"])
+def my_payslip_recalc(token, payslip_id):
+    """מחשב מחדש מול הנתונים הנוכחיים (למשל אחרי שהמורה הוסיפה קורסים)."""
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    slip = conn.execute(
+        "SELECT * FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (payslip_id, teacher["teacher_id"])
+    ).fetchone() if teacher else None
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    if not slip:
+        return redirect(url_for("my_payslip", token=token))
+    try:
+        run_id = _run_for_month(teacher["teacher_id"], slip["pay_month"])
+    except Exception as exc:
+        flash(f"שגיאה בהרצת החישוב: {exc}", "error")
+        return redirect(url_for("my_payslip", token=token, id=payslip_id))
+    conn = get_conn()
+    conn.execute("UPDATE payslips SET run_id=%s WHERE payslip_id=%s", (run_id, payslip_id))
+    conn.commit()
+    conn.close()
+    flash("החישוב עודכן לפי הנתונים הנוכחיים.", "success")
+    return redirect(url_for("my_payslip", token=token, id=payslip_id))
+
+
+@app.route("/my/<token>/payslip/<int:payslip_id>/delete", methods=["POST"])
+def my_payslip_delete(token, payslip_id):
+    conn = get_conn()
+    teacher = get_teacher_by_token(conn, token)
+    if teacher:
+        conn.execute("DELETE FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (payslip_id, teacher["teacher_id"]))
+        conn.commit()
+    conn.close()
+    if not teacher:
+        flash("קישור לא תקין.", "error")
+        return redirect(url_for("index"))
+    flash("התלוש הוסר.", "success")
+    return redirect(url_for("my_payslip", token=token))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,70 @@
+{% extends "my_base.html" %}
+{% block title %}אישור שורת הגמול — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+
+<div class="hero" style="margin-bottom:20px">
+  <div class="eyebrow">התלוש שלי</div>
+  {% if extracted %}
+  <h1 style="font-size:32px">זה מה שקראנו מהתלוש</h1>
+  <p>בדקי שהמספרים תואמים לתלוש. אפשר לתקן לפני שממשיכים.</p>
+  {% else %}
+  <h1 style="font-size:32px">הזנת שורת הגמול מהתלוש</h1>
+  <p>בתלוש, בבלוק של עוז לתמורה בטבלת "תשלומים", מחפשים את השורה "ג. השת. עוז לתמורה" (בדרך כלל סמל 249). מעתיקים את האחוז מעמודת "אחוז/כמות" ואת הסכום מעמודת "סכום חודשי".</p>
+  {% endif %}
+</div>
+
+{% if error %}<div class="flash error" style="margin-bottom:18px; max-width:640px;">{{ error }}</div>{% endif %}
+
+<form class="doc-card" method="post" action="{{ url_for('my_payslip_confirm', token=token) }}" style="max-width:640px;">
+  <input type="hidden" name="doc_id" value="{{ doc_id or '' }}">
+  <input type="hidden" name="filename" value="{{ filename or '' }}">
+  <input type="hidden" name="extraction_json" value="{{ extraction_json }}">
+
+  {% if extracted and not extracted.gimul %}
+  <div class="note-box" style="margin:0 0 14px;">לא מצאנו בתלוש שורת גמול השתלמות של עוז לתמורה. אם היא בכל זאת מופיעה — הזיני אותה. אם היא באמת לא שם, השאירי את האחוז ריק: נבדוק אם מגיע לך גמול.</div>
+  {% endif %}
+
+  <div class="field-row">
+    <label class="field-label" for="pay_month">חודש התלוש</label>
+    <input type="month" id="pay_month" name="pay_month" value="{{ form.pay_month }}" required
+           style="font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--paper);">
+  </div>
+  <div class="field-row">
+    <label class="field-label" for="gimul_pct">גמול השתלמות עוז לתמורה — אחוז</label>
+    <span><input type="text" inputmode="decimal" id="gimul_pct" name="gimul_pct" value="{{ form.gimul_pct }}" placeholder="למשל 9.75" style="width:110px;"> %</span>
+  </div>
+  <div class="field-row">
+    <label class="field-label" for="gimul_amount">סכום חודשי</label>
+    <span><input type="text" inputmode="decimal" id="gimul_amount" name="gimul_amount" value="{{ form.gimul_amount }}" placeholder="למשל 161.88" style="width:110px;"> ₪</span>
+  </div>
+  <div class="field-row">
+    <label class="field-label" for="gimul_code">סמל ותיאור בתלוש</label>
+    <span style="display:flex; gap:8px;">
+      <input type="text" id="gimul_code" name="gimul_code" value="{{ form.gimul_code }}" style="width:70px;">
+      <input type="text" name="gimul_desc" value="{{ form.gimul_desc }}" aria-label="תיאור השורה" style="width:190px;">
+    </span>
+  </div>
+
+  {% if extracted and extracted.oz_lines %}
+  <details style="margin:18px 0 0;">
+    <summary><span>כל שורות עוז לתמורה בתלוש</span><span>⌄</span></summary>
+    <div class="trace">
+      <table class="mini-ledger">
+        <thead><tr><th>סמל</th><th>תיאור</th><th>אחוז/כמות</th><th>סכום</th></tr></thead>
+        <tbody>
+          {% for l in extracted.oz_lines %}
+          <tr><td>{{ l.code or "" }}</td><td>{{ l.description }}</td><td>{{ l.qty_or_pct or "" }}</td><td>{{ l.amount | num if l.amount is not none else "" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+  {% if extracted and extracted.notes %}<p class="pending-note" style="margin:12px 0 0;">{{ extracted.notes }}</p>{% endif %}
+
+  <div class="doc-nav">
+    <button type="submit" class="btn-primary">זה נכון — להשוות לחישוב</button>
+    <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת קובץ אחר</a>
+  </div>
+</form>
+{% endblock %}

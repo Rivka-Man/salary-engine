@@ -1,0 +1,144 @@
+{% extends "my_base.html" %}
+{% block title %}התלוש שלי — {{ teacher.full_name }}{% endblock %}
+{% block content %}
+<style>
+  .verdict{ border-radius:20px; padding:26px 28px; margin-bottom:22px; box-shadow:var(--shadow); border:1.5px solid; }
+  .verdict.gap{ background:var(--amber-bg); border-color:var(--amber-soft); }
+  .verdict.ok{ background:var(--brand-teal-soft); border-color:var(--brand-teal-soft); }
+  .verdict-tag{ display:inline-block; font-family:'Heebo',sans-serif; font-size:12px; font-weight:700; padding:4px 12px; border-radius:999px; margin-bottom:10px; }
+  .verdict.gap .verdict-tag{ background:var(--amber); color:#fff; }
+  .verdict.ok .verdict-tag{ background:var(--brand-teal); color:#fff; }
+  .verdict h2{ font-family:'Heebo',sans-serif; font-size:24px; font-weight:700; margin:0 0 8px; }
+  .verdict p{ font-size:16px; line-height:1.7; margin:0; }
+  .compare{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-top:18px; }
+  @media (max-width:640px){ .compare{ grid-template-columns:1fr; } }
+  .compare > div{ background:var(--paper-raised); padding:14px 16px; display:flex; flex-direction:column; gap:3px; }
+  .compare .c-label{ font-family:'Heebo',sans-serif; font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .compare .c-value{ font-family:'Heebo',sans-serif; font-size:26px; font-weight:700; }
+  .compare .c-sub{ font-family:'Heebo',sans-serif; font-size:12.5px; color:var(--ink-soft); }
+  .compare .c-gap .c-value{ color:var(--amber); }
+  .block{ background:var(--paper-raised); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin-bottom:20px; }
+  .block h3{ font-family:'Heebo',sans-serif; font-size:17px; font-weight:700; margin:0 0 12px; display:flex; align-items:center; gap:10px; }
+  .block h3 .n{ width:26px; height:26px; border-radius:50%; background:var(--gold); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .explain-list{ margin:0; padding-inline-start:20px; font-size:15px; line-height:1.8; }
+  tr.flagged td{ background:var(--amber-bg); font-weight:600; }
+  .flag-chip{ font-family:'Heebo',sans-serif; font-size:11px; font-weight:700; color:#fff; background:var(--amber); padding:2px 9px; border-radius:999px; margin-inline-start:6px; white-space:nowrap; }
+  tr.total td{ font-weight:700; border-bottom:none; }
+  .letter{ width:100%; min-height:230px; font-family:'Assistant',sans-serif; font-size:15px; line-height:1.7; color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--paper); resize:vertical; }
+  .contact{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; }
+  .slip-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .slip-tab{ font-family:'Heebo',sans-serif; font-size:13px; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); text-decoration:none; background:var(--paper-raised); }
+  .slip-tab.active{ background:var(--gold); color:#fff; border-color:var(--gold); }
+</style>
+
+<div class="hero" style="margin-bottom:16px">
+  <div class="eyebrow">התלוש שלי</div>
+  <h1 style="font-size:32px">גמול ההשתלמות בתלוש {{ month_label(slip.pay_month) }}</h1>
+</div>
+
+{% if all_slips|length > 1 %}
+<div class="slip-tabs">
+  {% for s in all_slips %}
+  <a class="slip-tab {% if s.payslip_id == slip.payslip_id %}active{% endif %}" href="{{ url_for('my_payslip', token=token, id=s.payslip_id) }}">{{ month_label(s.pay_month) }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not cmp %}
+<div class="note-box" style="margin-bottom:20px;">החישוב של התלוש הזה לא נמצא. אפשר לחשב שוב:
+  <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}" style="display:inline;"><button class="btn-danger" style="color:var(--teal);">חישוב מחדש</button></form>
+</div>
+{% else %}
+
+<section class="verdict {{ 'ok' if cmp.ok else 'gap' }}">
+  <span class="verdict-tag">{{ "הכול תקין" if cmp.ok else "נמצא פער" }}</span>
+  <h2>{{ cmp.cause.title }}</h2>
+  <p>{{ cmp.cause.text }}</p>
+  <div class="compare">
+    <div>
+      <span class="c-label">שולם בתלוש</span>
+      <span class="c-value">{{ cmp.paid_pct | num }}%</span>
+      <span class="c-sub">{{ cmp.paid_units | num }} יחידות{% if cmp.amount %} · {{ cmp.amount | num }} ₪ בחודש{% endif %}</span>
+    </div>
+    <div>
+      <span class="c-label">מגיע לפי החישוב</span>
+      <span class="c-value">{{ cmp.expected_pct | num }}%</span>
+      <span class="c-sub">{{ cmp.expected_units | num }} יחידות × {{ cmp.rate | num }}%</span>
+    </div>
+    <div class="{% if not cmp.ok %}c-gap{% endif %}">
+      <span class="c-label">הפער</span>
+      {% if cmp.ok %}
+      <span class="c-value">0</span><span class="c-sub">אין פער</span>
+      {% else %}
+      <span class="c-value">{% if cmp.gap_units > 0 %}+{% endif %}{{ cmp.gap_units | num }} יח'</span>
+      <span class="c-sub">{% if cmp.gap_pct > 0 %}+{% endif %}{{ cmp.gap_pct | num }}%{% if cmp.gap_ils is not none %} · כ-{{ cmp.gap_ils | num }} ₪ בחודש{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <h3><span class="n">1</span>התלוש שלך מוסבר</h3>
+  <ul class="explain-list">
+    {% for line in cmp.explained %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+</section>
+
+<section class="block">
+  <h3><span class="n">2</span>מאיפה מגיעות היחידות שלך</h3>
+  <div class="table-wrap">
+    <table class="mini-ledger">
+      <thead><tr><th>רכיב</th><th>יחידות</th></tr></thead>
+      <tbody>
+        {% for c in cmp.components %}
+        <tr class="{% if c.flagged %}flagged{% endif %}">
+          <td>{{ c.label }}{% if c.flagged %}<span class="flag-chip">לא בתלוש</span>{% endif %}</td>
+          <td>{% if c.units > 0 %}+{% endif %}{{ c.units | num }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="total"><td>סה"כ לפי החישוב</td><td>{{ cmp.expected_units | num }}</td></tr>
+        <tr class="total"><td>בתלוש</td><td>{{ cmp.paid_units | num }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="pending-note" style="margin:10px 0 0;">חושב לפי הנתונים שהזנת, לתאריך {{ result.calc_date | dmy }}. <a href="{{ url_for('my_view_run', token=token, run_id=slip.run_id) }}">הפירוט המלא לפי שנה ולפי חוק</a></p>
+</section>
+
+{% if not cmp.ok %}
+<section class="block">
+  <h3><span class="n">3</span>מה לעשות עכשיו</h3>
+  <p style="font-size:16px; line-height:1.7; margin:0 0 10px;"><b>{{ cmp.cause.action }}</b></p>
+  {% if cmp.cause.fix_data %}
+  <div class="cta-row">
+    <a class="btn-primary" style="text-decoration:none;" href="{{ url_for('my_wizard_courses', token=token) }}">לבדוק את ההשתלמויות שלי</a>
+  </div>
+  {% else %}
+  {% if cmp.cause.attach %}
+  <p style="font-size:15px; margin:0 0 4px;">לצרף לפנייה:</p>
+  <ul class="explain-list" style="margin-bottom:14px;">
+    {% for a in cmp.cause.attach %}<li>{{ a }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if letter %}
+  <label for="letter" style="font-family:'Heebo',sans-serif; font-weight:600; font-size:14px; display:block; margin-bottom:6px;">נוסח פנייה מוכן (אפשר לערוך):</label>
+  <textarea id="letter" class="letter">{{ letter }}</textarea>
+  {% endif %}
+  <div class="contact">
+    {% if letter %}<button type="button" class="btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('letter').value).then(() => { this.textContent = 'הועתק ✓'; });">העתקת הנוסח</button>{% endif %}
+    <a class="btn-secondary" href="{{ cmp.contact.portal }}" target="_blank" rel="noopener">{{ cmp.contact.portal_label }} ↗</a>
+    <span class="btn-secondary" style="cursor:default;">מוקד חשבות השכר: {{ cmp.contact.phone }}</span>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endif %}
+
+<div class="cta-row" style="margin-top:6px;">
+  <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת תלוש נוסף</a>
+  <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}"><button class="btn-secondary">עדכנתי נתונים — לחשב שוב</button></form>
+  <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-secondary">חזרה לתפריט</a>
+</div>
+<form method="post" action="{{ url_for('my_payslip_delete', token=token, payslip_id=slip.payslip_id) }}" style="margin-top:14px;" onsubmit="return confirm('להסיר את התלוש הזה?');">
+  <button class="btn-danger">הסרת התלוש</button>
+</form>
+{% endblock %}
