@@ -9,7 +9,7 @@
   <p>בדקי שהמספרים תואמים לתלוש. אפשר לתקן לפני שממשיכים.</p>
   {% else %}
   <h1 style="font-size:32px">הזנת שורת הגמול מהתלוש</h1>
-  <p>בתלוש, בבלוק של עוז לתמורה בטבלת "תשלומים", מחפשים את השורה "ג. השת. עוז לתמורה" (בדרך כלל סמל 249). מעתיקים את האחוז מעמודת "אחוז/כמות" ואת הסכום מעמודת "סכום חודשי".</p>
+  <p>בתלוש, בבלוק של עוז לתמורה בטבלת "תשלומים", מחפשים את השורה "ג. השת. עוז לתמורה" (בדרך כלל סמל 249). מעתיקים את מספר היחידות מעמודת "אחוז/כמות" (למשל 9.75) ואת הסכום מעמודת "סכום חודשי".</p>
   {% endif %}
 </div>
 
@@ -21,7 +21,7 @@
   <input type="hidden" name="extraction_json" value="{{ extraction_json }}">
 
   {% if extracted and not extracted.gimul %}
-  <div class="note-box" style="margin:0 0 14px;">לא מצאנו בתלוש שורת גמול השתלמות של עוז לתמורה. אם היא בכל זאת מופיעה — הזיני אותה. אם היא באמת לא שם, השאירי את האחוז ריק: נבדוק אם מגיע לך גמול.</div>
+  <div class="note-box" style="margin:0 0 14px;">לא מצאנו בתלוש שורת גמול השתלמות של עוז לתמורה. אם היא בכל זאת מופיעה — הזיני אותה. אם היא באמת לא שם, השאירי את היחידות ריק: נבדוק אם מגיע לך גמול.</div>
   {% endif %}
 
   <div class="field-row">
@@ -30,8 +30,8 @@
            style="font-family:'Heebo',sans-serif; font-weight:600; font-size:14.5px; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 10px; background:var(--paper);">
   </div>
   <div class="field-row">
-    <label class="field-label" for="gimul_pct">גמול השתלמות עוז לתמורה — אחוז</label>
-    <span><input type="text" inputmode="decimal" id="gimul_pct" name="gimul_pct" value="{{ form.gimul_pct }}" placeholder="למשל 9.75" style="width:110px;"> %</span>
+    <label class="field-label" for="gimul_units">גמול השתלמות עוז לתמורה — יחידות (עמודת אחוז/כמות)</label>
+    <span><input type="text" inputmode="decimal" id="gimul_units" name="gimul_units" value="{{ form.gimul_units }}" placeholder="למשל 9.75" style="width:110px;"> יח'</span>
   </div>
   <div class="field-row">
     <label class="field-label" for="gimul_amount">סכום חודשי</label>

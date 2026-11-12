@@ -2,18 +2,21 @@
 תלוש שכר מול החישוב: מסך "התלוש שלי".
 
 1. extract_payslip - Claude קורא את התלוש (PDF סרוק או צילום) ומחזיר את חודש
-   התלוש ואת שורת גמול ההשתלמות של עוז לתמורה (סמל 249: אחוז וסכום חודשי).
-   התלוש של משרד החינוך הוא בדרך כלל תמונה סרוקה בלי טקסט, ולכן צריך קריאת
-   תמונה ולא חילוץ טקסט רגיל. המורה מאשרת/מתקנת את הערכים לפני שמירה.
-2. compare - משווה את האחוז בתלוש לאחוז שהמנוע חישב, מתרגם לפער ביחידות
-   ובש"ח, מזהה סיבה אחת לפער ומנסח את הפעולה לתיקון (כולל נוסח פנייה).
+   התלוש ואת שורת גמול ההשתלמות של עוז לתמורה (סמל 249: מספר יחידות הגמול
+   וסכום חודשי). התלוש של משרד החינוך הוא בדרך כלל תמונה סרוקה בלי טקסט,
+   ולכן צריך קריאת תמונה ולא חילוץ טקסט רגיל. המורה מאשרת/מתקנת לפני שמירה.
+2. compare - משווה את מספר היחידות בתלוש למספר היחידות שהמנוע חישב, מתרגם את
+   הפער לאחוזים לפי שווי היחידה שבחוקה (pct_per_unit) ולש"ח לפי שווי היחידה
+   בתלוש עצמו, מזהה סיבה אחת לפער ומנסח את הפעולה לתיקון (כולל נוסח פנייה).
 
-משווים אחוזים ולא סכומים: הסכום בתלוש מחושב רק על חלק המשרה שבעוז לתמורה,
-ואילו האחוז הוא מה שהגמול קובע.
+בעמודת "אחוז/כמות" של שורת הגמול מופיע מספר יחידות (למשל 9.75), לא אחוז.
+הגמול בש"ח = יחידות × שווי יחידה (1.3% מ-1.9.2025) × השכר בחלק המשרה שבעוז.
+משווים יחידות ולא סכומים: הסכום תלוי בהיקף המשרה ובשכר, היחידות לא.
 
 דורש ANTHROPIC_API_KEY לחילוץ אוטומטי. בלעדיו אפשר להזין את השורה ידנית.
 """
 import base64
+import itertools
 import json
 import os
 import re
@@ -80,10 +83,10 @@ OUTPUT_SCHEMA = {
             "properties": {
                 "code": _nullable({"type": "string"}),
                 "description": {"type": "string"},
-                "pct": _nullable({"type": "number"}),
+                "units": _nullable({"type": "number"}),
                 "amount": _nullable({"type": "number"}),
             },
-            "required": ["code", "description", "pct", "amount"],
+            "required": ["code", "description", "units", "amount"],
             "additionalProperties": False,
         }),
         "oz_lines": {"type": "array", "items": _LINE},
@@ -98,11 +101,11 @@ SYSTEM_PROMPT = """את/ה קורא/ת תלוש שכר של עובד/ת הורא
 המטרה: לחלץ את שורת גמול ההשתלמות של עוז לתמורה.
 - בטבלת "תשלומים" יש בלוק שורות של עוז לתמורה שמסתיים בשורה "סה"כ עוז לתמורה".
 - שורת הגמול היא בדרך כלל סמל 249 עם התיאור "ג. השת. עוז לתמורה" (או ניסוח דומה של גמול השתלמות בעוז לתמורה).
-- בעמודה "אחוז/כמות" מופיע אחוז הגמול (למשל 9.75, לפעמים בלי סימן %). בעמודה "סכום חודשי" מופיע הסכום בש"ח.
+- בשורה הזו, בעמודה "אחוז/כמות" מופיע מספר יחידות הגמול (למשל 9.75) - זה מספר יחידות, לא אחוז. בעמודה "סכום חודשי" מופיע הסכום בש"ח.
 - אל תבלבלו עם שורות אחרות בבלוק: "תואר עוז לתמורה", "הכשרה עוז לתמורה", "תוספת עוז לתמורה", "שכר משולב עוז", "שקלית". גם לא עם גמול השתלמות של אופק חדש.
 - pay_month: חודש המשכורת מהכותרת "משכורת לחודש ..." בפורמט YYYY-MM.
-- gimul: השורה שנמצאה. pct כמספר (9.75, לא "9.75%"). אם אין שורת גמול השתלמות של עוז לתמורה - null.
-- oz_lines: כל השורות בבלוק עוז לתמורה כפי שהן (סמל, תיאור, אחוז/כמות כטקסט, סכום), לא כולל שורת הסה"כ.
+- gimul: השורה שנמצאה. units כמספר (9.75). אם אין שורת גמול השתלמות של עוז לתמורה - null.
+- oz_lines: כל השורות בבלוק עוז לתמורה כפי שהן (סמל, תיאור, אחוז/כמות כטקסט כפי שמופיע, סכום), לא כולל שורת הסה"כ.
 - is_payslip: false אם המסמך אינו תלוש שכר.
 - notes: הערה קצרה בעברית רק אם משהו לא ודאי (ספרה לא קריאה וכו'), אחרת מחרוזת ריקה.
 אל תכללו פרטים אישיים (שם, ת"ז, כתובת, חשבון בנק) בשום שדה."""
@@ -182,16 +185,39 @@ def _ref_text(refs, rule_id):
     return f"{doc}, {r['source_ref']}" if r["source_ref"] else doc
 
 
-def _fmt(x, digits=2):
+def _fmt(x, digits=3):
     if x is None:
         return "—"
     s = f"{x:,.{digits}f}"
     return s.rstrip("0").rstrip(".") if "." in s else s
 
 
+def _money(x):
+    return "—" if x is None else f"{x:,.2f}"
+
+
 def _units(x):
-    """'יחידה אחת' / '2 יחידות' / '1.5 יחידות'."""
+    """'יחידה אחת' / '2 יחידות' / '9.75 יחידות'."""
     return "יחידה אחת" if abs((x or 0) - 1) < 1e-9 else f"{_fmt(x)} יחידות"
+
+
+def _salary_lines(slip, pct):
+    """השורות בבלוק עוז לתמורה שסכומן הוא השכר שעליו מחושב הגמול (לפי מה ש-Claude
+    חילץ), כדי להראות למורה ממה בדיוק נגזר הסכום. None אם לא נמצא צירוף מדויק."""
+    try:
+        lines = json.loads(slip["extraction_json"] or "{}").get("oz_lines") or []
+    except (ValueError, AttributeError):
+        return None
+    amount = slip["gimul_amount"]
+    if not amount or not pct:
+        return None
+    cands = [l for l in lines if l.get("amount") and l["amount"] > 0 and (l.get("code") or "") != GIMUL_CODE][:8]
+    for k in (1, 2, 3):
+        for combo in itertools.combinations(cands, k):
+            base = sum(l["amount"] for l in combo)
+            if abs(base * pct / 100 - amount) < 0.011:
+                return list(combo)
+    return None
 
 
 def compare(conn, result, slip):
@@ -200,21 +226,21 @@ def compare(conn, result, slip):
     מחזיר dict לתצוגה: מה בתלוש, מה בחישוב, הפער, הסיבה, והפעולה.
     """
     refs = _rule_refs(conn)
-    rate = result.get("pct_per_unit") or 1.3
+    rate = result.get("pct_per_unit") or 1.3  # שווי יחידה לפי החוקה, באחוזים מהשכר
     expected_units = float(result["U_total"] or 0)
     expected_pct = round(expected_units * rate, 4)
 
-    paid_pct = slip["gimul_pct"]
-    line_missing = paid_pct is None
-    paid_pct = float(paid_pct or 0)
-    paid_units = round(paid_pct / rate, 3) if rate else 0.0
+    line_missing = slip["gimul_units"] is None
+    paid_units = float(slip["gimul_units"] or 0)
+    paid_pct = round(paid_units * rate, 4)
     amount = slip["gimul_amount"]
-    # השכר שעליו מחושב הגמול (חלק המשרה בעוז לתמורה), נגזר מהתלוש עצמו
+    # שווי יחידה בש"ח בתלוש הזה, והשכר שעליו מחושב הגמול (חלק המשרה בעוז)
+    unit_ils = (float(amount) / paid_units) if amount and paid_units else None
     base = (float(amount) / (paid_pct / 100)) if amount and paid_pct else None
 
     gap_units = round(expected_units - paid_units, 3)
-    gap_pct = round(expected_pct - paid_pct, 4)
-    gap_ils = round(base * gap_pct / 100, 2) if base is not None else None
+    gap_pct = round(gap_units * rate, 4)
+    gap_ils = round(unit_ils * gap_units, 2) if unit_ils is not None else None
 
     # פירוק החישוב לרכיבים, כדי להראות מאיפה מגיעה כל יחידה
     components = []
@@ -234,7 +260,7 @@ def compare(conn, result, slip):
     if result.get("U_dd_or_mid"):
         components.append({"key": "dd", "label": "גמול כפל תואר / ביניים", "units": float(result["U_dd_or_mid"])})
 
-    cause = _diagnose(result, refs, rate, expected_units, paid_pct, paid_units, gap_units, components, line_missing)
+    cause = _diagnose(result, refs, rate, expected_units, paid_units, gap_units, components, line_missing)
 
     flagged = set(cause.get("flag_keys", []))
     for c in components:
@@ -246,15 +272,24 @@ def compare(conn, result, slip):
     else:
         explained.append(
             f"שורה {slip['gimul_code'] or GIMUL_CODE} \"{slip['gimul_desc'] or 'ג. השת. עוז לתמורה'}\": "
-            f"{_fmt(paid_pct)}% תוספת לשכר" + (f", {_fmt(amount)} ₪ בחודש." if amount else "."))
-        explained.append(f"{_fmt(paid_pct)}% = {_fmt(paid_units)} יחידות גמול × {_fmt(rate)}% ליחידה.")
+            f"{_units(paid_units)} גמול" + (f", {_money(amount)} ₪ בחודש." if amount else "."))
+        explained.append(
+            f"שווי יחידה לפי החוקה: {_fmt(rate)}% מהשכר. {_fmt(paid_units)} יח' × {_fmt(rate)}% = "
+            f"{_fmt(paid_pct)}% תוספת לשכר.")
         if base:
-            explained.append(
-                f"הסכום מחושב רק על השכר בחלק המשרה שבעוז לתמורה: {_fmt(paid_pct)}% מ-{_fmt(base, 0)} ₪ = {_fmt(amount)} ₪. "
-                "לכן משווים את האחוז, לא את הסכום.")
+            lines = _salary_lines(slip, paid_pct)
+            if lines:
+                parts = " + ".join(f"{_money(l['amount'])} {l['description']}" for l in lines)
+                lines_total = sum(l["amount"] for l in lines)
+                explained.append(
+                    f"הסכום: {_fmt(paid_pct)}% × ({parts}) = {_fmt(paid_pct)}% × {_money(lines_total)} ₪ = {_money(amount)} ₪.")
+            else:
+                explained.append(
+                    f"הסכום: {_fmt(paid_pct)}% מהשכר בחלק המשרה שבעוז לתמורה (כ-{_fmt(base, 0)} ₪) = {_money(amount)} ₪.")
+            explained.append(f"כלומר כל יחידת גמול שווה לך כ-{_money(unit_ils)} ₪ בחודש. משווים יחידות, לא סכומים.")
 
     return {
-        "rate": rate,
+        "rate": rate, "unit_ils": unit_ils,
         "paid_pct": paid_pct, "paid_units": paid_units, "amount": amount, "base": base,
         "line_missing": line_missing,
         "expected_pct": expected_pct, "expected_units": expected_units,
@@ -264,50 +299,34 @@ def compare(conn, result, slip):
         "cause": cause,
         "ok": cause["kind"] == "ok",
         "contact": CONTACT,
-        "rate_ref": _ref_text(refs, "R07B_PCT_RATE_REFORM"),
     }
 
 
-def _diagnose(result, refs, rate, expected_units, paid_pct, paid_units, gap_units, components, line_missing):
-    """הסיבה האחת לפער, לפי הסדר: אין פער / שיעור ישן / כפל תואר / שנים שלא עודכנו / כללי."""
+def _diagnose(result, refs, rate, expected_units, paid_units, gap_units, components, line_missing):
+    """הסיבה האחת לפער, לפי הסדר: אין פער / יותר בתלוש / כפל תואר / שנים שלא עודכנו / כללי."""
     tol = 0.01
     if abs(gap_units) < tol:
         return {"kind": "ok", "title": "התלוש תואם לחישוב",
-                "text": f"שולמו {_fmt(paid_units)} יחידות, בדיוק כמו בחישוב. אין צורך לעשות דבר."}
+                "text": f"בתלוש מוכרות {_units(paid_units)}, בדיוק כמו בחישוב. אין צורך לעשות דבר."}
 
     if gap_units < 0:
         return {
             "kind": "overpaid", "title": "בתלוש מוכרות יותר יחידות ממה שחישבנו",
-            "text": (f"בתלוש מוכרות {_fmt(paid_units)} יחידות, ובחישוב שלנו רק {_fmt(expected_units)}. "
+            "text": (f"בתלוש מוכרות {_units(paid_units)}, ובחישוב שלנו רק {_fmt(expected_units)}. "
                      "בדרך כלל זה אומר שחסרים במערכת נתונים: קורסים שלא נטענו, או יחידות שהוכרו לפני ההצטרפות לעוז לתמורה."),
             "action": "לפני שפונים לחשבות: כדאי לוודא שכל הקורסים שלך מ\"הקורסים שלי\" בפורטל נטענו, ושיחידות ערב הרפורמה הוזנו, ואז לחשב שוב.",
             "fix_data": True,
-        }
-
-    # שולם בשיעור הישן (1.2%) במקום 1.3% - האחוז בתלוש מתאים בדיוק ליחידות שלנו בשיעור הישן
-    if rate > 1.2 and expected_units and abs(paid_pct - expected_units * 1.2) < tol:
-        return {
-            "kind": "rate", "title": "הגמול שולם בשיעור הישן",
-            "text": (f"ספרו לך {_fmt(expected_units)} יחידות — נכון — אבל כל יחידה שולמה ב-1.2% במקום {_fmt(rate)}%. "
-                     "מאז 1.9.2025 שיעור הגמול לכל יחידה בעוז לתמורה הוא 1.3%."),
-            "action": "לבקש מחשבות השכר לעדכן את שיעור הגמול ל-1.3% ליחידה ולשלם הפרשים.",
-            "attach": ["צילום התלוש"],
-            "rule_ref": _ref_text(refs, "R07B_PCT_RATE_REFORM"),
-            "letter_reason": (f"בתלוש מוכרות {_fmt(expected_units)} יחידות, אך הן שולמו בשיעור 1.2% ליחידה. "
-                              f"מאז 1.9.2025 השיעור בעוז לתמורה הוא 1.3% ליחידה, כך שהגמול הנכון הוא "
-                              f"{_fmt(expected_units * rate)}% ולא {_fmt(paid_pct)}%."),
-            "flag_keys": [],
         }
 
     dd = float(result.get("U_dd_or_mid") or 0)
     if dd and abs(gap_units - dd) < tol:
         return {
             "kind": "dd", "title": "גמול כפל תואר / ביניים לא נכלל בתלוש",
-            "text": f"הפער הוא בדיוק {_fmt(dd)} יחידות — היחידות של גמול כפל תואר / ביניים, שלא נכללו בגמול בתלוש.",
+            "text": f"הפער הוא בדיוק {_units(dd)} — היחידות של גמול כפל תואר / ביניים, שלא נכללו בגמול בתלוש.",
             "action": "לבקש מחשבות השכר להוסיף את גמול כפל התואר / הביניים ולשלם הפרשים.",
             "attach": ["צילום התלוש", "תעודות התואר (שני התארים) או אישור גמול ביניים"],
             "rule_ref": _ref_text(refs, "R04_DOUBLE_DEGREE"),
-            "letter_reason": f"לא נכללו בגמול {_fmt(dd)} יחידות של גמול כפל תואר / ביניים, שאני זכאית להן.",
+            "letter_reason": f"לא נכללו בגמול {_units(dd)} של גמול כפל תואר / ביניים, שאני זכאית להן.",
             "flag_keys": ["dd"],
         }
 
@@ -333,24 +352,24 @@ def _diagnose(result, refs, rate, expected_units, paid_pct, paid_units, gap_unit
             "attach": ["צילום התלוש", f"אישור \"הקורסים שלי\" מהפורטל, עם הקורסים של {names}"],
             "rule_ref": _ref_text(refs, "R11_ANNUAL_CAP"),
             "letter_reason": (f"לא עודכנו בגמול {units_txt} שצברתי מהשתלמויות {names}. "
-                              f"לפי ההשתלמויות שלי אני זכאית ל-{_units(expected_units)} "
-                              f"({_fmt(expected_units * rate)}%), ובתלוש שולמו {_units(paid_units)} ({_fmt(paid_pct)}%)."),
+                              f"לפי ההשתלמויות שלי אני זכאית ל-{_units(expected_units)}, "
+                              f"ובתלוש מוכרות {_units(paid_units)}."),
             "flag_keys": [c["key"] for c in picked],
         }
 
     if line_missing:
         title = "גמול ההשתלמות לא מופיע בתלוש"
-        text = f"לפי החישוב מגיעות לך {_fmt(expected_units)} יחידות ({_fmt(expected_units * rate)}%), ובתלוש אין שורת גמול השתלמות של עוז לתמורה בכלל."
+        text = f"לפי החישוב מגיעות לך {_units(expected_units)}, ובתלוש אין שורת גמול השתלמות של עוז לתמורה בכלל."
     else:
         title = f"חסרות בתלוש {_units(gap_units)}"
-        text = f"לפי החישוב מגיעות לך {_fmt(expected_units)} יחידות, ובתלוש מוכרות {_fmt(paid_units)}."
+        text = f"לפי החישוב מגיעות לך {_units(expected_units)}, ובתלוש מוכרות {_fmt(paid_units)}."
     return {
         "kind": "units", "title": title, "text": text,
         "action": "לבקש מחשבות השכר לבדוק מחדש את גמול ההשתלמות לפי רשימת ההשתלמויות המלאה, ולשלם הפרשים.",
         "attach": ["צילום התלוש", "אישור \"הקורסים שלי\" מהפורטל"],
         "rule_ref": _ref_text(refs, "R11_ANNUAL_CAP"),
-        "letter_reason": (f"לפי ההשתלמויות שלי אני זכאית ל-{_fmt(expected_units)} יחידות ({_fmt(expected_units * rate)}%), "
-                          f"ובתלוש שולמו {_fmt(paid_units)} יחידות ({_fmt(paid_pct)}%)."),
+        "letter_reason": (f"לפי ההשתלמויות שלי אני זכאית ל-{_units(expected_units)}, "
+                          f"ובתלוש מוכרות {_units(paid_units)}."),
         "flag_keys": [],
     }
 
@@ -360,19 +379,15 @@ def letter(cmp, slip, teacher_name):
     cause = cmp["cause"]
     if not cause.get("letter_reason"):
         return ""
-    lines = [
-        "שלום רב,",
-        "",
-        f"בתלוש לחודש {month_label(slip['pay_month'])} שולם לי גמול השתלמות עוז לתמורה (סמל {slip['gimul_code'] or GIMUL_CODE}) "
-        f"בשיעור {_fmt(cmp['paid_pct'])}%.",
-        cause["letter_reason"],
-    ]
+    if cmp["line_missing"]:
+        opening = f"בתלוש לחודש {month_label(slip['pay_month'])} לא מופיע גמול השתלמות עוז לתמורה."
+    else:
+        opening = (f"בתלוש לחודש {month_label(slip['pay_month'])} שולם לי גמול השתלמות עוז לתמורה "
+                   f"(סמל {slip['gimul_code'] or GIMUL_CODE}) עבור {_units(cmp['paid_units'])}.")
+    lines = ["שלום רב,", "", opening, cause["letter_reason"]]
     if cause.get("rule_ref"):
         lines.append(f"הבסיס: {cause['rule_ref']}.")
-    lines += [
-        "",
-        "אבקש " + cause["action"].removeprefix("לבקש מחשבות השכר "),
-    ]
+    lines += ["", "אבקש " + cause["action"].removeprefix("לבקש מחשבות השכר ")]
     if cause.get("attach"):
         lines += ["", "מצורפים: " + ", ".join(cause["attach"]) + "."]
     lines += ["", "תודה,", teacher_name or ""]

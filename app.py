@@ -1160,7 +1160,7 @@ def my_import_confirm(token):
 # "התלוש שלי": טעינת תלוש, התלוש מוסבר, פער אחד והפעולה לתיקון
 # ==================================================================
 
-PAYSLIP_FORM_FIELDS = ("pay_month", "gimul_code", "gimul_desc", "gimul_pct", "gimul_amount")
+PAYSLIP_FORM_FIELDS = ("pay_month", "gimul_code", "gimul_desc", "gimul_units", "gimul_amount")
 
 
 def _run_for_month(teacher_id, pay_month):
@@ -1262,7 +1262,7 @@ def my_payslip_upload(token):
         "pay_month": (extracted or {}).get("pay_month") or "",
         "gimul_code": gimul.get("code") or payslips.GIMUL_CODE,
         "gimul_desc": gimul.get("description") or "ג. השת. עוז לתמורה",
-        "gimul_pct": "" if gimul.get("pct") is None else gimul["pct"],
+        "gimul_units": "" if gimul.get("units") is None else gimul["units"],
         "gimul_amount": "" if gimul.get("amount") is None else gimul["amount"],
     }
     return _render_payslip_confirm(token, teacher, form, extracted, error, doc_id, filename)
@@ -1285,8 +1285,8 @@ def my_payslip_confirm(token):
         return float(raw) if raw else None
 
     try:
-        pct, amount = number("gimul_pct"), number("gimul_amount")
-        valid = payslips.valid_month(pay_month) and (pct is None or 0 <= pct <= 60)
+        units, amount = number("gimul_units"), number("gimul_amount")
+        valid = payslips.valid_month(pay_month) and (units is None or 0 <= units <= 60)
     except ValueError:
         valid = False
     if not valid:
@@ -1299,7 +1299,7 @@ def my_payslip_confirm(token):
                 extracted = None
         return _render_payslip_confirm(
             token, teacher, {k: f.get(k, "") for k in PAYSLIP_FORM_FIELDS}, extracted,
-            "יש לבחור את חודש התלוש ולהזין אחוז תקין (מספר, למשל 9.75).", doc_id, f.get("filename"),
+            "יש לבחור את חודש התלוש ולהזין מספר יחידות תקין (למשל 9.75).", doc_id, f.get("filename"),
         )
     if doc_id and not conn.execute(
         "SELECT 1 FROM teacher_documents WHERE doc_id=%s AND teacher_id=%s", (doc_id, teacher["teacher_id"])
@@ -1313,11 +1313,11 @@ def my_payslip_confirm(token):
         return redirect(url_for("my_payslip_new", token=token))
     conn = get_conn()
     row = conn.execute(
-        """INSERT INTO payslips (teacher_id, pay_month, gimul_code, gimul_desc, gimul_pct, gimul_amount,
+        """INSERT INTO payslips (teacher_id, pay_month, gimul_code, gimul_desc, gimul_units, gimul_amount,
                                  doc_id, extraction_json, run_id, created_at)
            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING payslip_id""",
         (teacher["teacher_id"], pay_month, (f.get("gimul_code") or "").strip() or None,
-         (f.get("gimul_desc") or "").strip() or None, pct, amount, doc_id,
+         (f.get("gimul_desc") or "").strip() or None, units, amount, doc_id,
          f.get("extraction_json") or None, run_id, datetime.now().isoformat(timespec="seconds")),
     ).fetchone()
     conn.commit()

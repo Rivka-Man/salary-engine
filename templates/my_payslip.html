@@ -57,13 +57,13 @@
   <div class="compare">
     <div>
       <span class="c-label">שולם בתלוש</span>
-      <span class="c-value">{{ cmp.paid_pct | num }}%</span>
-      <span class="c-sub">{{ cmp.paid_units | num }} יחידות{% if cmp.amount %} · {{ cmp.amount | num }} ₪ בחודש{% endif %}</span>
+      <span class="c-value">{{ cmp.paid_units | num }} יח'</span>
+      <span class="c-sub">{{ cmp.paid_pct | num }}% מהשכר{% if cmp.amount %} · {{ cmp.amount | num }} ₪ בחודש{% endif %}</span>
     </div>
     <div>
       <span class="c-label">מגיע לפי החישוב</span>
-      <span class="c-value">{{ cmp.expected_pct | num }}%</span>
-      <span class="c-sub">{{ cmp.expected_units | num }} יחידות × {{ cmp.rate | num }}%</span>
+      <span class="c-value">{{ cmp.expected_units | num }} יח'</span>
+      <span class="c-sub">{{ cmp.expected_pct | num }}% מהשכר ({{ cmp.rate | num }}% ליחידה לפי החוקה)</span>
     </div>
     <div class="{% if not cmp.ok %}c-gap{% endif %}">
       <span class="c-label">הפער</span>

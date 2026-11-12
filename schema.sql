@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS payslips (
     pay_month       TEXT NOT NULL,          -- 'YYYY-MM'
     gimul_code      TEXT,                   -- סמל השורה בתלוש (בדרך כלל 249)
     gimul_desc      TEXT,                   -- התיאור בתלוש, למשל 'ג. השת. עוז לתמורה'
-    gimul_pct       REAL,                   -- האחוז בתלוש; NULL = השורה לא מופיעה
+    gimul_units     REAL,                   -- יחידות הגמול בתלוש (עמודת אחוז/כמות); NULL = השורה לא מופיעה
     gimul_amount    REAL,                   -- הסכום החודשי בש"ח
     doc_id          INTEGER,                -- הקובץ ב-teacher_documents (אם נטען)
     extraction_json TEXT,                   -- מה ש-Claude חילץ מהקובץ, לתיעוד

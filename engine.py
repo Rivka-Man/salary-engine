@@ -247,6 +247,13 @@ def init_db(reset: bool = True):
         if col not in cols:
             conn.execute(ddl)
 
+    # payslips נוצרה בהתחלה עם gimul_pct; הערך בתלוש הוא מספר יחידות, לא אחוז
+    payslip_cols = [r["column_name"] for r in conn.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name='payslips'"
+    ).fetchall()]
+    if "gimul_pct" in payslip_cols and "gimul_units" not in payslip_cols:
+        conn.execute("ALTER TABLE payslips RENAME COLUMN gimul_pct TO gimul_units")
+
     course_cols = [r["column_name"] for r in conn.execute(
         "SELECT column_name FROM information_schema.columns WHERE table_name='courses'"
     ).fetchall()]

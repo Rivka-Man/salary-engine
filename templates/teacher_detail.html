@@ -39,12 +39,12 @@
     {% if payslips %}
     <div class="table-wrap">
       <table class="ledger">
-        <thead><tr><th>חודש</th><th>אחוז בתלוש</th><th>סכום חודשי</th><th></th></tr></thead>
+        <thead><tr><th>חודש</th><th>יחידות בתלוש</th><th>סכום חודשי</th><th></th></tr></thead>
         <tbody>
           {% for p in payslips %}
           <tr>
             <td>{{ month_label(p.pay_month) }}</td>
-            <td>{% if p.gimul_pct is not none %}{{ p.gimul_pct | num }}%{% else %}<span style="color:var(--ink-soft);">אין שורה</span>{% endif %}</td>
+            <td>{% if p.gimul_units is not none %}{{ p.gimul_units | num }}{% else %}<span style="color:var(--ink-soft);">אין שורה</span>{% endif %}</td>
             <td>{% if p.gimul_amount is not none %}{{ p.gimul_amount | num }} ₪{% endif %}</td>
             <td><a href="{{ url_for('my_payslip', token=teacher.access_token, id=p.payslip_id) }}" target="_blank" rel="noopener">המסך של המורה ↗</a></td>
           </tr>
