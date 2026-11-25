@@ -12,7 +12,7 @@
 <div class="doc-card" style="max-width:640px; margin-bottom:18px; border-color:var(--brand-teal-soft); background:var(--brand-teal-soft);">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;">
     <div>
-      <div style="font-family:'Heebo',sans-serif; font-weight:700; font-size:17px;">✓ התלוש של {{ month_label(current.pay_month) }} כבר נטען</div>
+      <div style="font-family:'Assistant',sans-serif; font-weight:700; font-size:17px;">✓ התלוש של {{ month_label(current.pay_month) }} כבר נטען</div>
       <div style="font-size:15px; color:var(--ink-soft); margin-top:4px;">
         {% if current.gimul_units is not none %}גמול השתלמות עוז לתמורה: {{ current.gimul_units | num }} יחידות{% if current.gimul_amount is not none %} · {{ current.gimul_amount | num }} ₪{% endif %}
         {% else %}בתלוש אין שורת גמול השתלמות של עוז לתמורה{% endif %}

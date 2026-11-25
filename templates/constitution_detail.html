@@ -1,5 +1,5 @@
 {% extends "constitutions_base.html" %}
-{% block title %}פנקס הגמול — {{ constitution.name }}{% endblock %}
+{% block title %}OptiPay — {{ constitution.name }}{% endblock %}
 {% block content %}
 <div class="breadcrumb"><a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹ {{ constitution.name }}</div>
 
@@ -47,43 +47,74 @@
     <span class="panel-title">חוקים ופרמטרים</span>
     <span class="panel-note">{{ rules|length }} חוקים, לפי סדר הרצה</span>
   </div>
-  <div class="table-wrap">
-    <table class="ledger">
-      <thead>
-        <tr>
-          <th>סדר</th>
-          <th>קוד</th>
-          <th>כותרת</th>
-          <th>חל על</th>
-          <th>פעולה</th>
-          <th>תוצאה (ערך · תוקף)</th>
-          <th>מקור</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rules %}
-        <tr>
-          <td class="mono">{{ r.priority }}</td>
-          <td><span class="rule-code mono">{{ r.rule_id }}</span></td>
-          <td class="wrap-text"><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">{{ r.title }}</a></td>
-          <td class="wrap-text">{{ applies[r.rule_id] }}</td>
-          <td class="wrap-text">{{ action_labels.get(r.action, r.action) if r.action else "—" }}</td>
-          <td class="wrap-text">
-            {% for p in params_by_rule.get(r.rule_id, []) %}
-            <div><b class="mono">{{ p.param_value | num }}</b>
-              <span class="panel-note">{% if p.valid_from or p.valid_to %}({{ p.valid_from | dmy or "…" }} – {{ p.valid_to | dmy or "…" }}){% endif %}</span></div>
-            {% endfor %}
-            {% if r.result_value %}<div>{{ r.result_value }}</div>{% endif %}
-            {% if not params_by_rule.get(r.rule_id) and not r.result_value %}<span class="panel-note">—</span>{% endif %}
-          </td>
-          <td class="wrap-text">{{ r.source_doc | replace("_", " ") }}{% if r.source_ref %} · {{ r.source_ref }}{% endif %}</td>
-          <td><a href="{{ url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) }}">עריכה ←</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <style>
+    .rfilters { display: flex; gap: 6px; flex-wrap: wrap; padding: 0.8rem 1.15rem; border-bottom: 1px solid var(--line); }
+    .rfilters button { font: inherit; font-size: 0.82rem; font-weight: 700; padding: 0.28rem 0.8rem; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft); cursor: pointer; }
+    .rfilters button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .rule-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 190px 70px; gap: 14px; align-items: start; padding: 14px 1.15rem; border-bottom: 1px solid var(--line); }
+    .rule-row:last-child { border-bottom: none; }
+    .rule-row:hover { background: #FAFBFD; }
+    .ord { width: 34px; height: 34px; border-radius: 10px; background: var(--paper); color: var(--ink-soft); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+    .rtitle { font-weight: 800; font-size: 1.02rem; color: var(--ink); text-decoration: none; }
+    .rtitle:hover { color: var(--accent); }
+    .rid { font-family: Consolas, monospace; font-size: 0.72rem; color: var(--ink-soft); margin-right: 8px; direction: ltr; }
+    .sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.9rem; }
+    .sentence .kw { font-weight: 800; color: var(--ink-soft); }
+    .cond { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 2px 9px; }
+    .act { border-radius: 8px; padding: 2px 10px; font-weight: 700; }
+    .act.accent { background: var(--accent-soft); color: var(--accent); }
+    .act.violet { background: var(--violet-soft); color: var(--violet); }
+    .act.good { background: var(--good-soft); color: var(--good); }
+    .act.warn { background: var(--warn-soft); color: var(--warn); }
+    .act.critical { background: var(--critical-soft); color: var(--critical); }
+    .act.neutral { background: var(--line); color: var(--ink); }
+    .act b { font-family: Consolas, monospace; }
+    .meta { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.6; }
+    .meta .src { color: var(--ink); font-weight: 600; }
+    .edit { font-size: 0.85rem; font-weight: 700; text-decoration: none; }
+    @media (max-width: 860px) { .rule-row { grid-template-columns: 36px 1fr; } .rule-row .meta, .rule-row .edit { grid-column: 2; } }
+  </style>
+  <div class="rfilters" role="group" aria-label="סינון לפי סוג פעולה">
+    <button type="button" class="on" data-k="all">הכול</button>
+    <button type="button" data-k="violet">עדיפות</button>
+    <button type="button" data-k="accent">יחידות</button>
+    <button type="button" data-k="warn">תקרות</button>
+    <button type="button" data-k="good">תוספת לשכר</button>
+    <button type="button" data-k="critical">פסילה</button>
   </div>
+  <div id="rules">
+    {% for r in rules %}
+    {% set kind = action_kind.get(r.action, 'neutral') %}
+    {% set url = url_for('backoffice.rule_detail', constitution_id=constitution.constitution_id, rule_id=r.rule_id) %}
+    <div class="rule-row" data-k="{{ kind }}">
+      <div class="ord" title="סדר הרצה">{{ r.priority }}</div>
+      <div>
+        <a class="rtitle" href="{{ url }}">{{ r.title }}</a><span class="rid">{{ r.rule_id }}</span>
+        <div class="sentence">
+          <span class="kw">אם</span>
+          {% for conn_label, text in chips[r.rule_id] %}{% if conn_label %}<span class="kw">{{ conn_label }}</span>{% endif %}<span class="cond">{{ text }}</span>{% endfor %}
+          <span class="kw">←</span>
+          <span class="act {{ kind }}">{{ action_labels.get(r.action, r.action) if r.action else "פעולה לא הוגדרה" }}{% for p in params_by_rule.get(r.rule_id, [])[-1:] %}: <b>{{ p.param_value | num }}</b>{% endfor %}{% if r.result_value and not params_by_rule.get(r.rule_id) %}: {{ r.result_value }}{% endif %}</span>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="src">§ {{ r.source_doc | replace("_", " ") }}{% if r.source_ref %} · {{ r.source_ref }}{% endif %}</div>
+        <div>בתוקף {{ (r.valid_from | dmy) or "מאז ומתמיד" }} – {{ (r.valid_to | dmy) or "היום" }}</div>
+        {% if params_by_rule.get(r.rule_id, [])|length > 1 %}<div>{{ params_by_rule[r.rule_id]|length }} ערכים לפי תקופה</div>{% endif %}
+      </div>
+      <a class="edit" href="{{ url }}">עריכה ←</a>
+    </div>
+    {% endfor %}
+  </div>
+  <script>
+    document.querySelectorAll('.rfilters button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.rfilters button').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        document.querySelectorAll('#rules .rule-row').forEach(function (r) { r.hidden = b.dataset.k !== 'all' && r.dataset.k !== b.dataset.k; });
+      });
+    });
+  </script>
   <details class="trail">
     <summary>+ חוק חדש <span class="caret">›</span></summary>
     <form class="panel-body" method="post" action="{{ url_for('backoffice.new_rule', constitution_id=constitution.constitution_id) }}">

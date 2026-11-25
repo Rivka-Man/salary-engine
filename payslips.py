@@ -110,6 +110,17 @@ _LINE = {
     "additionalProperties": False,
 }
 
+_SECTION = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "kind": {"type": "string", "enum": ["payments", "mandatory", "gemel", "other"]},
+        "lines": {"type": "array", "items": _LINE},
+    },
+    "required": ["title", "kind", "lines"],
+    "additionalProperties": False,
+}
+
 OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -127,9 +138,21 @@ OUTPUT_SCHEMA = {
             "additionalProperties": False,
         }),
         "oz_lines": {"type": "array", "items": _LINE},
+        # התלוש המלא, לתצוגת "התלוש החי" במסך התוצאה: כל המקטעים כפי שהם בתלוש
+        "sections": {"type": "array", "items": _SECTION},
+        "totals": {
+            "type": "object",
+            "properties": {
+                "gross": _nullable({"type": "number"}),
+                "mandatory_deductions": _nullable({"type": "number"}),
+                "net": _nullable({"type": "number"}),
+            },
+            "required": ["gross", "mandatory_deductions", "net"],
+            "additionalProperties": False,
+        },
         "notes": {"type": "string"},
     },
-    "required": ["is_payslip", "pay_month", "gimul", "oz_lines", "notes"],
+    "required": ["is_payslip", "pay_month", "gimul", "oz_lines", "sections", "totals", "notes"],
     "additionalProperties": False,
 }
 
@@ -144,8 +167,10 @@ SYSTEM_PROMPT = """את/ה קורא/ת תלוש שכר של עובד/ת הורא
 - gimul: השורה שנמצאה. units כמספר (9.75). אם אין שורת גמול השתלמות של עוז לתמורה - null.
 - oz_lines: כל השורות בבלוק עוז לתמורה כפי שהן (סמל, תיאור, אחוז/כמות כטקסט כפי שמופיע, סכום), לא כולל שורת הסה"כ.
 - is_payslip: false אם המסמך אינו תלוש שכר.
+- sections: התלוש המלא, מקטע אחרי מקטע לפי הסדר בתלוש: "תשלומים" (kind=payments, כל השורות כולל בלוק עוז לתמורה ושורת הסה"כ שלו), "ניכויי חובה" (kind=mandatory), "ניכויים/הפרשות גמל" (kind=gemel: description=שם הקופה, amount=ניכוי העובד, qty_or_pct=הבסיס לגמל כטקסט), ושאר המקטעים (kind=other). בכל שורה: סמל (אם יש), תיאור, אחוז/כמות כטקסט, סכום.
+- totals: סה"כ תשלומים (gross), סה"כ ניכויי חובה, נטו לתשלום (net). null למה שלא מופיע.
 - notes: הערה קצרה בעברית רק אם משהו לא ודאי (ספרה לא קריאה וכו'), אחרת מחרוזת ריקה.
-אל תכללו פרטים אישיים (שם, ת"ז, כתובת, חשבון בנק) בשום שדה."""
+אל תכללו פרטים אישיים (שם, ת"ז, כתובת, חשבון בנק, מספר עובד) בשום שדה, גם לא במקטעים."""
 
 
 def file_block(filename, data):
@@ -174,12 +199,12 @@ def extract_payslip(filename, data, client=None):
     try:
         with client.beta.messages.stream(
             model=MODEL,
-            max_tokens=8000,
+            max_tokens=16000,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
             output_config={"effort": "medium", "format": {"type": "json_schema", "schema": OUTPUT_SCHEMA}},
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": [block, {"type": "text", "text": "חלצו את שורת גמול ההשתלמות של עוז לתמורה מהתלוש."}]}],
+            messages=[{"role": "user", "content": [block, {"type": "text", "text": "חלצו את שורת גמול ההשתלמות של עוז לתמורה, ואת התלוש המלא לפי מקטעים."}]}],
         ) as stream:
             message = stream.get_final_message()
     except anthropic.AuthenticationError:
@@ -282,8 +307,19 @@ def compare(conn, result, slip):
     # פירוק החישוב לרכיבים, כדי להראות מאיפה מגיעה כל יחידה
     components = []
     if result.get("U_base_from_transition"):
-        components.append({"key": "base", "label": "יחידות שהוכרו ערב ההצטרפות לעוז לתמורה",
-                           "units": float(result["U_base_from_transition"])})
+        base_units = float(result["U_base_from_transition"])
+        # R08: יחידת מעבר (יחידה 17) - מוצגת כרכיב נפרד, כי היא נתון שהמשרד מכיר
+        # ובכל זאת לעיתים קרובות לא מגיעה לתלוש
+        transition = any(t.get("rule_id") == "R08_TRANSITION_UNIT" and t.get("value")
+                         for t in result.get("trace") or [])
+        if transition and base_units >= 1:
+            components.append({"key": "base", "label": "יחידות שהוכרו ערב ההצטרפות לעוז לתמורה",
+                               "units": base_units - 1})
+            components.append({"key": "transition", "label": "יחידת מעבר (יחידה 17)",
+                               "units": 1.0, "rule_id": "R08_TRANSITION_UNIT"})
+        else:
+            components.append({"key": "base", "label": "יחידות שהוכרו ערב ההצטרפות לעוז לתמורה",
+                               "units": base_units})
     for y in result.get("year_breakdown") or []:
         if y.get("units_earned"):
             label = f"השתלמויות שנת {y['school_year']}"
@@ -295,7 +331,8 @@ def compare(conn, result, slip):
         components.append({"key": "cap", "label": f"חיתוך לתקרה ({_fmt(result['U_cap_applied'])} יח')",
                            "units": round(float(result["U_regular"]) - float(result["U_regular_earned_before_cap"]), 3)})
     if result.get("U_dd_or_mid"):
-        components.append({"key": "dd", "label": "גמול כפל תואר / ביניים", "units": float(result["U_dd_or_mid"])})
+        components.append({"key": "dd", "label": "גמול כפל תואר / ביניים", "units": float(result["U_dd_or_mid"]),
+                           "rule_id": "R04_DOUBLE_DEGREE"})
 
     cause = _diagnose(result, refs, rate, expected_units, paid_units, gap_units, components, line_missing)
 
@@ -394,6 +431,28 @@ def _diagnose(result, refs, rate, expected_units, paid_units, gap_units, compone
             "flag_keys": [c["key"] for c in picked],
         }
 
+    # צירוף של רכיבים שסכומו בדיוק הפער (למשל יחידת מעבר + כפל תואר)
+    parts = [c for c in components if c["units"] > 0 and c["key"] != "base"]
+    for k in (2, 3):
+        hit = next((combo for combo in itertools.combinations(parts, k)
+                    if abs(sum(c["units"] for c in combo) - gap_units) < tol), None)
+        if hit:
+            names = " ו".join(f"{c['label']} ({_fmt(c['units'])})" for c in hit)
+            calc = " + ".join(_fmt(c["units"]) for c in hit)
+            return {
+                "kind": "parts", "title": f"חסרות בתלוש {_units(gap_units)}",
+                "text": (f"לפי החישוב מגיעות לך {_units(expected_units)}, ובתלוש מוכרות {_fmt(paid_units)}. "
+                         f"הפער הוא בדיוק {calc} = {_fmt(gap_units)}: {names}."),
+                "action": "לבקש מחשבות השכר לעדכן את הגמול לפי הרכיבים החסרים, ולשלם הפרשים מהמועד שבו נוצרה הזכאות.",
+                "attach": ["צילום התלוש", "אישור \"הקורסים שלי\" מהפורטל"]
+                          + (["תעודות התואר (שני התארים)"] if any(c["key"] == "dd" for c in hit) else []),
+                "rule_ref": _ref_text(refs, hit[0].get("rule_id") or "R11_ANNUAL_CAP"),
+                "letter_reason": (f"לא נכללו בגמול {_units(gap_units)}: {names}. "
+                                  f"לפי הנתונים שלי אני זכאית ל-{_units(expected_units)}, "
+                                  f"ובתלוש מוכרות {_units(paid_units)}."),
+                "flag_keys": [c["key"] for c in hit],
+            }
+
     if line_missing:
         title = "גמול ההשתלמות לא מופיע בתלוש"
         text = f"לפי החישוב מגיעות לך {_units(expected_units)}, ובתלוש אין שורת גמול השתלמות של עוז לתמורה בכלל."
@@ -429,3 +488,54 @@ def letter(cmp, slip, teacher_name):
         lines += ["", "מצורפים: " + ", ".join(cause["attach"]) + "."]
     lines += ["", "תודה,", teacher_name or ""]
     return "\n".join(lines).strip()
+
+
+# ------------------------------------------------------------------
+# "התלוש החי": התלוש כפי שחולץ, לתצוגה בסגנון תלוש משרד החינוך
+# ------------------------------------------------------------------
+
+def _is_gimul(line):
+    code = (line.get("code") or "").strip()
+    desc = line.get("description") or ""
+    return code == GIMUL_CODE or ("השת" in desc and "עוז" in desc and "סה" not in desc)
+
+
+def slip_view(slip):
+    """
+    המקטעים להצגת התלוש. עדיפות: התלוש המלא שחולץ (sections) -> בלוק עוז לתמורה
+    (oz_lines) -> שורת הגמול בלבד. בכל מקרה שורת הגמול מסומנת is_gimul, וכשהיא
+    חסרה בתלוש נוספת שורה ריקה במקומה (שם יוקף העיגול הוורוד).
+    מחזיר {"sections": [...], "totals": {...} | None, "partial": bool}.
+    """
+    try:
+        ext = json.loads(slip["extraction_json"] or "{}") or {}
+    except (ValueError, TypeError):
+        ext = {}
+    gimul_line = {"code": slip["gimul_code"] or GIMUL_CODE,
+                  "description": slip["gimul_desc"] or "ג. השת. עוז לתמורה",
+                  "qty_or_pct": None if slip["gimul_units"] is None else _fmt(slip["gimul_units"], 2),
+                  "amount": slip["gimul_amount"]}
+    sections = [dict(sec, lines=[dict(l) for l in sec.get("lines") or []]) for sec in ext.get("sections") or []]
+    partial = False
+    if not sections:
+        partial = True
+        lines = [dict(l) for l in ext.get("oz_lines") or []]
+        sections = [{"title": "תשלומים", "kind": "payments", "lines": lines}]
+    pay = next((sec for sec in sections if sec.get("kind") == "payments"), sections[0])
+    found = False
+    for sec in sections:
+        for l in sec["lines"]:
+            if _is_gimul(l):
+                l.update(is_gimul=True)
+                # מה שאושר בטופס גובר על מה שחולץ
+                l["qty_or_pct"], l["amount"] = gimul_line["qty_or_pct"], gimul_line["amount"]
+                found = True
+    if not found:
+        # השורה לא בתלוש (או שלא נקראה): שורה ריקה בסוף בלוק עוז לתמורה
+        idx = next((i for i, l in enumerate(pay["lines"]) if "סה" in (l.get("description") or "")
+                    and "עוז" in (l.get("description") or "")), len(pay["lines"]))
+        pay["lines"].insert(idx, dict(gimul_line, is_gimul=True, missing=slip["gimul_units"] is None))
+    for sec in sections:
+        for l in sec["lines"]:
+            l["is_total"] = "סה\"כ" in (l.get("description") or "") or "סה''כ" in (l.get("description") or "")
+    return {"sections": sections, "totals": ext.get("totals"), "partial": partial}

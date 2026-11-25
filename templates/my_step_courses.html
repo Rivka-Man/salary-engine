@@ -39,11 +39,12 @@
     <div class="fields-title">הקורסים שכבר בתיק שלך ({{ courses|length }})</div>
     <div class="table-wrap">
     <table class="mini-ledger">
-      <thead><tr><th>מתאריך</th><th>סוג</th><th>היקף שעות עם ציון</th><th>היקף שעות בלי ציון</th><th></th></tr></thead>
+      <thead><tr><th>מתאריך</th><th>מקור</th><th>סוג</th><th>היקף שעות עם ציון</th><th>היקף שעות בלי ציון</th><th></th></tr></thead>
       <tbody>
         {% for c in courses %}
         <tr>
           <td>{{ c.start_date | dmy }}</td>
+          <td>{% if c.source == 'manual' %}<span class="src-tag manual" title="הוזן ידנית: כדאי לוודא שמוסד ההשתלמות דיווח עליו למשרד">הזנה ידנית</span>{% else %}<span class="src-tag">מהפורטל</span>{% endif %}</td>
           <td>{{ source_type_labels.get(c.source_type, c.source_type) }}{% if c.counts_for_oz == 0 %}<br><small style="color:var(--ink-soft, #666);">טרום רפורמה בלבד</small>{% endif %}</td>
           <td>
             {%- if c.hours_graded is not none -%}

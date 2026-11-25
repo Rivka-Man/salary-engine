@@ -2,143 +2,297 @@
 {% block title %}התלוש שלי — {{ teacher.full_name }}{% endblock %}
 {% block content %}
 <style>
-  .verdict{ border-radius:20px; padding:26px 28px; margin-bottom:22px; box-shadow:var(--shadow); border:1.5px solid; }
-  .verdict.gap{ background:var(--amber-bg); border-color:var(--amber-soft); }
-  .verdict.ok{ background:var(--brand-teal-soft); border-color:var(--brand-teal-soft); }
-  .verdict-tag{ display:inline-block; font-family:'Heebo',sans-serif; font-size:12px; font-weight:700; padding:4px 12px; border-radius:999px; margin-bottom:10px; }
-  .verdict.gap .verdict-tag{ background:var(--amber); color:#fff; }
-  .verdict.ok .verdict-tag{ background:var(--brand-teal); color:#fff; }
-  .verdict h2{ font-family:'Heebo',sans-serif; font-size:24px; font-weight:700; margin:0 0 8px; }
-  .verdict p{ font-size:16px; line-height:1.7; margin:0; }
-  .compare{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-top:18px; }
-  @media (max-width:640px){ .compare{ grid-template-columns:1fr; } }
-  .compare > div{ background:var(--paper-raised); padding:14px 16px; display:flex; flex-direction:column; gap:3px; }
-  .compare .c-label{ font-family:'Heebo',sans-serif; font-size:12px; font-weight:600; color:var(--ink-soft); }
-  .compare .c-value{ font-family:'Heebo',sans-serif; font-size:26px; font-weight:700; }
-  .compare .c-sub{ font-family:'Heebo',sans-serif; font-size:12.5px; color:var(--ink-soft); }
-  .compare .c-gap .c-value{ color:var(--amber); }
-  .block{ background:var(--paper-raised); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin-bottom:20px; }
-  .block h3{ font-family:'Heebo',sans-serif; font-size:17px; font-weight:700; margin:0 0 12px; display:flex; align-items:center; gap:10px; }
-  .block h3 .n{ width:26px; height:26px; border-radius:50%; background:var(--gold); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
-  .explain-list{ margin:0; padding-inline-start:20px; font-size:15px; line-height:1.8; }
-  tr.flagged td{ background:var(--amber-bg); font-weight:600; }
-  .flag-chip{ font-family:'Heebo',sans-serif; font-size:11px; font-weight:700; color:#fff; background:var(--amber); padding:2px 9px; border-radius:999px; margin-inline-start:6px; white-space:nowrap; }
-  tr.total td{ font-weight:700; border-bottom:none; }
-  .letter{ width:100%; min-height:230px; font-family:'Assistant',sans-serif; font-size:15px; line-height:1.7; color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--paper); resize:vertical; }
-  .contact{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; }
-  .slip-tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-  .slip-tab{ font-family:'Heebo',sans-serif; font-size:13px; font-weight:600; padding:6px 14px; border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); text-decoration:none; background:var(--paper-raised); }
-  .slip-tab.active{ background:var(--gold); color:#fff; border-color:var(--gold); }
+  .wrap{ max-width:1180px; }
+  .res-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .res-head h1{ font-size:30px; font-weight:800; margin:0; }
+  .res-head .sub{ font-size:15px; color:var(--ink-soft); margin-top:4px; }
+  .slip-tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+  .slip-tab{ font-size:13px; font-weight:600; padding:5px 14px; border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); text-decoration:none; background:#fff; }
+  .slip-tab.active{ background:var(--blue); color:#fff; border-color:var(--blue); }
+
+  .res-grid{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:34px; align-items:start; }
+  @media (max-width:900px){ .res-grid{ grid-template-columns:1fr; gap:22px; } .pen-note{ font-size:38px; } .sheet{ padding:16px 12px; } .srow{ grid-template-columns:40px 48px minmax(0,1fr) 70px; } .panel{ padding:20px 16px; } }
+
+  /* ---- התלוש: בסגנון תלוש משרד החינוך ---- */
+  .sheet{ background:#fff; border-radius:6px; padding:22px 20px 20px; box-shadow:0 1px 2px rgba(46,52,66,.06), 0 18px 40px -26px rgba(46,52,66,.45); font-size:12.5px; color:#1F2433; position:relative; }
+  .sheet-top{ display:flex; justify-content:space-between; align-items:baseline; font-weight:700; color:var(--blue); font-size:13.5px; margin-bottom:4px; }
+  .sheet-top span:last-child{ color:var(--ink-soft); font-weight:500; font-size:12px; }
+  .sec{ position:relative; border:1.5px solid var(--blue); border-radius:6px; margin-top:20px; padding-top:12px; background:#fff; }
+  .sec.pink{ border-color:var(--pink); }
+  .sec-pill{ position:absolute; top:-11px; right:10px; background:var(--blue); color:#fff; font-weight:700; font-size:12.5px; padding:1px 14px; border-radius:10px; border:2px solid #fff; box-shadow:0 0 0 1px var(--blue); }
+  .sec.pink .sec-pill{ background:var(--pink); box-shadow:0 0 0 1px var(--pink); }
+  .srow{ display:grid; grid-template-columns:52px 64px minmax(0,1fr) 84px; align-items:center; }
+  .srow > span{ padding:3px 6px; }
+  .srow > span:last-child{ text-align:left; direction:ltr; }
+  .srow.head{ background:var(--blue-head); color:var(--blue); font-weight:700; font-size:11px; border-bottom:1px solid var(--blue); }
+  .sec.pink .srow.head{ background:var(--pink-head); color:var(--pink); border-color:var(--pink); }
+  .srow:nth-child(odd of .srow.line){ background:var(--blue-alt); }
+  .sec.pink .srow:nth-child(odd of .srow.line){ background:var(--pink-alt); }
+  .srow.total{ font-weight:700; border-top:1.5px solid var(--blue); border-bottom:1.5px solid var(--blue); background:#fff !important; }
+  .srow.gimul{ position:relative; font-weight:700; background:#fff !important; }
+  .srow.gimul .circle{ position:absolute; top:-9px; left:-10px; width:calc(100% + 20px); height:calc(100% + 18px); pointer-events:none; }
+  .srow.gimul .circle path{ stroke-dasharray:1400; stroke-dashoffset:1400; animation:draw 1.1s .35s ease-out forwards; }
+  @keyframes draw{ to{ stroke-dashoffset:0; } }
+  .totals{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .tot{ display:flex; align-items:center; gap:6px; }
+  .tot b{ background:var(--blue); color:#fff; font-size:11.5px; padding:2px 12px; border-radius:10px; }
+  .tot span{ border:1.5px solid var(--blue); border-radius:10px; padding:1px 10px; font-weight:700; }
+  .partial-note{ font-size:12px; color:var(--ink-soft); margin-top:10px; }
+
+  /* ---- העט הוורוד ---- */
+  .pen{ font-family:var(--pen); color:var(--pink); font-weight:700; line-height:1; }
+  .pen-note{ font-size:46px; display:flex; align-items:center; gap:10px; margin:2px 0 6px; }
+  .pen-note svg{ flex-shrink:0; }
+  .verdict-line{ font-size:17px; line-height:1.65; margin:0 0 18px; }
+  .nums{ display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin-bottom:22px; }
+  .nums > div{ padding:12px 4px; }
+  .nums > div + div{ border-right:1px solid var(--line); padding-right:14px; }
+  .nums .l{ font-size:12.5px; color:var(--ink-soft); }
+  .nums .v{ font-size:26px; font-weight:800; }
+  .nums .s{ font-size:12px; color:var(--ink-soft); }
+  .nums .gap .v{ color:var(--pink); }
+
+  .pills{ display:flex; gap:10px; flex-wrap:wrap; }
+  .pill{ font:inherit; font-size:15px; font-weight:700; padding:10px 20px; border-radius:999px; border:1.5px solid var(--gold-soft); background:#fff; color:var(--blue); cursor:pointer; text-decoration:none; }
+  .pill:hover, .pill[aria-pressed="true"]{ border-color:var(--blue); background:var(--blue-alt); }
+  .pill.primary{ background:var(--pink); color:#fff; border-color:var(--pink); box-shadow:0 8px 18px -10px rgba(178,58,122,.7); }
+  .pill.primary[aria-pressed="true"]{ background:#9A2F68; }
+
+  /* ---- הלוחות שנפתחים ---- */
+  .panel{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:26px 28px; margin-top:30px; box-shadow:var(--shadow); }
+  .js .panel[hidden]{ display:none; }
+  .panel h2{ font-size:22px; font-weight:800; margin:0 0 6px; display:flex; align-items:baseline; gap:12px; }
+  .panel h2 .pen{ font-size:34px; }
+  .panel .lead{ font-size:15.5px; line-height:1.7; color:var(--ink); margin:0 0 18px; }
+  .comp{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  .comp td{ padding:10px 6px; border-bottom:1px dashed var(--line); }
+  .comp td:last-child{ text-align:left; font-weight:700; direction:ltr; white-space:nowrap; }
+  .comp tr.flag td{ color:var(--pink); font-weight:700; }
+  .comp tr.flag td:first-child::after{ content:"לא בתלוש"; font-size:11px; color:#fff; background:var(--pink); border-radius:999px; padding:1px 9px; margin-right:8px; }
+  .comp tr.sum td{ border-bottom:none; font-weight:800; }
+  .explain{ margin:18px 0 0; padding-inline-start:20px; font-size:14.5px; line-height:1.8; color:var(--ink); }
+
+  .math{ font-size:52px; margin:4px 0 18px; direction:ltr; text-align:right; }
+  .parts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .part{ border:1.5px solid var(--gold-soft); border-radius:14px; padding:16px 18px; }
+  .part .u{ font-size:28px; font-weight:800; color:var(--pink); }
+  .part .t{ font-size:16px; font-weight:700; margin:2px 0 8px; }
+  .chain{ list-style:none; margin:0; padding:0; font-size:13.5px; }
+  .chain li{ display:flex; gap:10px; padding:6px 0; border-top:1px dashed var(--line); }
+  .chain li span:first-child{ color:var(--ink-soft); width:86px; flex-shrink:0; }
+  .rid{ font-family:Consolas, monospace; font-size:12px; background:var(--blue-alt); color:var(--blue); padding:1px 7px; border-radius:6px; direction:ltr; }
+  details.all{ margin-top:20px; border:1px solid var(--line); border-radius:12px; padding:0; background:#fff; }
+  details.all summary{ padding:12px 16px; font-weight:700; font-size:14px; cursor:pointer; }
+  details.all ol{ margin:0; padding:4px 36px 14px 16px; font-size:13.5px; line-height:1.7; }
+
+  .tracks{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:18px; }
+  .track{ border:1.5px solid var(--gold-soft); border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:10px; }
+  .track .who{ font-size:18px; font-weight:800; }
+  .track .ch{ font-size:13px; color:var(--ink-soft); }
+  .track ol{ margin:0; padding-inline-start:20px; font-size:14.5px; line-height:1.75; }
+  .track .att{ font-size:13.5px; color:var(--ink-soft); }
+  .track textarea{ width:100%; min-height:220px; font:inherit; font-size:14px; line-height:1.65; border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--paper); color:var(--ink); resize:vertical; }
+  .tag{ display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:999px; background:var(--pink-alt); color:var(--pink); }
+  .parallel{ font-size:15px; margin:0 0 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .idnote{ font-size:12.5px; color:var(--ink-soft); }
+  .idnote b{ color:var(--pink); }
+  .foot{ display:flex; gap:10px; flex-wrap:wrap; margin-top:32px; align-items:center; }
+  .linkbtn{ background:none; border:none; font:inherit; color:var(--ink-soft); text-decoration:underline; cursor:pointer; font-size:13px; }
 </style>
 
-<div class="hero" style="margin-bottom:16px">
-  <div class="eyebrow">התוצאה</div>
-  <h1 style="font-size:32px">גמול ההשתלמות בתלוש {{ month_label(slip.pay_month) }}</h1>
+<div class="res-head">
+  <div>
+    <h1>בדקנו את תלוש {{ month_label(slip.pay_month) }} שלך</h1>
+    <div class="sub">גמול השתלמות · עוז לתמורה</div>
+  </div>
+  {% if all_slips|length > 1 %}
+  <div class="slip-tabs">
+    {% for s in all_slips %}<a class="slip-tab {% if s.payslip_id == slip.payslip_id %}active{% endif %}" href="{{ url_for('my_payslip', token=token, id=s.payslip_id) }}">{{ month_label(s.pay_month) }}</a>{% endfor %}
+  </div>
+  {% endif %}
 </div>
 
-{% if all_slips|length > 1 %}
-<div class="slip-tabs">
-  {% for s in all_slips %}
-  <a class="slip-tab {% if s.payslip_id == slip.payslip_id %}active{% endif %}" href="{{ url_for('my_payslip', token=token, id=s.payslip_id) }}">{{ month_label(s.pay_month) }}</a>
-  {% endfor %}
-</div>
-{% endif %}
+{% macro money(x) %}{% if x is not none %}{{ "{:,.2f}".format(x) }}{% endif %}{% endmacro %}
 
 {% if not cmp %}
-<div class="note-box" style="margin-bottom:20px;">החישוב של התלוש הזה לא נמצא. אפשר לחשב שוב:
-  <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}" style="display:inline;"><button class="btn-danger" style="color:var(--teal);">חישוב מחדש</button></form>
+<div class="note-box">החישוב של התלוש הזה לא נמצא. אפשר לחשב שוב:
+  <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}" style="display:inline;"><button class="linkbtn" style="color:var(--pink)">חישוב מחדש</button></form>
 </div>
 {% else %}
-
-<section class="verdict {{ 'ok' if cmp.ok else 'gap' }}">
-  <span class="verdict-tag">{{ "הכול תקין" if cmp.ok else "נמצא פער" }}</span>
-  <h2>{{ cmp.cause.title }}</h2>
-  <p>{{ cmp.cause.text }}</p>
-  <div class="compare">
-    <div>
-      <span class="c-label">שולם בתלוש</span>
-      <span class="c-value">{{ cmp.paid_units | num }} יח'</span>
-      <span class="c-sub">{{ cmp.paid_pct | num }}% מהשכר{% if cmp.amount %} · {{ cmp.amount | num }} ₪ בחודש{% endif %}</span>
-    </div>
-    <div>
-      <span class="c-label">מגיע לפי החישוב</span>
-      <span class="c-value">{{ cmp.expected_units | num }} יח'</span>
-      <span class="c-sub">{{ cmp.expected_pct | num }}% מהשכר ({{ cmp.rate | num }}% ליחידה לפי החוקה)</span>
-    </div>
-    <div class="{% if not cmp.ok %}c-gap{% endif %}">
-      <span class="c-label">הפער</span>
-      {% if cmp.ok %}
-      <span class="c-value">0</span><span class="c-sub">אין פער</span>
+{% set gap = cmp.gap_units %}
+<div class="res-grid">
+  {# ---------- התלוש ---------- #}
+  <div class="sheet" aria-label="התלוש">
+    <div class="sheet-top"><span>משכורת לחודש {{ month_label(slip.pay_month) }}</span><span>משרד החינוך</span></div>
+    {% for sec in view.sections %}
+    {% set pink = sec.kind in ('mandatory', 'gemel') %}
+    <div class="sec {{ 'pink' if pink }}">
+      <span class="sec-pill">{{ sec.title }}</span>
+      <div class="srow head">
+        {% if sec.kind == 'gemel' %}<span></span><span>בסיס</span><span>קופה</span><span>ניכוי עובד</span>
+        {% elif sec.kind == 'mandatory' %}<span></span><span></span><span>ניכוי</span><span>סכום</span>
+        {% else %}<span>סמל</span><span>אחוז/ כמות</span><span>תיאור</span><span>סכום חודשי</span>{% endif %}
+      </div>
+      {% for l in sec.lines %}
+      {% if l.is_gimul %}
+      <div class="srow gimul" id="row-gimul">
+        <span>{{ l.code or '' }}</span><span>{{ l.qty_or_pct or '—' }}</span><span>{{ l.description }}</span><span>{{ money(l.amount) or '0.00' }}</span>
+        {% if not cmp.ok %}
+        <svg class="circle" aria-hidden="true" viewBox="0 0 400 40" preserveAspectRatio="none"><path d="M18 22 C 10 6, 150 2, 260 4 S 396 10, 392 21 S 250 38, 120 36 S 6 32, 26 12" fill="none" stroke="#B23A7A" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+        {% endif %}
+      </div>
       {% else %}
-      <span class="c-value">{% if cmp.gap_units > 0 %}+{% endif %}{{ cmp.gap_units | num }} יח'</span>
-      <span class="c-sub">{% if cmp.gap_pct > 0 %}+{% endif %}{{ cmp.gap_pct | num }}%{% if cmp.gap_ils is not none %} · כ-{{ cmp.gap_ils | num }} ₪ בחודש{% endif %}</span>
+      <div class="srow {{ 'total' if l.is_total else 'line' }}">
+        <span>{{ l.code or '' }}</span><span>{{ l.qty_or_pct or '' }}</span><span>{{ l.description }}</span><span>{{ money(l.amount) }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% if view.totals and view.totals.gross %}
+    <div class="totals">
+      <div class="tot"><b>סה"כ תשלומים</b><span>{{ money(view.totals.gross) }}</span></div>
+      {% if view.totals.net %}<div class="tot"><b>נטו לתשלום</b><span>{{ money(view.totals.net) }}</span></div>{% endif %}
+    </div>
+    {% endif %}
+    {% if view.partial %}<div class="partial-note">מוצג בלוק עוז לתמורה מהתלוש. טעינה מחדש של התלוש תציג אותו במלואו.</div>{% endif %}
+  </div>
+
+  {# ---------- ההערה בעט ---------- #}
+  <div>
+    {% if cmp.ok %}
+    <div class="pen pen-note">✓ הכול תקין</div>
+    {% elif gap > 0 %}
+    <div class="pen pen-note">
+      <svg width="54" height="34" viewBox="0 0 54 34" aria-hidden="true"><path d="M2 6 C 16 2, 36 6, 48 24 M48 24 L 47 13 M48 24 L 38 21" fill="none" stroke="#B23A7A" stroke-width="2.2" stroke-linecap="round"/></svg>
+      חסר כאן +{{ gap | num }} יח'
+    </div>
+    {% else %}
+    <div class="pen pen-note">יותר ממה שחישבנו</div>
+    {% endif %}
+    <p class="verdict-line"><b>{{ cmp.cause.title }}.</b> {{ cmp.cause.text }}</p>
+    <div class="nums">
+      <div><div class="l">בתלוש</div><div class="v">{{ cmp.paid_units | num }}</div><div class="s">יח' · {{ cmp.paid_pct | num }}%</div></div>
+      <div><div class="l">מגיע לך</div><div class="v">{{ cmp.expected_units | num }}</div><div class="s">יח' · {{ cmp.expected_pct | num }}%</div></div>
+      <div class="gap"><div class="l">הפער</div><div class="v"><bdi dir="ltr">{% if gap > 0 %}+{% endif %}{{ gap | num }}</bdi></div><div class="s">{% if cmp.gap_ils is not none %}כ-{{ cmp.gap_ils | num }} ₪ בחודש{% else %}{{ cmp.gap_pct | num }}% מהשכר{% endif %}</div></div>
+    </div>
+    <div class="pills" role="tablist">
+      {% if not cmp.ok %}<button class="pill primary" data-panel="todo" aria-pressed="false">מה עליי לעשות?</button>{% endif %}
+      <button class="pill" data-panel="why" aria-pressed="false">למה?</button>
+      <button class="pill" data-panel="how" aria-pressed="false">איך חישבנו?</button>
+    </div>
+  </div>
+</div>
+
+{# ---------- למה? ---------- #}
+<section class="panel" id="panel-why">
+  <h2>למה? <span class="pen">{% if cmp.ok %}הכול מסתדר{% else %}מאיפה מגיעות היחידות{% endif %}</span></h2>
+  <p class="lead">כל יחידה שמגיעה לך, ומה מהן לא הגיע לתלוש.</p>
+  <table class="comp">
+    {% for c in cmp.components %}
+    <tr class="{{ 'flag' if c.flagged }}"><td>{{ c.label }}</td><td>{% if c.units > 0 %}+{% endif %}{{ c.units | num }}</td></tr>
+    {% endfor %}
+    <tr class="sum"><td>מגיע לפי החישוב</td><td>{{ cmp.expected_units | num }}</td></tr>
+    <tr class="sum"><td>בתלוש</td><td>{{ cmp.paid_units | num }}</td></tr>
+  </table>
+  <ul class="explain">{% for line in cmp.explained %}<li>{{ line }}</li>{% endfor %}</ul>
+</section>
+
+{# ---------- איך חישבנו? ---------- #}
+{% set flagged = cmp.components | selectattr('flagged') | list %}
+<section class="panel" id="panel-how">
+  <h2>איך חישבנו?</h2>
+  <p class="lead">כל רכיב נגזר מחוק אחד בחוקה, וכל חוק מסעיף בהסכם. החישוב עצמו הוא מנוע כללים קבוע: אותם נתונים, אותה תוצאה.</p>
+  {% if flagged %}
+  <div class="pen math">{% for c in flagged %}{{ c.units | num }}{% if not loop.last %} + {% endif %}{% endfor %} = {{ gap | num }}</div>
+  {% endif %}
+  <div class="parts">
+    {% for c in (flagged or cmp.components) %}
+    {% set r = rules.get(c.rule_id) if c.rule_id else none %}
+    <div class="part">
+      <div class="u"><bdi dir="ltr">{% if c.units > 0 %}+{% endif %}{{ c.units | num }}</bdi></div>
+      <div class="t">{{ c.label }}</div>
+      <ul class="chain">
+        {% if r %}
+        <li><span>החוק</span><span>{{ r.title }} <span class="rid">{{ r.rule_id }}</span></span></li>
+        <li><span>נוצר מתוך</span><span>{{ (r.source_doc or '')|replace('_', ' ') }}{% if r.source_ref %}, {{ r.source_ref }}{% endif %}</span></li>
+        <li><span>בתוקף</span><span>{{ (r.valid_from | dmy) or 'מאז ומתמיד' }} – {{ (r.valid_to | dmy) or 'היום' }}</span></li>
+        {% for t in result.trace if t.rule_id == c.rule_id %}<li><span>בחישוב שלך</span><span>{{ t.message }}</span></li>{% endfor %}
+        {% elif c.school_year %}
+        <li><span>מקור</span><span>ההשתלמויות שלך בשנת {{ c.school_year }}</span></li>
+        {% for t in result.trace if t.rule_id == 'R11_ANNUAL_CAP' and c.school_year in t.message %}<li><span>בחישוב שלך</span><span>{{ t.message }}</span></li>{% endfor %}
+        {% endif %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  <details class="all">
+    <summary>כל שלבי החישוב ({{ result.trace | length }})</summary>
+    <ol>{% for t in result.trace %}<li><span class="rid" title="{{ t.rule_id | rule_tooltip }}">{{ t.rule_id }}</span> {{ t.message }}{% if t.value is not none %} → <b>{{ t.value | num }}</b>{% endif %}</li>{% endfor %}</ol>
+  </details>
+  <p class="pending-note" style="margin:12px 0 0">חושב לפי הנתונים שהזנת, לתאריך {{ result.calc_date | dmy }}. <a href="{{ url_for('my_view_run', token=token, run_id=slip.run_id) }}">הפירוט המלא לפי שנה</a></p>
+</section>
+
+{# ---------- מה עליי לעשות? ---------- #}
+{% if actions and not actions.ok %}
+<section class="panel" id="panel-todo">
+  <h2>מה עליי לעשות? {% if actions.parallel %}<span class="pen">{{ actions.tracks|length }} מסלולים במקביל</span>{% endif %}</h2>
+  {% for cd in actions.cause_defs %}
+  <p class="parallel"><span class="tag">סיבה {{ cd.code }}</span> <b>{{ cd.title }}.</b> <span style="color:var(--ink-soft)">{{ cd.when }}</span></p>
+  {% endfor %}
+  <div class="tracks">
+    {% for t in actions.tracks %}
+    <div class="track">
+      <div><span class="tag">מסלול {{ loop.index }}</span></div>
+      <div class="who">{{ t.who }}</div>
+      <div class="ch">{% if t.link %}<a href="{{ t.link }}" target="_blank" rel="noopener">{{ t.channel }} ↗</a>{% else %}{{ t.channel }}{% endif %}{% if t.phone %} · <bdi dir="ltr">{{ t.phone }}</bdi>{% endif %}</div>
+      <ol>{% for s in t.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+      {% if t.attach %}<div class="att">לצרף: {{ t.attach | join(' · ') }}</div>{% endif %}
+      {% if t.id == 'fix_data' %}<a class="btn-primary" href="{{ url_for('my_wizard_courses', token=token) }}">לבדוק את ההשתלמויות שלי</a>{% endif %}
+      {% if t.letter %}
+      <textarea id="letter-{{ loop.index }}" aria-label="נוסח הפנייה ל{{ t.who }}">{{ t.letter }}</textarea>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        <button type="button" class="pill primary" onclick="copyLetter('letter-{{ loop.index }}', this)">העתקת הנוסח</button>
+        <span class="idnote">להשלים <b>מספר ת"ז</b> לפני השליחה. הוא לא נשמר אצלנו.</span>
+      </div>
       {% endif %}
     </div>
+    {% endfor %}
   </div>
-</section>
-
-<section class="block">
-  <h3><span class="n">1</span>התלוש שלך מוסבר</h3>
-  <ul class="explain-list">
-    {% for line in cmp.explained %}<li>{{ line }}</li>{% endfor %}
-  </ul>
-</section>
-
-<section class="block">
-  <h3><span class="n">2</span>מאיפה מגיעות היחידות שלך</h3>
-  <div class="table-wrap">
-    <table class="mini-ledger">
-      <thead><tr><th>רכיב</th><th>יחידות</th></tr></thead>
-      <tbody>
-        {% for c in cmp.components %}
-        <tr class="{% if c.flagged %}flagged{% endif %}">
-          <td>{{ c.label }}{% if c.flagged %}<span class="flag-chip">לא בתלוש</span>{% endif %}</td>
-          <td>{% if c.units > 0 %}+{% endif %}{{ c.units | num }}</td>
-        </tr>
-        {% endfor %}
-        <tr class="total"><td>סה"כ לפי החישוב</td><td>{{ cmp.expected_units | num }}</td></tr>
-        <tr class="total"><td>בתלוש</td><td>{{ cmp.paid_units | num }}</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="pending-note" style="margin:10px 0 0;">חושב לפי הנתונים שהזנת, לתאריך {{ result.calc_date | dmy }}. <a href="{{ url_for('my_view_run', token=token, run_id=slip.run_id) }}">הפירוט המלא לפי שנה ולפי חוק</a></p>
-</section>
-
-{% if not cmp.ok %}
-<section class="block">
-  <h3><span class="n">3</span>מה לעשות עכשיו</h3>
-  <p style="font-size:16px; line-height:1.7; margin:0 0 10px;"><b>{{ cmp.cause.action }}</b></p>
-  {% if cmp.cause.fix_data %}
-  <div class="cta-row">
-    <a class="btn-primary" style="text-decoration:none;" href="{{ url_for('my_wizard_courses', token=token) }}">לבדוק את ההשתלמויות שלי</a>
-  </div>
-  {% else %}
-  {% if cmp.cause.attach %}
-  <p style="font-size:15px; margin:0 0 4px;">לצרף לפנייה:</p>
-  <ul class="explain-list" style="margin-bottom:14px;">
-    {% for a in cmp.cause.attach %}<li>{{ a }}</li>{% endfor %}
-  </ul>
-  {% endif %}
-  {% if letter %}
-  <label for="letter" style="font-family:'Heebo',sans-serif; font-weight:600; font-size:14px; display:block; margin-bottom:6px;">נוסח פנייה מוכן (אפשר לערוך):</label>
-  <textarea id="letter" class="letter">{{ letter }}</textarea>
-  {% endif %}
-  <div class="contact">
-    {% if letter %}<button type="button" class="btn-primary" onclick="navigator.clipboard.writeText(document.getElementById('letter').value).then(() => { this.textContent = 'הועתק ✓'; });">העתקת הנוסח</button>{% endif %}
-    <a class="btn-secondary" href="{{ cmp.contact.portal }}" target="_blank" rel="noopener">{{ cmp.contact.portal_label }} ↗</a>
-    <span class="btn-secondary" style="cursor:default;">מוקד חשבות השכר: {{ cmp.contact.phone }}</span>
-  </div>
-  {% endif %}
+  {% if actions.recheck %}<p class="lead" style="margin:18px 0 0">כשהקורס יופיע ב"הקורסים שלי" בפורטל: לטעון שוב את הקובץ ולחשב מחדש. אז הפער יעבור לטיפול חשבות השכר.</p>{% endif %}
 </section>
 {% endif %}
 {% endif %}
 
-<div class="cta-row" style="margin-top:6px;">
+<div class="foot">
   <a href="{{ url_for('my_payslip_new', token=token) }}" class="btn-secondary">טעינת תלוש אחר</a>
   <form method="post" action="{{ url_for('my_payslip_recalc', token=token, payslip_id=slip.payslip_id) }}"><button class="btn-secondary">עדכנתי נתונים — לחשב שוב</button></form>
   <a href="{{ url_for('my_dashboard', token=token) }}" class="btn-secondary">חזרה לתפריט</a>
+  <form method="post" action="{{ url_for('my_payslip_delete', token=token, payslip_id=slip.payslip_id) }}" onsubmit="return confirm('להסיר את התלוש הזה?');" style="margin-right:auto">
+    <button class="linkbtn">הסרת התלוש</button>
+  </form>
 </div>
-<form method="post" action="{{ url_for('my_payslip_delete', token=token, payslip_id=slip.payslip_id) }}" style="margin-top:14px;" onsubmit="return confirm('להסיר את התלוש הזה?');">
-  <button class="btn-danger">הסרת התלוש</button>
-</form>
+
+<script>
+  document.documentElement.classList.add('js');
+  var panels = document.querySelectorAll('.panel[id^="panel-"]');
+  var pills = document.querySelectorAll('.pill[data-panel]');
+  panels.forEach(function (p) { p.hidden = true; });
+  pills.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var target = document.getElementById('panel-' + b.dataset.panel);
+      var open = b.getAttribute('aria-pressed') === 'true';
+      panels.forEach(function (p) { p.hidden = true; });
+      pills.forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      if (!open && target) {
+        target.hidden = false;
+        b.setAttribute('aria-pressed', 'true');
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+  function copyLetter(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).value).then(function () { btn.textContent = 'הועתק ✓'; });
+  }
+</script>
 {% endblock %}

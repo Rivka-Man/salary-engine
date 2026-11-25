@@ -1,5 +1,5 @@
 {% extends "constitutions_base.html" %}
-{% block title %}פנקס הגמול — {{ a.title or a.filename }}{% endblock %}
+{% block title %}OptiPay — {{ a.title or a.filename }}{% endblock %}
 {% block extra_style %}{{ super() }}
 {% if a.status == "analyzing" and not stale %}<meta http-equiv="refresh" content="8">{% endif %}
 <style>

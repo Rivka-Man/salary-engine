@@ -20,6 +20,7 @@ from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
 import payslips
+import playbook
 
 app = Flask(__name__)
 # בשרת: SECRET_KEY ממשתנה סביבה. בלעדיו - מפתח אקראי לכל הפעלה (התחברויות
@@ -237,8 +238,51 @@ def parse_course_hours(form):
 def index():
     conn = get_conn()
     teachers = conn.execute("SELECT * FROM teachers ORDER BY full_name").fetchall()
+    # מצב הבדיקה של כל מורה: התלוש האחרון מול החישוב שלו
+    latest = {r["teacher_id"]: r for r in conn.execute(
+        "SELECT DISTINCT ON (teacher_id) * FROM payslips ORDER BY teacher_id, pay_month DESC, payslip_id DESC"
+    ).fetchall()}
+    runs = {r["run_id"]: r["result_json"] for r in conn.execute(
+        "SELECT run_id, result_json FROM calculation_runs WHERE run_id = ANY(%s)",
+        ([s["run_id"] for s in latest.values() if s["run_id"]],)).fetchall()}
+    counts = {r["teacher_id"]: r["n"] for r in conn.execute(
+        "SELECT teacher_id, count(*) AS n FROM courses GROUP BY teacher_id").fetchall()}
+    status = {}
+    for t in teachers:
+        slip = latest.get(t["teacher_id"])
+        if not slip:
+            status[t["teacher_id"]] = {"kind": "waiting", "label": "ממתינה לתלוש"}
+            continue
+        if not slip["run_id"] or slip["run_id"] not in runs:
+            status[t["teacher_id"]] = {"kind": "waiting", "label": "תלוש טרם חושב", "month": slip["pay_month"]}
+            continue
+        cmp = payslips.compare(conn, json.loads(runs[slip["run_id"]]), slip)
+        status[t["teacher_id"]] = {
+            "kind": "ok" if cmp["ok"] else "gap", "label": "תקין" if cmp["ok"] else "נמצא פער",
+            "gap": cmp["gap_units"], "gap_ils": cmp["gap_ils"], "month": slip["pay_month"],
+        }
     conn.close()
-    return render_template("index.html", teachers=teachers)
+    summary = {k: sum(1 for s in status.values() if s["kind"] == k) for k in ("gap", "waiting", "ok")}
+    return render_template("index.html", teachers=teachers, status=status, counts=counts, summary=summary,
+                           month_label=payslips.month_label)
+
+
+@app.route("/playbook")
+def playbook_admin():
+    """מאגר הפעולות: הסיבות לפער, המסלולים שכל סיבה מפעילה ונוסחי הפנייה (תבניות)."""
+    sample_cmp = {"gap_units": 1.0, "line_missing": False, "paid_units": 18.0, "expected_units": 19.0,
+                  "cause": {"attach": ["צילום התלוש", "אישור \"הקורסים שלי\" מהפורטל"],
+                            "rule_ref": "[סעיף בהסכם]"}}
+    sample_item = {"key": "year:[שנה]", "label": "[הרכיב החסר]", "units": 1.0, "school_year": "[שנה]"}
+    sample_course = {"description": "[שם הקורס]", "start_date": "[מתאריך]", "end_date": "[עד תאריך]",
+                     "hours": 112, "school_year": "[שנה]", "source": "manual"}
+    sample_slip = {"gimul_code": "249", "gimul_desc": "ג. השת. עוז לתמורה", "pay_month": None}
+    causes = []
+    for code, c in playbook.CAUSES.items():
+        tracks = [playbook._track(t, code, [sample_item], sample_cmp, [sample_course], "[שם המורה]",
+                                  "[חודש]", sample_slip) for t in c["tracks"]]
+        causes.append(dict(c, track_list=tracks))
+    return render_template("playbook.html", causes=causes)
 
 
 @app.route("/teachers/new", methods=["GET", "POST"])
@@ -390,8 +434,8 @@ def add_course(teacher_id):
         """
         INSERT INTO courses
         (teacher_id, start_date, end_date, description, school_year, hours, source_type, graded, grade,
-         pre_approved, is_advanced_degree_track)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         pre_approved, is_advanced_degree_track, source)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual')
         """,
         (
             teacher_id,
@@ -973,8 +1017,8 @@ def my_add_course(token):
         """
         INSERT INTO courses
         (teacher_id, start_date, end_date, description, school_year, hours, hours_graded, hours_ungraded,
-         source_type, graded, grade, pre_approved, is_advanced_degree_track)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         source_type, graded, grade, pre_approved, is_advanced_degree_track, source)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'manual')
         """,
         (
             teacher["teacher_id"],
@@ -1228,10 +1272,19 @@ def my_payslip(token):
     ).fetchone() if slip["run_id"] else None
     result = json.loads(run["result_json"]) if run else None
     cmp = payslips.compare(conn, result, slip) if result else None
+    courses = conn.execute(
+        "SELECT course_id, description, school_year, start_date, end_date, hours, source FROM courses "
+        "WHERE teacher_id=%s ORDER BY start_date", (tid,)
+    ).fetchall()
+    rules = {r["rule_id"]: r for r in conn.execute(
+        "SELECT rule_id, title, description, source_doc, source_ref, priority, valid_from, valid_to, constitution_id "
+        "FROM rules").fetchall()}
     conn.close()
+    actions = playbook.plan(cmp, [dict(c) for c in courses], teacher, slip) if cmp else None
     return render_template(
         "my_payslip.html", token=token, teacher=teacher, slip=slip, result=result, cmp=cmp,
         letter=payslips.letter(cmp, slip, teacher["full_name"]) if cmp else "",
+        view=payslips.slip_view(slip), actions=actions, rules=rules,
         all_slips=all_slips, month_label=payslips.month_label, journey_step=5,
     )
 

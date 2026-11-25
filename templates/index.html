@@ -1,36 +1,66 @@
 {% extends "base.html" %}
-{% block title %}פנקס הגמול — מורים{% endblock %}
+{% block title %}OptiPay — מורים{% endblock %}
+{% block page_head %}
+<div class="crumb">ניהול</div>
+<h1>מורים</h1>
+<p class="lead">כל מורה, מצב הבדיקה שלה, והקישור האישי שלה.</p>
+{% endblock %}
 {% block content %}
+<style>
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 20px; }
+  .tile .n { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+  .tile .l { color: var(--ink-soft); font-size: 0.92rem; }
+  .tile.gap .n { color: var(--pink); } .tile.ok .n { color: var(--good); }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0.9rem 1.15rem; border-bottom: 1px solid var(--line); }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filters button { font: inherit; font-size: 0.85rem; font-weight: 700; padding: 0.3rem 0.85rem; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft); cursor: pointer; }
+  .filters button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .search { font: inherit; font-size: 0.9rem; padding: 0.45rem 0.9rem; border: 1px solid var(--line-strong); border-radius: 999px; min-width: 220px; }
+  .tname { font-weight: 700; text-decoration: none; color: var(--ink); }
+  .tname:hover { color: var(--accent); }
+  .gapv { font-weight: 800; color: var(--pink); direction: ltr; display: inline-block; }
+  .copy { font: inherit; font-size: 0.8rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: none; border-radius: 999px; padding: 0.3rem 0.8rem; cursor: pointer; }
+</style>
+
+<div class="tiles">
+  <div class="tile"><div class="n">{{ teachers|length }}</div><div class="l">מורות במערכת</div></div>
+  <div class="tile gap"><div class="n">{{ summary.gap }}</div><div class="l">נמצא פער</div></div>
+  <div class="tile"><div class="n">{{ summary.waiting }}</div><div class="l">ממתינות לתלוש</div></div>
+  <div class="tile ok"><div class="n">{{ summary.ok }}</div><div class="l">תקין</div></div>
+</div>
+
 <section class="panel">
-  <div class="panel-head">
-    <span class="panel-title">מורים במערכת</span>
-    <span class="panel-note">{{ teachers|length }} רשומות</span>
+  <div class="toolbar">
+    <div class="filters" role="group" aria-label="סינון לפי מצב">
+      <button type="button" class="on" data-f="all">הכול · {{ teachers|length }}</button>
+      <button type="button" data-f="gap">נמצא פער · {{ summary.gap }}</button>
+      <button type="button" data-f="waiting">ממתינות · {{ summary.waiting }}</button>
+      <button type="button" data-f="ok">תקין · {{ summary.ok }}</button>
+    </div>
+    <input class="search" type="search" placeholder="חיפוש לפי שם או מספר מורה" aria-label="חיפוש מורה">
   </div>
   {% if teachers %}
   <div class="table-wrap">
-    <table class="ledger">
+    <table class="ledger" id="teachers">
       <thead>
-        <tr>
-          <th>מזהה</th>
-          <th>שם מלא</th>
-          <th>עוז לתמורה</th>
-          <th>שנת תחילה ברפורמה</th>
-          <th></th>
-          <th></th>
-        </tr>
+        <tr><th>מורה</th><th>מספר</th><th>מצב</th><th>פער</th><th>תלוש אחרון</th><th>קורסים</th><th>עוז לתמורה</th><th>קישור אישי</th><th></th></tr>
       </thead>
       <tbody>
         {% for t in teachers %}
-        <tr>
+        {% set st = status[t.teacher_id] %}
+        <tr data-kind="{{ st.kind }}" data-q="{{ t.full_name }} {{ t.teacher_id }}">
+          <td><a class="tname" href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">{{ t.full_name }}</a></td>
           <td class="mono">{{ t.teacher_id }}</td>
-          <td><a href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">{{ t.full_name }}</a></td>
+          <td>{% if st.kind == 'gap' %}<span class="chip pink">{{ st.label }}</span>{% elif st.kind == 'ok' %}<span class="chip good">{{ st.label }}</span>{% else %}<span class="chip neutral">{{ st.label }}</span>{% endif %}</td>
+          <td>{% if st.kind == 'gap' %}<span class="gapv">{% if st.gap > 0 %}+{% endif %}{{ st.gap | num }} יח'</span>{% if st.gap_ils %}<div class="stat-sub">כ-{{ st.gap_ils | num }} ₪ בחודש</div>{% endif %}{% else %}—{% endif %}</td>
+          <td>{{ month_label(st.month) if st.month else '—' }}</td>
+          <td>{{ counts.get(t.teacher_id, 0) }}</td>
+          <td>{% if t.in_reform %}<span class="chip accent">{{ t.reform_start_year or 'כן' }}</span>{% else %}<span class="chip neutral">לא</span>{% endif %}</td>
+          <td>{% if t.access_token %}<button type="button" class="copy" data-url="{{ url_for('my_dashboard', token=t.access_token, _external=True) }}">העתקת קישור</button>{% endif %}</td>
           <td>
-            {% if t.in_reform %}<span class="chip accent">כן</span>{% else %}<span class="chip neutral">לא</span>{% endif %}
-          </td>
-          <td>{{ t.reform_start_year or "—" }}</td>
-          <td><a href="{{ url_for('teacher_detail', teacher_id=t.teacher_id) }}">פתיחה ←</a></td>
-          <td>
-            <form method="post" action="{{ url_for('delete_teacher', teacher_id=t.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלו לצמיתות?');">
+            <form method="post" action="{{ url_for('delete_teacher', teacher_id=t.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלה לצמיתות?');">
               <button type="submit" class="btn-danger">מחיקה</button>
             </form>
           </td>
@@ -42,8 +72,31 @@
   {% else %}
   <div class="empty-state">
     <p>עדיין לא הוזנו מורים למערכת.</p>
-    <a href="{{ url_for('new_teacher') }}" class="btn btn-primary">הזנת מורה ראשון</a>
+    <a href="{{ url_for('new_teacher') }}" class="btn btn-primary">הזנת מורה ראשונה</a>
   </div>
   {% endif %}
 </section>
+<script>
+  (function () {
+    var rows = document.querySelectorAll('#teachers tbody tr'), kind = 'all', q = '';
+    function apply() {
+      rows.forEach(function (r) {
+        var okKind = kind === 'all' || r.dataset.kind === kind;
+        var okQ = !q || r.dataset.q.toLowerCase().indexOf(q) !== -1;
+        r.hidden = !(okKind && okQ);
+      });
+    }
+    document.querySelectorAll('.filters button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.filters button').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on'); kind = b.dataset.f; apply();
+      });
+    });
+    var s = document.querySelector('.search');
+    if (s) s.addEventListener('input', function () { q = s.value.trim().toLowerCase(); apply(); });
+    document.querySelectorAll('.copy').forEach(function (b) {
+      b.addEventListener('click', function () { navigator.clipboard.writeText(b.dataset.url).then(function () { b.textContent = 'הועתק ✓'; }); });
+    });
+  })();
+</script>
 {% endblock %}

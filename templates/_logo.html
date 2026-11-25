@@ -1,0 +1,13 @@
+{# לוגו OptiPay: תלוש קטן, השורה החסרה מוקפת בעט הוורוד, וסימן ✓. dark = לרקע כהה (סרגל הניהול). #}
+{% macro mark(size=30, dark=False) -%}
+{%- set stroke = '#FFFFFF' if dark else '#2B3A8F' -%}
+{%- set rows = '#C9D3EE' if dark else '#BFCBE8' -%}
+{%- set pk = '#F2A9CB' if dark else '#B23A7A' -%}
+{%- set halo = '#1C275F' if dark else '#FFFFFF' -%}
+{%- set chk = '#1C275F' if dark else '#FFFFFF' -%}
+{%- set sf = '#2A3778' if dark else '#FFFFFF' -%}
+<svg aria-hidden="true" width="{{ size }}" height="{{ size }}" viewBox="0 0 40 40" style="display:block;flex-shrink:0"><path d="M8 3.5 H25 L32.5 11 V34.5 A2 2 0 0 1 30.5 36.5 H8 A2 2 0 0 1 6 34.5 V5.5 A2 2 0 0 1 8 3.5 Z" fill="{{ sf }}" stroke="{{ stroke }}" stroke-width="2.4" stroke-linejoin="round"/><path d="M25 3.5 V9 A2 2 0 0 0 27 11 H32.5" fill="none" stroke="{{ stroke }}" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 15 H22 M11 21.5 H27 M11 28 H20" stroke="{{ rows }}" stroke-width="2.6" stroke-linecap="round"/><path d="M9.5 22.5 C 8.5 17.5, 28 16.6, 29.6 20.6 S 21 26.4, 12.6 25.6 S 8 19.8, 15 18.4" fill="none" stroke="{{ pk }}" stroke-width="1.9" stroke-linecap="round"/><circle cx="31" cy="31" r="7.4" fill="{{ pk }}" stroke="{{ halo }}" stroke-width="2.2"/><path d="M27.6 31.2 L30.1 33.6 L34.4 28.6" fill="none" stroke="{{ chk }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- endmacro %}
+{% macro logo(size=30, font=19, dark=False, tag=None) -%}
+<span class="op-logo" dir="ltr" style="display:inline-flex;align-items:center;gap:{{ (size*0.28)|round|int }}px;line-height:1">{{ mark(size, dark) }}<span style="display:block"><span style="display:block;font-family:'Assistant',sans-serif;font-size:{{ font }}px;font-weight:800;letter-spacing:-0.3px;color:{{ '#FFFFFF' if dark else '#2B3A8F' }}">Opti<span style="color:{{ '#F2A9CB' if dark else '#B23A7A' }}">Pay</span></span>{% if tag %}<span dir="rtl" style="display:block;font-family:'Assistant',sans-serif;font-size:{{ (font*0.62)|round|int }}px;font-weight:500;color:{{ '#A9B2D6' if dark else '#7C8496' }};margin-top:2px">{{ tag }}</span>{% endif %}</span></span>
+{%- endmacro %}

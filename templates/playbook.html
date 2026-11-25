@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}OptiPay — מאגר פעולות{% endblock %}
+{% block page_head %}
+<div class="crumb">ניהול</div>
+<h1>מאגר פעולות</h1>
+<p class="lead">מה המורה מקבלת בלחיצה על "מה עליי לעשות?". הסיבה נגזרת ממקור הנתון של הרכיב החסר, לא מניחוש.</p>
+{% endblock %}
+{% block nav_action %}{% endblock %}
+{% block content %}
+<style>
+  .cause { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .cause-head { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+  .code { width: 40px; height: 40px; border-radius: 12px; background: var(--pink-soft); color: var(--pink); font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .cause-head h2 { margin: 0; font-size: 1.15rem; font-weight: 800; }
+  .cause-head p { margin: 4px 0 0; color: var(--ink-soft); line-height: 1.6; }
+  .tracks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .track { padding: 16px 20px; border-left: 1px solid var(--line); }
+  .track:last-child { border-left: none; }
+  .track .who { font-weight: 800; }
+  .track .ch { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 8px; }
+  .track ol { margin: 0 0 8px; padding-inline-start: 18px; line-height: 1.7; font-size: 0.92rem; }
+  .track details summary { cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--accent); }
+  .track pre { white-space: pre-wrap; font-family: inherit; font-size: 0.88rem; line-height: 1.6; background: var(--paper); border-radius: 10px; padding: 12px 14px; margin: 8px 0 0; }
+  .par { font-size: 0.78rem; font-weight: 700; color: var(--pink); }
+  .note { font-size: 0.85rem; color: var(--ink-soft); }
+</style>
+<p class="note">התבניות נמצאות בקוד, בקובץ <span class="mono">playbook.py</span>. השדות בסוגריים מרובעים מתמלאים מהנתונים של כל מורה. מספר ת"ז לא נשמר במערכת: המורה משלימה אותו בעצמה.</p>
+{% for c in causes %}
+<section class="cause">
+  <div class="cause-head">
+    <div class="code">{{ c.code }}</div>
+    <div>
+      <h2>{{ c.title }}</h2>
+      <p>{{ c.when }}</p>
+      {% if c.track_list|length > 1 %}<span class="par">{{ c.track_list|length }} מסלולים במקביל</span>{% endif %}
+    </div>
+  </div>
+  <div class="tracks">
+    {% for t in c.track_list %}
+    <div class="track">
+      <div class="who">{{ t.who }}</div>
+      <div class="ch">{{ t.channel }}{% if t.phone %} · <bdi dir="ltr">{{ t.phone }}</bdi>{% endif %}</div>
+      <ol>{% for s in t.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+      {% if t.attach %}<div class="note">לצרף: {{ t.attach | join(' · ') }}</div>{% endif %}
+      {% if t.letter %}<details><summary>נוסח הפנייה</summary><pre>{{ t.letter }}</pre></details>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

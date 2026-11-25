@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ teacher.full_name }} — פנקס הגמול{% endblock %}
+{% block title %}{{ teacher.full_name }} — OptiPay{% endblock %}
 {% block content %}
 
 <div class="masthead-row" style="border-bottom:none; padding-bottom:0;">
@@ -88,13 +88,14 @@ function copyPersonalLink() {
       <div class="table-wrap">
         <table class="ledger">
           <thead>
-            <tr><th>שנה"ל</th><th>תיאור</th><th>מתאריך</th><th>עד תאריך</th><th>סוג</th><th>שעות</th><th>ציון</th><th>אישור מוקדם</th><th>תואר מתקדם</th><th></th></tr>
+            <tr><th>שנה"ל</th><th>תיאור</th><th>מקור</th><th>מתאריך</th><th>עד תאריך</th><th>סוג</th><th>שעות</th><th>ציון</th><th>אישור מוקדם</th><th>תואר מתקדם</th><th></th></tr>
           </thead>
           <tbody>
             {% for c in courses %}
             <tr>
               <td>{{ c.school_year or "—" }}</td>
               <td>{{ c.description or "—" }}{% if c.counts_for_oz == 0 %} <span class="chip neutral">טרום רפורמה בלבד</span>{% endif %}</td>
+              <td>{% if c.source == 'manual' %}<span class="chip pink" title="הוזן ידנית: לא בהכרח דווח למשרד">ידני</span>{% else %}<span class="chip accent">פורטל</span>{% endif %}</td>
               <td class="mono">{{ c.start_date | dmy }}</td>
               <td class="mono">{{ c.end_date | dmy or "—" }}</td>
               <td>{{ source_type_labels.get(c.source_type, c.source_type) }}</td>

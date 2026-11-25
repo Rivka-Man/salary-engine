@@ -185,6 +185,33 @@ def describe_conditions(conds):
     return " ".join(parts)
 
 
+def condition_chips(conds):
+    """התנאים כרשימת (מחבר, טקסט) - לתצוגת "אם [..] וגם [..]" בבקאופיס. ללא תנאים: [(None, "תמיד")]."""
+    if not conds:
+        return [(None, "תמיד")]
+    out = []
+    for i, c in enumerate(conds):
+        text = f"{FIELDS.get(c['field'], (c['field'],))[0]} {OPERATORS.get(c['operator'], (c['operator'],))[0]}"
+        val = show_value(c)
+        if val:
+            text += f" {val}"
+        out.append((CONNECTORS.get(c["connector"], c["connector"]) if i else None, text))
+    return out
+
+
+# סוג הפעולה לצבע בתצוגת החוקים: עדיפות / יחידות / תקרה / תוספת שכר / פסילה
+ACTION_KIND = {
+    "precedence": "violet",
+    "unit_hours": "accent", "graded_fraction": "accent", "add_units": "accent",
+    "transition_unit": "accent", "compute_pre_reform": "accent",
+    "units_cap": "warn", "annual_cap": "warn", "no_annual_cap": "warn", "school_hours_cap": "warn",
+    "total_cap": "warn", "no_total_cap": "warn", "min_course_start": "warn",
+    "exclude_course": "critical", "pre_reform_course": "neutral", "separate_track": "neutral",
+    "dual_recognition": "neutral",
+    "pct_rate": "good",
+}
+
+
 # ------------------------------------------------------------------
 # זריעה: החוקים הקיימים כשורות בטבלה. נזרע פעם אחת לכל חוק (rules.logic_seeded),
 # כך שעריכות מהבקאופיס לא נדרסות.

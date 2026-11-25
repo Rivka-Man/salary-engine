@@ -259,6 +259,10 @@ def init_db(reset: bool = True):
     ).fetchall()]
     if "end_date" not in course_cols:
         conn.execute("ALTER TABLE courses ADD COLUMN end_date TEXT")
+    # מקור הקורס: מהפורטל או הזנה ידנית. קורס ידני שתורם יחידות שלא הגיעו לתלוש
+    # מצביע על דיווח חסר של מוסד ההשתלמות (סיבה B במאגר הפעולות, playbook.py).
+    if "source" not in course_cols:
+        conn.execute("ALTER TABLE courses ADD COLUMN source TEXT NOT NULL DEFAULT 'portal'")
     if "description" not in course_cols:
         conn.execute("ALTER TABLE courses ADD COLUMN description TEXT")
     if "hours_graded" not in course_cols:

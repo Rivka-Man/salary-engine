@@ -17,7 +17,7 @@ from datetime import datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from db import get_connection
-from rule_vocab import (ACTION_LABELS as RULE_ACTION_LABELS, ACTIONS, CHOICES, CONNECTORS, FIELDS, OPERATORS, describe_conditions,
+from rule_vocab import (ACTION_LABELS as RULE_ACTION_LABELS, ACTIONS, CHOICES, CONNECTORS, FIELDS, OPERATORS, describe_conditions, condition_chips, ACTION_KIND,
                         edit_value, normalize_value)
 
 bp = Blueprint("backoffice", __name__, url_prefix="/constitutions")
@@ -230,9 +230,10 @@ def constitution_detail(constitution_id):
     for p in params:
         params_by_rule.setdefault(p["rule_id"], []).append(p)
     applies = {r["rule_id"]: describe_conditions(conds.get(r["rule_id"], [])) for r in rules}
+    chips = {r["rule_id"]: condition_chips(conds.get(r["rule_id"], [])) for r in rules}
     return render_template(
         "constitution_detail.html", constitution=constitution, rules=rules, params_by_rule=params_by_rule,
-        applies=applies, action_labels=RULE_ACTION_LABELS,
+        applies=applies, chips=chips, action_kind=ACTION_KIND, action_labels=RULE_ACTION_LABELS,
     )
 
 
