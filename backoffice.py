@@ -17,7 +17,7 @@ from datetime import datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from db import get_connection
-from rule_vocab import (ACTION_LABELS as RULE_ACTION_LABELS, ACTIONS, CHOICES, CONNECTORS, FIELDS, OPERATORS, describe_conditions, condition_chips, ACTION_KIND,
+from rule_vocab import (ACTION_LABELS as RULE_ACTION_LABELS, ACTIONS, CHOICES, CONNECTORS, FIELDS, OPERATORS, describe_conditions, condition_chips, ACTION_KIND, show_value,
                         edit_value, normalize_value)
 
 bp = Blueprint("backoffice", __name__, url_prefix="/constitutions")
@@ -170,8 +170,39 @@ def constitutions():
                  WHERE l.constitution_id=c.constitution_id) AS last_change
         FROM constitutions c ORDER BY c.name
     """).fetchall()
+    # ציר הגרסאות לכל חוקה: גרסאות קודמות, הגרסה הנוכחית ותאריך התוקף שלה,
+    # והסכמים שנותחו וממתינים לאישור (טיוטה של הגרסה הבאה)
+    pending = conn.execute(
+        "SELECT agreement_id, title, filename, uploaded_at, proposal_json FROM agreements WHERE status='ready' "
+        "ORDER BY agreement_id DESC").fetchall()
+    out = []
+    for c in rows:
+        cid = c["constitution_id"]
+        versions = conn.execute(
+            "SELECT version_id, created_at, label FROM constitution_versions WHERE constitution_id=%s "
+            "ORDER BY created_at DESC, version_id DESC LIMIT 3", (cid,)).fetchall()
+        since = conn.execute(
+            "SELECT MIN(d) AS d FROM (SELECT valid_from AS d FROM rules WHERE constitution_id=%s "
+            "UNION ALL SELECT p.valid_from FROM rule_parameters p JOIN rules r ON r.rule_id=p.rule_id "
+            "WHERE r.constitution_id=%s) x WHERE d IS NOT NULL", (cid, cid)).fetchone()["d"]
+        latest = conn.execute(
+            "SELECT MAX(d) AS d FROM (SELECT valid_from AS d FROM rules WHERE constitution_id=%s "
+            "UNION ALL SELECT p.valid_from FROM rule_parameters p JOIN rules r ON r.rule_id=p.rule_id "
+            "WHERE r.constitution_id=%s) x WHERE d IS NOT NULL", (cid, cid)).fetchone()["d"]
+        drafts = []
+        for a in pending:
+            try:
+                changes = (json.loads(a["proposal_json"] or "{}") or {}).get("changes") or []
+            except (ValueError, TypeError):
+                changes = []
+            mine = [ch for ch in changes if ch.get("constitution_id") in (None, cid)]
+            if mine:
+                starts = sorted(ch["valid_from"] for ch in mine if ch.get("valid_from"))
+                drafts.append({"agreement_id": a["agreement_id"], "title": a["title"] or a["filename"],
+                               "changes": len(mine), "valid_from": starts[0] if starts else None})
+        out.append(dict(c, versions=list(reversed(versions)), since=since, latest=latest, drafts=drafts))
     conn.close()
-    return render_template("constitutions.html", constitutions=rows)
+    return render_template("constitutions.html", constitutions=out)
 
 
 @bp.route("/new", methods=["GET", "POST"])
@@ -235,6 +266,62 @@ def constitution_detail(constitution_id):
         "constitution_detail.html", constitution=constitution, rules=rules, params_by_rule=params_by_rule,
         applies=applies, chips=chips, action_kind=ACTION_KIND, action_labels=RULE_ACTION_LABELS,
     )
+
+
+# כמה החוק תרם לתוצאה, לפי ערך ה-trace שלו (למסך "הופעל על")
+_UNIT_RULES = {"R04_DOUBLE_DEGREE", "R04B_ADDITIONAL_DOUBLE_DEGREE", "R05_BEINAYIM"}
+
+
+def _rule_applied_on(conn, rule_id, limit=6):
+    """המורות שהחוק הופעל עליהן בחישוב האחרון שלהן, עם התרומה שלו לתוצאה."""
+    rows = conn.execute(
+        "SELECT DISTINCT ON (r.teacher_id) r.teacher_id, r.calc_date, r.result_json, t.full_name "
+        "FROM calculation_runs r JOIN teachers t ON t.teacher_id=r.teacher_id "
+        "ORDER BY r.teacher_id, r.run_id DESC"
+    ).fetchall()
+    out = []
+    for r in rows:
+        try:
+            trace = json.loads(r["result_json"]).get("trace") or []
+        except (ValueError, TypeError):
+            continue
+        hit = next((t for t in trace if t.get("rule_id") == rule_id), None)
+        if not hit:
+            continue
+        v = hit.get("value")
+        if rule_id == "R08_TRANSITION_UNIT":
+            effect = "+1"
+        elif rule_id in _UNIT_RULES and isinstance(v, (int, float)):
+            effect = f"+{v:g}"
+        elif rule_id == "R17_NO_PREAPPROVAL":
+            effect = "נפסל"
+        else:
+            effect = f"{v:g}" if isinstance(v, (int, float)) else ""
+        out.append({"teacher_id": r["teacher_id"], "name": r["full_name"], "calc_date": r["calc_date"],
+                    "effect": effect, "message": hit.get("message")})
+    return out[:limit]
+
+
+def _rule_origin(conn, rule):
+    """
+    "נוצר מתוך": הסעיף שממנו החוק נגזר. אם החוק נוצר או שונה מהסכם שנותח, מוצגים
+    הציטוט והסעיף שה-LLM חילץ; אחרת - המקור והתיאור שבחוק עצמו.
+    """
+    rows = conn.execute(
+        "SELECT agreement_id, title, filename, status, proposal_json FROM agreements "
+        "WHERE status IN ('applied', 'ready') AND proposal_json IS NOT NULL ORDER BY agreement_id DESC"
+    ).fetchall()
+    for a in rows:
+        try:
+            changes = (json.loads(a["proposal_json"]) or {}).get("changes") or []
+        except (ValueError, TypeError):
+            continue
+        ch = next((c for c in changes if c.get("rule_id") == rule["rule_id"] and c.get("quote")), None)
+        if ch:
+            return {"from_llm": True, "doc": a["title"] or a["filename"], "section": ch.get("section"),
+                    "quote": ch["quote"], "agreement_id": a["agreement_id"], "status": a["status"]}
+    return {"from_llm": False, "doc": (rule["source_doc"] or "").replace("_", " "),
+            "section": rule["source_ref"], "quote": None}
 
 
 RULE_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
@@ -382,11 +469,20 @@ def rule_detail(constitution_id, rule_id):
         param_groups.setdefault(p["param_name"], []).append(p)
     gaps = {name: _param_gaps(rows) for name, rows in param_groups.items()}
     conds = _conditions_by_rule(conn, [rule_id]).get(rule_id, [])
+    applied_on = _rule_applied_on(conn, rule_id)
+    versions = conn.execute(
+        "SELECT version_id, created_at, label FROM constitution_versions WHERE constitution_id=%s "
+        "ORDER BY created_at DESC, version_id DESC LIMIT 5", (constitution_id,)
+    ).fetchall()
+    origin = _rule_origin(conn, rule)
     conn.close()
     for c in conds:
         c["edit_value"] = edit_value(c)
+        c["show_value"] = show_value(c)
     return render_template(
         "rule_detail.html", constitution=constitution, rule=rule, param_groups=param_groups, gaps=gaps,
+        chips=condition_chips(conds), action_kind=ACTION_KIND.get(rule["action"], "neutral"),
+        applied_on=applied_on, versions=versions, origin=origin,
         log=_log_entries(log), conditions=conds, applies=describe_conditions(conds),
         new_condition_rows=NEW_CONDITION_ROWS, fields=FIELDS, operators=OPERATORS, connectors=CONNECTORS,
         actions=ACTIONS, action_labels=RULE_ACTION_LABELS,

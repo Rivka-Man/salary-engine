@@ -105,8 +105,15 @@ _LINE = {
         "description": {"type": "string"},
         "qty_or_pct": _nullable({"type": "string"}),
         "amount": _nullable({"type": "number"}),
+        # עמודות נוספות בתלוש (לתצוגת התלוש המלא): מ-/עד- (MM/YYYY), הפרשים,
+        # ובמקטע הגמל: הפרשת מעסיק ופיצויים
+        "from_month": _nullable({"type": "string"}),
+        "to_month": _nullable({"type": "string"}),
+        "diff": _nullable({"type": "number"}),
+        "employer": _nullable({"type": "number"}),
+        "severance": _nullable({"type": "number"}),
     },
-    "required": ["code", "description", "qty_or_pct", "amount"],
+    "required": ["code", "description", "qty_or_pct", "amount", "from_month", "to_month", "diff", "employer", "severance"],
     "additionalProperties": False,
 }
 
@@ -145,9 +152,10 @@ OUTPUT_SCHEMA = {
             "properties": {
                 "gross": _nullable({"type": "number"}),
                 "mandatory_deductions": _nullable({"type": "number"}),
+                "gemel_deductions": _nullable({"type": "number"}),
                 "net": _nullable({"type": "number"}),
             },
-            "required": ["gross", "mandatory_deductions", "net"],
+            "required": ["gross", "mandatory_deductions", "gemel_deductions", "net"],
             "additionalProperties": False,
         },
         "notes": {"type": "string"},
@@ -167,8 +175,8 @@ SYSTEM_PROMPT = """את/ה קורא/ת תלוש שכר של עובד/ת הורא
 - gimul: השורה שנמצאה. units כמספר (9.75). אם אין שורת גמול השתלמות של עוז לתמורה - null.
 - oz_lines: כל השורות בבלוק עוז לתמורה כפי שהן (סמל, תיאור, אחוז/כמות כטקסט כפי שמופיע, סכום), לא כולל שורת הסה"כ.
 - is_payslip: false אם המסמך אינו תלוש שכר.
-- sections: התלוש המלא, מקטע אחרי מקטע לפי הסדר בתלוש: "תשלומים" (kind=payments, כל השורות כולל בלוק עוז לתמורה ושורת הסה"כ שלו), "ניכויי חובה" (kind=mandatory), "ניכויים/הפרשות גמל" (kind=gemel: description=שם הקופה, amount=ניכוי העובד, qty_or_pct=הבסיס לגמל כטקסט), ושאר המקטעים (kind=other). בכל שורה: סמל (אם יש), תיאור, אחוז/כמות כטקסט, סכום.
-- totals: סה"כ תשלומים (gross), סה"כ ניכויי חובה, נטו לתשלום (net). null למה שלא מופיע.
+- sections: התלוש המלא, מקטע אחרי מקטע לפי הסדר בתלוש: "תשלומים" (kind=payments, כל השורות כולל בלוק עוז לתמורה ושורת הסה"כ שלו), "ניכויי חובה" (kind=mandatory), "ניכויים/הפרשות גמל" (kind=gemel: description=שם הקופה, qty_or_pct=הבסיס לגמל כטקסט, employer=הפרשת מעסיק, severance=פיצויים, amount=ניכוי העובד), ושאר המקטעים (kind=other). בכל שורה: סמל (אם יש), תיאור, אחוז/כמות כטקסט, סכום, ומה שמופיע בעמודות מ-/עד- (MM/YYYY) והפרשים. שדה שאין לו ערך בשורה - null.
+- totals: סה"כ תשלומים (gross), סה"כ ניכויי חובה, סה"כ ניכויי גמל, נטו לתשלום (net). null למה שלא מופיע.
 - notes: הערה קצרה בעברית רק אם משהו לא ודאי (ספרה לא קריאה וכו'), אחרת מחרוזת ריקה.
 אל תכללו פרטים אישיים (שם, ת"ז, כתובת, חשבון בנק, מספר עובד) בשום שדה, גם לא במקטעים."""
 
@@ -282,6 +290,24 @@ def _salary_lines(slip, pct):
     return None
 
 
+def _oz_base(slip):
+    """השכר שעליו מחושב הגמול, כשאין שורת גמול להסיק ממנה: סכום שורות השכר בבלוק
+    עוז לתמורה (בלי שורות באחוזים, בלי הגמול ובלי שורת הסה"כ). None אם אין נתונים."""
+    try:
+        lines = json.loads(slip["extraction_json"] or "{}").get("oz_lines") or []
+    except (ValueError, AttributeError, TypeError):
+        return None
+    total = 0.0
+    for l in lines:
+        q, d = (l.get("qty_or_pct") or ""), (l.get("description") or "")
+        if not l.get("amount") or "%" in q or (l.get("code") or "") == GIMUL_CODE or "סה" in d:
+            continue
+        if "השת" in d:
+            continue
+        total += float(l["amount"])
+    return total or None
+
+
 def compare(conn, result, slip):
     """
     result - פלט compute_gimul_hishtalmut לחודש התלוש. slip - שורה מטבלת payslips.
@@ -302,6 +328,10 @@ def compare(conn, result, slip):
 
     gap_units = round(expected_units - paid_units, 3)
     gap_pct = round(gap_units * rate, 4)
+    if unit_ils is None:
+        # אין שורת גמול בתלוש (או 0 יחידות): הערכה לפי השכר בבלוק עוז לתמורה
+        oz_base = _oz_base(slip)
+        unit_ils = oz_base * rate / 100 if oz_base else None
     gap_ils = round(unit_ils * gap_units, 2) if unit_ils is not None else None
 
     # פירוק החישוב לרכיבים, כדי להראות מאיפה מגיעה כל יחידה
@@ -466,7 +496,8 @@ def _diagnose(result, refs, rate, expected_units, paid_units, gap_units, compone
         "rule_ref": _ref_text(refs, "R11_ANNUAL_CAP"),
         "letter_reason": (f"לפי ההשתלמויות שלי אני זכאית ל-{_units(expected_units)}, "
                           f"ובתלוש מוכרות {_units(paid_units)}."),
-        "flag_keys": [],
+        # כשהשורה חסרה בתלוש, כל הרכיבים חסרים בו
+        "flag_keys": [c["key"] for c in components if c["units"] > 0] if line_missing else [],
     }
 
 

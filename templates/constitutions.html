@@ -1,40 +1,73 @@
 {% extends "constitutions_base.html" %}
-{% block title %}OptiPay — ניהול חוקות שכר{% endblock %}
+{% block title %}OptiPay — חוקות{% endblock %}
+{% block page_head %}
+<div class="crumb">ניהול</div>
+<h1>חוקות</h1>
+<p class="lead">מערכות החוקים שהמנוע מריץ, עם הגרסאות ותאריכי התוקף שלהן.</p>
+{% endblock %}
 {% block content %}
-<section class="panel">
-  <div class="panel-head">
-    <span class="panel-title">ניהול חוקות שכר</span>
-    <span class="panel-note">{{ constitutions|length }} חוקות במערכת · <a href="{{ url_for('agreements.agreements') }}">טעינת הסכם חדש ←</a></span>
-  </div>
-  {% if constitutions %}
-  <div class="table-wrap">
-    <table class="ledger">
-      <thead>
-        <tr>
-          <th>שם החוקה</th>
-          <th>תיאור</th>
-          <th>חוקים</th>
-          <th>ערכי פרמטרים</th>
-          <th>שינוי אחרון</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in constitutions %}
-        <tr>
-          <td><a href="{{ url_for('backoffice.constitution_detail', constitution_id=c.constitution_id) }}"><b>{{ c.name }}</b></a></td>
-          <td class="wrap-text">{{ c.description or "—" }}</td>
-          <td class="mono">{{ c.rule_count }}</td>
-          <td class="mono">{{ c.param_count }}</td>
-          <td>{{ (c.last_change or "")[:10] | dmy or "—" }}</td>
-          <td><a href="{{ url_for('backoffice.constitution_detail', constitution_id=c.constitution_id) }}">פתיחה ←</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state"><p>אין חוקות במערכת.</p></div>
-  {% endif %}
-</section>
+{# מסך A5: כרטיס לכל חוקה, עם ציר הגרסאות: קודמות, נוכחית, וטיוטה מהסכם שממתין לאישור #}
+<style>
+  .cons{ display:flex; flex-direction:column; gap:18px; }
+  .con{ display:block; background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px 24px; text-decoration:none; color:var(--ink); transition:border-color .15s ease; }
+  .con:hover{ border-color:var(--accent); }
+  .con-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .con-name{ font-size:20px; font-weight:800; }
+  .con-desc{ font-size:15px; color:#5F677A; margin-top:2px; }
+  .tags{ display:flex; gap:8px; align-items:center; }
+  .tg{ font-size:12.5px; font-weight:700; border-radius:999px; padding:3px 10px; white-space:nowrap; }
+  .tg.ok{ color:var(--good); background:#E6F4EC; } .tg.draft{ color:var(--pink); background:var(--pink-soft); } .tg.code{ color:var(--accent); background:var(--accent-soft); font-family:Consolas, monospace; font-size:12px; }
+  .meta{ display:flex; gap:24px; margin-top:14px; font-size:15px; flex-wrap:wrap; }
+  .meta .m{ color:#5F677A; }
+  .line{ display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
+  .v{ flex:1; min-width:150px; border-radius:10px; padding:10px 12px; }
+  .v b{ display:block; font-size:14px; font-weight:800; }
+  .v span{ font-size:13px; opacity:.9; }
+  .v.old{ background:#EEF0F5; color:#8A92A6; }
+  .v.cur{ background:var(--accent); color:#fff; }
+  .v.draft{ background:var(--pink-soft); color:var(--pink); }
+  .note{ margin-top:14px; font-size:14px; color:#5F677A; }
+</style>
+
+{% if constitutions %}
+<div class="cons">
+  {% for c in constitutions %}
+  <a class="con" href="{{ url_for('backoffice.constitution_detail', constitution_id=c.constitution_id) }}">
+    <div class="con-top">
+      <div>
+        <div class="con-name">{{ c.name }}</div>
+        <div class="con-desc">{{ c.description or '' }}</div>
+      </div>
+      <div class="tags">
+        {% if c.rule_count %}<span class="tg ok">פעילה</span>{% else %}<span class="tg draft">בהכנה</span>{% endif %}
+        <span class="tg code">{{ c.code }}</span>
+      </div>
+    </div>
+    <div class="meta">
+      <span><b>{{ c.rule_count or '—' }}</b> חוקים</span>
+      <span><b>{{ c.param_count }}</b> ערכים לפי תקופה</span>
+      <span class="m">שינוי אחרון: {{ (c.last_change or '')[:10] | dmy or '—' }}</span>
+      <span class="m">גרסאות ותוקף:</span>
+    </div>
+    <div class="line">
+      {% for v in c.versions %}
+      <div class="v old"><b>{{ v.label }}</b><span>נשמרה {{ v.created_at[:10] | dmy }}</span></div>
+      {% endfor %}
+      {% if c.rule_count %}
+      <div class="v cur"><b>גרסה נוכחית</b><span>{% if c.since %}תקפה מ-{{ c.since | dmy }}{% else %}בתוקף{% endif %}{% if c.latest and c.latest != c.since %} · עדכון אחרון בתוקף מ-{{ c.latest | dmy }}{% endif %} · פעילה</span></div>
+      {% endif %}
+      {% for d in c.drafts %}
+      <div class="v draft"><b>טיוטה · {{ d.title }}</b><span>{{ d.changes }} שינויים ממתינים לאישור{% if d.valid_from %} · תיכנס לתוקף ב-{{ d.valid_from | dmy }}{% endif %}</span></div>
+      {% endfor %}
+      {% if not c.rule_count and not c.drafts %}
+      <div class="v draft"><b>טיוטה ראשונה</b><span>עוד אין חוקים</span></div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+<p class="note">כל חישוב רץ לפי תאריך התלוש: ערכי החוקים נבחרים לפי תקופות התוקף שלהם. הסכם חדש נכנס לחוקה רק אחרי אישור, וכל החלה שומרת גרסה שאפשר לשחזר. <a href="{{ url_for('agreements.agreements') }}">טעינת הסכם חדש ←</a></p>
+{% else %}
+<div class="empty-state"><p>אין חוקות במערכת.</p></div>
+{% endif %}
 {% endblock %}

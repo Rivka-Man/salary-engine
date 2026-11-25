@@ -1,0 +1,132 @@
+{% extends "my_base.html" %}
+{% block title %}מה עליי לעשות? — {{ teacher.full_name }}{% endblock %}
+{% block brand_title %}<span class="brand-title">בדקנו את תלוש {{ month_label(slip.pay_month) }} שלך</span>{% endblock %}
+{% block content %}
+{# מסך T5: המסלולים המקבילים מתוך מאגר הפעולות (playbook.py), צעדים לסימון ונוסח פנייה לכל גורם #}
+<style>
+  .wrap{ max-width:1280px; padding-top:32px; }
+  .top{ display:flex; justify-content:space-between; align-items:flex-end; margin-top:-4px; gap:24px; flex-wrap:wrap; }
+  .back{ font-size:14px; color:var(--ink-soft); }
+  .h{ font-family:var(--pen); color:var(--pink); font-weight:700; font-size:44px; line-height:1.1; margin:8px 0 0; }
+  .lead{ margin:4px 0 0; font-size:16px; max-width:640px; line-height:1.55; }
+  .gapbox{ display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px 14px; }
+  .gapbox span:first-child{ font-size:13px; color:var(--ink-soft); }
+  .gapbox .pen{ font-family:var(--pen); color:var(--pink); font-weight:700; font-size:30px; }
+  .tracks{ display:flex; gap:20px; margin-top:22px; align-items:stretch; }
+  @media (max-width:900px){ .tracks{ flex-direction:column; } }
+  .card{ flex:1 1 0; min-width:0; background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px 20px; box-shadow:0 8px 24px rgba(46,52,66,.06); display:flex; flex-direction:column; }
+  .ct{ display:flex; align-items:baseline; gap:10px; }
+  .num{ font-family:var(--pen); color:var(--pink); font-weight:700; font-size:34px; line-height:1; }
+  .ct b{ font-size:18px; font-weight:800; }
+  .cs{ font-size:13px; color:var(--ink-soft); margin:2px 0 12px; }
+  .steps{ display:flex; flex-direction:column; gap:10px; }
+  .step{ display:flex; gap:10px; align-items:flex-start; cursor:pointer; }
+  .step input{ position:absolute; opacity:0; width:1px; height:1px; }
+  .box{ flex:0 0 20px; height:20px; border-radius:6px; border:1.5px solid var(--pink); display:flex; align-items:center; justify-content:center; color:#fff; background:#fff; font-size:13px; }
+  .step input:checked + .box{ background:var(--pink); }
+  .step input:checked + .box::after{ content:"✓"; }
+  .step input:focus-visible + .box{ outline:3px solid var(--pink-head); outline-offset:2px; }
+  .st{ font-size:14.5px; font-weight:700; }
+  .step input:checked ~ div .st{ text-decoration:line-through; color:var(--ink-soft); }
+  .sd{ font-size:13px; color:#5A6072; line-height:1.5; }
+  .letter{ margin-top:12px; background:#FFFDF8; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.65; white-space:pre-line; flex:1; }
+  .idm{ background:var(--pink-alt); color:var(--pink); font-weight:700; border-radius:4px; padding:0 4px; }
+  .act{ display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .copy{ display:inline-flex; align-items:center; min-height:40px; padding:0 18px; border-radius:20px; background:var(--pink); color:#fff; border:none; font:inherit; font-size:14px; font-weight:700; cursor:pointer; }
+  .act span{ font-size:12.5px; color:var(--pink); }
+  .att{ font-size:12.5px; color:var(--ink-soft); margin-top:10px; }
+  .links{ font-size:13px; margin-top:8px; }
+  .links a{ color:var(--blue); font-weight:700; }
+  .follow{ margin-top:18px; display:flex; gap:14px; align-items:center; background:#fff; border:1px dashed var(--pink); border-radius:14px; padding:14px 18px; flex-wrap:wrap; }
+  .follow .num{ font-size:30px; }
+  .follow b{ display:block; font-size:15px; }
+  .follow div div{ font-size:13.5px; color:#5A6072; }
+  .remind{ margin-inline-start:auto; display:inline-flex; align-items:center; min-height:40px; padding:0 16px; border:1.5px solid var(--pink); border-radius:20px; color:var(--pink); background:#fff; font:inherit; font-size:14px; font-weight:700; white-space:nowrap; cursor:pointer; }
+  .causes{ margin-top:14px; font-size:12.5px; color:var(--ink-soft); }
+</style>
+
+{% set ID = '[ת"ז — להשלים]' %}
+<div class="top">
+  <div>
+    <a class="back" href="{{ url_for('my_payslip', token=token, id=slip.payslip_id) }}">→ חזרה לתלוש</a>
+    <h1 class="h">מה עליי לעשות?</h1>
+    <p class="lead">{% for part in actions.lead.split('**') %}{% if loop.index is even %}<b>{{ part }}</b>{% else %}{{ part }}{% endif %}{% endfor %}</p>
+  </div>
+  <div class="gapbox"><span>שורה {{ slip.gimul_code or '249' }} · {{ slip.gimul_desc or 'ג. השת. עוז לתמורה' }}</span><span class="pen"><bdi dir="ltr">{% if cmp.gap_units > 0 %}+{% endif %}{{ cmp.gap_units | num }}</bdi></span></div>
+</div>
+
+<div class="tracks">
+  {% for t in actions.tracks %}
+  <section class="card" aria-labelledby="t{{ t.n }}">
+    <div class="ct"><span class="num">{{ t.n }}</span><b id="t{{ t.n }}">{{ t.title }}</b></div>
+    <div class="cs">{% if t.link %}<a href="{{ t.link }}" target="_blank" rel="noopener" style="color:inherit">{{ t.sub }} ↗</a>{% else %}{{ t.sub }}{% endif %}</div>
+    <div class="steps">
+      {% set outer = loop %}
+      {% for s in t.steps %}
+      <label class="step">
+        <input type="checkbox" data-key="{{ slip.payslip_id }}:{{ t.id }}:{{ loop.index }}">
+        <span class="box" aria-hidden="true"></span>
+        <div><div class="st">{{ s.t }}</div>{% if s.d %}<div class="sd">{{ s.d }}</div>{% endif %}</div>
+      </label>
+      {% endfor %}
+    </div>
+    {% if t.id == 'fix_data' %}<div class="links"><a href="{{ url_for('my_wizard_courses', token=token) }}">לבדוק את ההשתלמויות שלי ←</a></div>{% endif %}
+    {% if t.letter %}
+    <div class="letter" id="letter-{{ t.n }}">{% if t.letter_to %}<b>אל: {{ t.letter_to }}</b>
+{% endif %}{% if t.letter_subject %}<b>נושא: {{ t.letter_subject }}</b>
+{% endif %}{% for part in t.letter.split(ID) %}{{ part }}{% if not loop.last %}<span class="idm">{{ ID }}</span>{% endif %}{% endfor %}</div>
+    <div class="act">
+      <button type="button" class="copy" data-copy="letter-{{ t.n }}">העתקת הנוסח</button>
+      <span>לפני שליחה, הוסיפי את מספר הזהות שלך</span>
+    </div>
+    {% endif %}
+    {% if t.attach %}<div class="att">לצרף: {{ t.attach | join(' · ') }}</div>{% endif %}
+  </section>
+  {% endfor %}
+</div>
+
+{% if actions.followup %}
+<div class="follow">
+  <span class="num">{{ actions.tracks|length + 1 }}</span>
+  <div><b>{{ actions.followup.t }}</b><div>{{ actions.followup.d }}</div></div>
+  <button type="button" class="remind" id="remind">תזכירי לי בעוד שבועיים</button>
+</div>
+{% endif %}
+
+<div class="causes">{% for cd in actions.cause_defs %}סיבה {{ cd.code }}: {{ cd.title }}. {% endfor %}ההמלצה נגזרת ממקור הנתון של כל רכיב חסר, לא מניחוש.</div>
+
+<script>
+  (function () {
+    // סימון הצעדים נשמר בדפדפן של המורה בלבד
+    function load(k) { try { return localStorage.getItem('optipay:' + k) === '1'; } catch (e) { return false; } }
+    function save(k, v) { try { localStorage.setItem('optipay:' + k, v ? '1' : '0'); } catch (e) {} }
+    document.querySelectorAll('.step input').forEach(function (c) {
+      c.checked = load(c.dataset.key);
+      c.addEventListener('change', function () { save(c.dataset.key, c.checked); });
+    });
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var text = document.getElementById(b.dataset.copy).innerText.trim();
+        navigator.clipboard.writeText(text).then(function () { b.textContent = 'הועתק ✓'; });
+      });
+    });
+    var r = document.getElementById('remind');
+    if (r) r.addEventListener('click', function () {
+      // קובץ יומן (ics) עם תזכורת בעוד 14 יום - נפתח בכל אפליקציית יומן
+      var d = new Date(Date.now() + 14 * 864e5);
+      var ymd = d.toISOString().slice(0, 10).replace(/-/g, '');
+      var next = new Date(d.getTime() + 864e5).toISOString().slice(0, 10).replace(/-/g, '');
+      var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OptiPay//HE', 'BEGIN:VEVENT',
+        'UID:optipay-' + Date.now() + '@optipay', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
+        'DTSTART;VALUE=DATE:' + ymd, 'DTEND;VALUE=DATE:' + next,
+        'SUMMARY:OptiPay: לבדוק אם השיבו על גמול ההשתלמות',
+        'DESCRIPTION:' + location.href, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      a.download = 'optipay-reminder.ics';
+      a.click();
+      r.textContent = 'נוספה תזכורת ✓';
+    });
+  })();
+</script>
+{% endblock %}

@@ -21,6 +21,7 @@ from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, 
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
 import payslips
 import playbook
+import ask
 
 app = Flask(__name__)
 # בשרת: SECRET_KEY ממשתנה סביבה. בלעדיו - מפתח אקראי לכל הפעלה (התחברויות
@@ -1238,16 +1239,18 @@ def _run_for_month(teacher_id, pay_month):
     return row["run_id"]
 
 
-@app.route("/my/<token>/payslip")
-def my_payslip(token):
+def _payslip_bundle(token, slip_id=None):
+    """
+    כל מה שמסכי התוצאה צריכים לתלוש אחד: המורה, התלוש, החישוב, ההשוואה, מאגר
+    הפעולות, החוקים והשאלות השמורות. מחזיר (bundle, None) או (None, redirect).
+    """
     conn = get_conn()
     teacher = get_teacher_by_token(conn, token)
     if not teacher:
         conn.close()
         flash("קישור לא תקין.", "error")
-        return redirect(url_for("index"))
+        return None, redirect(url_for("index"))
     tid = teacher["teacher_id"]
-    slip_id = request.args.get("id", type=int)
     if slip_id:
         slip = conn.execute("SELECT * FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (slip_id, tid)).fetchone()
     else:
@@ -1256,7 +1259,7 @@ def my_payslip(token):
         ).fetchone()
     if not slip:
         conn.close()
-        return redirect(url_for("my_payslip_new", token=token))
+        return None, redirect(url_for("my_payslip_new", token=token))
     all_slips = conn.execute(
         "SELECT payslip_id, pay_month FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC", (tid,)
     ).fetchall()
@@ -1272,21 +1275,87 @@ def my_payslip(token):
     ).fetchone() if slip["run_id"] else None
     result = json.loads(run["result_json"]) if run else None
     cmp = payslips.compare(conn, result, slip) if result else None
-    courses = conn.execute(
+    courses = [dict(c) for c in conn.execute(
         "SELECT course_id, description, school_year, start_date, end_date, hours, source FROM courses "
         "WHERE teacher_id=%s ORDER BY start_date", (tid,)
-    ).fetchall()
+    ).fetchall()]
     rules = {r["rule_id"]: r for r in conn.execute(
         "SELECT rule_id, title, description, source_doc, source_ref, priority, valid_from, valid_to, constitution_id "
         "FROM rules").fetchall()}
+    doc_types = {r["doc_type"] for r in conn.execute(
+        "SELECT DISTINCT doc_type FROM teacher_documents WHERE teacher_id=%s", (tid,)).fetchall()}
     conn.close()
-    actions = playbook.plan(cmp, [dict(c) for c in courses], teacher, slip) if cmp else None
-    return render_template(
-        "my_payslip.html", token=token, teacher=teacher, slip=slip, result=result, cmp=cmp,
-        letter=payslips.letter(cmp, slip, teacher["full_name"]) if cmp else "",
-        view=payslips.slip_view(slip), actions=actions, rules=rules,
-        all_slips=all_slips, month_label=payslips.month_label, journey_step=5,
-    )
+    actions = playbook.plan(cmp, courses, teacher, slip) if cmp else None
+    if cmp:
+        _annotate_components(cmp, teacher, courses, doc_types)
+    return {
+        "token": token, "teacher": teacher, "slip": slip, "result": result, "cmp": cmp,
+        "actions": actions, "rules": rules, "courses": courses, "all_slips": all_slips,
+        "view": payslips.slip_view(slip), "month_label": payslips.month_label,
+        "saved": ask.saved_questions(cmp, result, rules) if cmp else [],
+    }, None
+
+
+def _annotate_components(cmp, teacher, courses, doc_types):
+    """לכל רכיב: "הנתון שלך" ומאיפה הוא הגיע (מהפורטל / הוזן ידנית) - למסך "איך חושב?"."""
+    from_portal = bool(doc_types & {"oz_join", "maktav", "heikef"})
+    src_teacher = "מהפורטל" if from_portal else "מהתיק שלך"
+    for c in cmp["components"]:
+        if c["key"] in ("base", "transition"):
+            c["data"] = f"{payslips._fmt(teacher['u_pre'])} יחידות ערב הרפורמה"
+            c["src"], c["src_manual"] = src_teacher, False
+        elif c["key"] == "dd":
+            c["data"] = "כפל תואר מוכר" + (" ותואר נוסף" if teacher["has_additional_double_degree_gimul"] else "")
+            c["src"], c["src_manual"] = src_teacher, False
+        elif c["key"].startswith("year:"):
+            yc = playbook._year_courses(courses, c.get("school_year"))
+            manual = any(x.get("source") == "manual" for x in yc)
+            c["data"] = f"{len(yc)} קורסים, {payslips._fmt(sum(x.get('hours') or 0 for x in yc))} שעות"
+            c["src"], c["src_manual"] = ("הוזן ידנית" if manual else "מהפורטל"), manual
+            c.setdefault("rule_id", "R11_ANNUAL_CAP")
+        else:
+            c["data"], c["src"], c["src_manual"] = "", "", False
+
+
+@app.route("/my/<token>/payslip")
+def my_payslip(token):
+    b, redir = _payslip_bundle(token, request.args.get("id", type=int))
+    if redir:
+        return redir
+    open_panel = request.args.get("open") if request.args.get("open") in ("why", "how") else None
+    return render_template("my_payslip.html", open_panel=open_panel, **b)
+
+
+@app.route("/my/<token>/payslip/<int:payslip_id>/todo")
+def my_payslip_todo(token, payslip_id):
+    """מה עליי לעשות? - המסלולים המקבילים, הצעדים ונוסחי הפנייה."""
+    b, redir = _payslip_bundle(token, payslip_id)
+    if redir:
+        return redir
+    if not b["cmp"] or b["cmp"]["ok"]:
+        return redirect(url_for("my_payslip", token=token, id=payslip_id))
+    return render_template("my_payslip_todo.html", **b)
+
+
+@app.route("/my/<token>/payslip/<int:payslip_id>/ask", methods=["POST"])
+def my_payslip_ask(token, payslip_id):
+    """הצ'אט ב"למה?": שאלה שמורה (id) נענית מהנתונים; שאלה חופשית (q) - Claude, מתוך העובדות בלבד."""
+    b, redir = _payslip_bundle(token, payslip_id)
+    if redir or not b["cmp"]:
+        return {"error": "התלוש לא נמצא."}, 404
+    data = request.get_json(silent=True) or {}
+    if data.get("id"):
+        hit = next((s for s in b["saved"] if s["id"] == data["id"]), None)
+        if not hit:
+            return {"error": "השאלה לא נמצאה."}, 404
+        return {"answer": hit["a"], "cite": hit["cite"]}
+    try:
+        return ask.ask_free(data.get("q"), ask.facts(b["cmp"], b["result"], b["rules"]))
+    except ask.AskError as exc:
+        return {"error": str(exc)}, 400
+    except Exception:
+        app.logger.exception("ask failed")
+        return {"error": "לא הצלחתי לענות כרגע. אפשר לבחור באחת השאלות השמורות."}, 500
 
 
 @app.route("/my/<token>/payslip/new")

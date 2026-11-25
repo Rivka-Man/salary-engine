@@ -1,12 +1,123 @@
 {% extends "constitutions_base.html" %}
 {% block title %}OptiPay — {{ rule.title }}{% endblock %}
+{% block page_head %}
+<div class="crumb"><a href="{{ url_for('backoffice.constitutions') }}" style="color:inherit">חוקות</a> › <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}" style="color:inherit">{{ constitution.name }}</a> › <span class="mono">{{ rule.rule_id }}</span></div>
+<h1>{{ rule.title }}</h1>
+{% set last_param = (param_groups.values() | list | last | last) if param_groups else none %}
+{% set result_txt = rule.result_value or (last_param.param_value | num if last_param else '') %}
+<p class="lead">אם {% for conn_label, text in chips %}{% if conn_label %} {{ conn_label }} {% endif %}{{ text }}{% endfor %} ← {{ result_txt or (action_labels.get(rule.action, rule.action) if rule.action else '—') }}</p>
+{% endblock %}
+{% block nav_action %}
+<a href="#edit" class="ghost" id="edit-btn">עריכה</a>
+<a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}" class="ghost">← חזרה לחוקה</a>
+{% endblock %}
 {% block content %}
-<div class="breadcrumb">
-  <a href="{{ url_for('backoffice.constitutions') }}">חוקות</a> ‹
-  <a href="{{ url_for('backoffice.constitution_detail', constitution_id=constitution.constitution_id) }}">{{ constitution.name }}</a> ‹
-  <span class="mono">{{ rule.rule_id }}</span>
+{% set last_param = (param_groups.values() | list | last | last) if param_groups else none %}
+{% set result_txt = rule.result_value or (last_param.param_value | num if last_param else '') %}
+<style>
+  .rv{ display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:18px; align-items:start; }
+  @media (max-width:1100px){ .rv{ grid-template-columns:minmax(0,1fr); } }
+  .rv-col{ display:flex; flex-direction:column; gap:16px; }
+  .card{ background:#fff; border:1px solid #E4E7EF; border-radius:12px; padding:20px 22px; }
+  .card.s{ padding:18px 20px; }
+  .lbl{ font-size:13px; font-weight:700; color:#6B7385; margin-bottom:10px; }
+  .ct{ font-size:16px; font-weight:800; }
+  .card.s .ct{ font-size:15px; margin-bottom:10px; }
+  .cond{ display:grid; grid-template-columns:50px minmax(0,1fr) 46px 140px; gap:8px; align-items:center; margin-top:8px; }
+  .cond .c{ font-size:13px; color:#6B7385; }
+  .cond .b{ border:1px solid #D9DEE8; border-radius:8px; padding:8px 10px; font-size:14px; }
+  .cond .op{ text-align:center; font-size:15px; }
+  .tiles{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:16px; }
+  .tile{ background:#F6F7FA; border-radius:10px; padding:12px 14px; }
+  .tile .k{ font-size:12.5px; color:#6B7385; } .tile .v{ font-size:16px; font-weight:700; }
+  .orig{ display:grid; grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr); gap:10px; align-items:stretch; margin-top:14px; }
+  @media (max-width:760px){ .orig{ grid-template-columns:minmax(0,1fr); } }
+  .orig .q{ background:var(--pink-soft); border-radius:10px; padding:14px; }
+  .orig .q .h{ font-size:12.5px; color:var(--pink); font-weight:700; }
+  .orig .x{ font-size:14px; line-height:1.6; margin-top:6px; color:#4A5163; }
+  .orig .ar{ display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:'Amatic SC', Assistant, sans-serif; color:var(--pink); font-weight:700; font-size:22px; text-align:center; line-height:1; }
+  .orig .lg{ background:var(--accent-soft); border-radius:10px; padding:14px; }
+  .orig .lg .h{ font-size:12.5px; color:var(--accent); font-weight:700; }
+  .orig .lg .x{ color:var(--ink); line-height:1.7; }
+  .badge{ font-size:12px; font-weight:700; color:var(--pink); background:var(--pink-soft); border-radius:8px; padding:2px 8px; }
+  .badge.n{ color:#6B7385; background:#F1F3F7; }
+  .foot{ font-size:13px; color:#6B7385; margin-top:12px; }
+  .on{ display:flex; justify-content:space-between; align-items:center; text-decoration:none; padding:8px 10px; border-radius:8px; background:#FBF3F7; color:var(--ink); margin-top:6px; }
+  .on .e{ font-family:'Amatic SC', Assistant, sans-serif; color:var(--pink); font-weight:700; font-size:22px; line-height:1; direction:ltr; }
+  .ver{ display:flex; justify-content:space-between; font-size:14px; padding:6px 0; }
+  .ver.old{ color:#6B7385; }
+  details.edit{ margin-top:4px; }
+  details.edit > summary{ list-style:none; cursor:pointer; font-weight:800; font-size:1.05rem; padding:6px 0; }
+  details.edit > summary::-webkit-details-marker{ display:none; }
+  details.edit[open] > summary{ margin-bottom:12px; }
+</style>
+
+<div class="rv">
+  <div class="rv-col">
+    <section class="card" aria-label="חל על">
+      <div class="lbl">חל על</div>
+      {% if conditions %}
+      {% for c in conditions %}
+      <div class="cond">
+        <span class="c">{{ 'כאשר' if loop.first else connectors.get(c.connector, c.connector) }}</span>
+        <span class="b">{{ fields.get(c.field, (c.field,))[0] }}</span>
+        <span class="op">{{ operators.get(c.operator, (c.operator,))[0] }}</span>
+        <span class="b">{% if c.value_field %}{{ fields.get(c.value_field, (c.value_field,))[0] }}{% else %}{{ c.show_value or '—' }}{% endif %}</span>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="cond"><span class="c">תמיד</span><span class="b">חל על כל המורות</span><span></span><span></span></div>
+      {% endif %}
+      <div class="tiles">
+        <div class="tile"><div class="k">פעולה</div><div class="v">{{ action_labels.get(rule.action, rule.action) if rule.action else '—' }}</div></div>
+        <div class="tile"><div class="k">תוצאה</div><div class="v">{{ result_txt or '—' }}</div></div>
+      </div>
+    </section>
+
+    <section class="card" aria-label="נוצר מתוך">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap">
+        <div class="ct">נוצר מתוך</div>
+        {% if origin.from_llm %}<span class="badge">חולץ בניתוח LLM · {{ 'אושר והוחל' if origin.status == 'applied' else 'ממתין לאישור' }}</span>
+        {% else %}<span class="badge n">הוגדר ידנית מהמקור</span>{% endif %}
+      </div>
+      <div class="orig">
+        <div class="q">
+          <div class="h">{{ origin.doc }}{% if origin.section %}, סעיף {{ origin.section | replace('סעיף ', '') }}{% endif %}</div>
+          <div class="x">{{ origin.quote or rule.description }}</div>
+          {% if origin.agreement_id %}<a href="{{ url_for('agreements.agreement_detail', agreement_id=origin.agreement_id) }}" style="display:inline-block; margin-top:6px; font-size:13px; font-weight:700; color:var(--pink)">להסכם ←</a>{% endif %}
+        </div>
+        <div class="ar">ניתוח<br>←</div>
+        <div class="lg">
+          <div class="h">החוק הלוגי</div>
+          <div class="x">{% for conn_label, text in chips %}{{ 'אם' if loop.first else conn_label }} {{ text }}<br>{% endfor %}← {{ result_txt or (action_labels.get(rule.action, rule.action) if rule.action else '—') }}</div>
+        </div>
+      </div>
+      <div class="foot">את החישוב מריץ מנוע דטרמיניסטי. ה-LLM קורא את הסעיף ומציע את החוק, ואדם מאשר לפני שהוא נכנס לחוקה.</div>
+    </section>
+  </div>
+
+  <div class="rv-col">
+    <section class="card s" aria-label="הופעל על">
+      <div class="ct">הופעל על</div>
+      {% for a in applied_on %}
+      <a class="on" href="{{ url_for('teacher_detail', teacher_id=a.teacher_id) }}" title="{{ a.message }}"><span>{{ a.name }} · {{ a.calc_date | dmy }}</span><span class="e">{{ a.effect }}</span></a>
+      {% else %}
+      <div class="panel-note">עוד לא הופעל בחישוב.</div>
+      {% endfor %}
+    </section>
+    <section class="card s" aria-label="גרסאות">
+      <div class="ct">גרסאות</div>
+      <div class="ver"><span>גרסה נוכחית</span><span style="color:var(--good); font-weight:700">פעילה</span></div>
+      {% for v in versions %}
+      <div class="ver old"><span>{{ v.label }} · {{ v.created_at | dmy }}</span><a href="{{ url_for('agreements.restore_version', constitution_id=constitution.constitution_id, version_id=v.version_id) }}">שחזור</a></div>
+      {% endfor %}
+      <a href="{{ url_for('backoffice.constitution_log', constitution_id=constitution.constitution_id) }}" style="display:inline-block; margin-top:8px; font-size:13px; font-weight:600">יומן שינויים ←</a>
+    </section>
+  </div>
 </div>
 
+<details class="edit" id="edit">
+<summary>עריכת החוק ›</summary>
 {% macro field_options(selected, allow_empty, empty_label) %}
   {% if allow_empty %}<option value="">{{ empty_label }}</option>{% endif %}
   {% for group in ["מורה", "קורס", "שנה", "חישוב"] %}
@@ -283,4 +394,10 @@
   {% include "_change_log_table.html" %}
 </section>
 {% endif %}
+</details>
+<script>
+  (function(){ var d=document.getElementById("edit"), b=document.getElementById("edit-btn");
+    if (location.hash === "#edit") d.open = true;
+    if (b) b.addEventListener("click", function(e){ e.preventDefault(); d.open = true; d.scrollIntoView({behavior:"smooth"}); }); })();
+</script>
 {% endblock %}

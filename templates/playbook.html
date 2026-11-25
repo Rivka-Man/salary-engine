@@ -40,7 +40,7 @@
     <div class="track">
       <div class="who">{{ t.who }}</div>
       <div class="ch">{{ t.channel }}{% if t.phone %} · <bdi dir="ltr">{{ t.phone }}</bdi>{% endif %}</div>
-      <ol>{% for s in t.steps %}<li>{{ s }}</li>{% endfor %}</ol>
+      <ol>{% for s in t.step_lines %}<li>{{ s }}</li>{% endfor %}</ol>
       {% if t.attach %}<div class="note">לצרף: {{ t.attach | join(' · ') }}</div>{% endif %}
       {% if t.letter %}<details><summary>נוסח הפנייה</summary><pre>{{ t.letter }}</pre></details>{% endif %}
     </div>
