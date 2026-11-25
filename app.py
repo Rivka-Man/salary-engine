@@ -1252,7 +1252,7 @@ def my_payslip(token):
         slip = conn.execute("SELECT * FROM payslips WHERE payslip_id=%s AND teacher_id=%s", (slip_id, tid)).fetchone()
     else:
         slip = conn.execute(
-            "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY payslip_id DESC LIMIT 1", (tid,)
+            "SELECT * FROM payslips WHERE teacher_id=%s ORDER BY pay_month DESC, payslip_id DESC LIMIT 1", (tid,)
         ).fetchone()
     if not slip:
         conn.close()
