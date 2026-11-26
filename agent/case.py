@@ -11,7 +11,8 @@ from agent.store import DOC_LABELS, portal_guide
 
 H_UNIT = 112  # שעות ליחידה (R01). רק כדי להחליט אם לשאול על שבתון, לא לחישוב.
 
-YEAR_STATUS_OPTIONS = ["כן, שבתון", "כן, חצי שבתון", "כן, חל\"ת", "לא"]
+YEAR_STATUS_OPTIONS = ["כן, שבתון", "כן, חצי שבתון", "כן, חל\"ת", "לא", "לא יודעת"]
+DONT_KNOW = "לא ידוע"  # הערך שנשמר בתיק כשהמורה ענתה "לא יודעת"
 
 
 def _year_order(sy):
@@ -62,7 +63,7 @@ def case_status(conn, teacher_id, case):
         docs.append({"doc_type": "oz_join", "label": DOC_LABELS["oz_join"], "status": "read",
                      "detail": t.get("reform_start_date") or t["reform_start_year"]})
         known.append({"key": "reform_start", "label": "הצטרפות לעוז", "value": t.get("reform_start_date") or t["reform_start_year"],
-                      "source": "portal" if "oz_join" in types else "manual"})
+                      "source": "portal" if "oz_join" in types else "office"})
     else:
         docs.append({"doc_type": "oz_join", "label": DOC_LABELS["oz_join"], "status": "missing", "detail": ""})
         missing.append({"kind": "file", "key": "oz_join", "doc_type": "oz_join", "priority": 2,
@@ -109,6 +110,12 @@ def case_status(conn, teacher_id, case):
         if h <= H_UNIT or (start and _year_order(sy) < _year_order(start)):
             continue
         key = f"sabbatical:{sy}"
+        if answered.get(key, {}).get("value") == DONT_KNOW and sy not in status:
+            # המורה לא יודעת: לא שואלים שוב, מבקשים את הקובץ שבו זה מופיע
+            missing.append({"kind": "file", "key": f"vacations:{sy}", "doc_type": "vacations", "priority": 4,
+                            "school_year": sy,
+                            "why": f"בקובץ החופשות והשבתונים רואים אם {sy} הייתה שנת שבתון או חל\"ת."})
+            continue
         if sy in status or key in answered:
             st = answered.get(key, {}).get("value") or status.get(sy)
             known.append({"key": key, "label": f"סטטוס {sy}", "value": st,

@@ -38,7 +38,7 @@ TOOL_DEFS = [
      "input_schema": _obj({})},
     {"name": "portal_guide", "strict": True,
      "description": "המסלול בפורטל עובדי הוראה וצילום מסך לקובץ שצריך להביא. מוצג למורה ככרטיס הדרכה.",
-     "input_schema": _obj({"doc_type": {"type": "string", "enum": ["payslip", "courses", "oz_join", "maktav"]}})},
+     "input_schema": _obj({"doc_type": {"type": "string", "enum": ["payslip", "courses", "oz_join", "maktav", "vacations", "gmulim"]}})},
     {"name": "ask_teacher", "strict": True,
      "description": "שאלה אחת למורה עם 2-4 כפתורים. רק לנתון שחסר, שמשנה את התשובה ושאי אפשר לקרוא מקובץ. השתמשי בשאלה ובאפשרויות שהחזיר case_status. עד 3 שאלות בכל התהליך. השיחה נעצרת עד שהמורה עונה.",
      "input_schema": _obj({"field": {"type": "string", "enum": ["sabbatical", "double_degree", "pensioner", "dual_reform"]},
@@ -172,8 +172,12 @@ def t_case_status(ctx):
 def t_portal_guide(ctx, doc_type):
     g = _portal_guide(doc_type)
     card = {"type": "guide", "doc_type": doc_type, "label": g.get("label") or DOC_LABELS.get(doc_type),
-            "portal_path": g.get("portal_path"), "image": g.get("image"), "why": g.get("why")}
-    return {"label": card["label"], "portal_path": card["portal_path"], "why": card["why"]}, [card], f"הכנתי הדרכה: {card['label']}"
+            "portal_path": g.get("portal_path"), "steps": g.get("steps") or [], "image": g.get("image"),
+            "why": g.get("why")}
+    # המודל מקבל רק את המסלול והסיבה. הצעדים המפורטים מוצגים בכרטיס, אין צורך לחזור עליהם בטקסט
+    return ({"label": card["label"], "portal_path": card["portal_path"], "why": card["why"],
+             "note": "הצעדים המפורטים מוצגים למורה בכרטיס. אל תחזרי עליהם בטקסט."},
+            [card], f"הכנתי הדרכה: {card['label']}")
 
 
 def _overrides(what_if):
@@ -309,6 +313,12 @@ def save_answer(conn, tid, case, pending, value):
     """שומר את תשובת המורה לשאלה ממתינה. מחזיר מה נשמר, לתוצאת הכלי ask_teacher."""
     field, sy = pending.get("field"), pending.get("school_year")
     v = (value or "").strip()
+    if field == "sabbatical" and sy and "לא יודעת" in v:
+        # לא שומרים סטטוס. מסמנים "לא ידוע", ו-case_status יבקש את קובץ החופשות
+        set_fact(case, f"sabbatical:{sy}", f"שבתון {sy}", case_mod.DONT_KNOW, "manual")
+        conn.commit()
+        return {"saved": None, "answer": v, "need_file": "vacations", "school_year": sy,
+                "note": f"המורה לא יודעת אם {sy} הייתה שנת שבתון. בקשי את קובץ החופשות והשבתונים (portal_guide vacations)."}
     if field == "sabbatical" and sy:
         st = _status_from_answer(v)
         conn.execute(
@@ -325,7 +335,8 @@ def save_answer(conn, tid, case, pending, value):
         mid = 1 if "ביניים" in v else 0
         if "לא יודעת" in v:
             set_fact(case, "double_degree_unknown", "כפל תואר", "לא ידוע", "manual")
-            return {"saved": None, "note": "המורה לא יודעת. אפשר לבקש את מכתב נתוני העסקה."}
+            return {"saved": None, "answer": v, "need_file": "gmulim",
+                    "note": "המורה לא יודעת. בעמוד הגמולים בפורטל רואים אם מוכר לה כפל תואר (portal_guide gmulim)."}
         conn.execute("UPDATE teachers SET has_double_degree_gimul=%s, has_beinayim_gimul=%s WHERE teacher_id=%s",
                      (dd, mid, tid))
         set_fact(case, "double_degree", "כפל תואר / ביניים", "כפל תואר" if dd else ("ביניים" if mid else "לא"), "manual")

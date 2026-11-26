@@ -57,6 +57,17 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
             did.append("שמרתי: " + (res.get("label") or "התשובה"))
         case["pending"] = None
         case.pop("pending_results", None)
+        if res.get("need_file"):
+            _, c, d, _ = tools.execute(ctx, "portal_guide", {"doc_type": res["need_file"]})
+            cards += c
+            did.append(d)
+            if res["need_file"] == "vacations":
+                text = (f"אין בעיה. אם {res['school_year']} הייתה שנת שבתון או חל\"ת רואים בעמוד \"חל\"ת ושבתון\" בפורטל. "
+                        "הנה בדיוק איך מגיעים אליו. גררי לכאן את ה-PDF, ואבדוק לבד.")
+            else:
+                text = ("אין בעיה. אם מוכר לך כפל תואר רואים בעמוד הגמולים בפורטל. "
+                        "הנה בדיוק איך מגיעים אליו. גררי לכאן את ה-PDF, ואבדוק לבד.")
+            return finish(conn, tid, case, messages, "reply", text, cards, did, fallback=True)
     elif pending and kind in (None, "resume"):
         return finish(conn, tid, case, messages, "question", "", [pending.get("card") or {}], did, fallback=True)
 
@@ -87,18 +98,19 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
     files_missing = [m for m in missing if m["kind"] == "file"]
     questions = [m for m in missing if m["kind"] == "question"]
 
-    if not st.get("ready_to_check"):
-        if files_missing:
-            m = files_missing[0]
-            _, c, d, _ = tools.execute(ctx, "portal_guide", {"doc_type": m["doc_type"]})
-            cards += c
-            did.append(d)
-            label = c[0]["label"] if c else m["doc_type"]
-            if not text_parts and not case.get("docs"):
-                text_parts.append("שלום. גררי לכאן את הקבצים שיש לך מהפורטל: התלוש, הקורסים שלי וההצטרפות לעוז לתמורה. לא צריך לסמן מה כל קובץ.")
-            else:
-                text_parts.append(f"עכשיו צריך את {label}. {m['why']}")
-            return finish(conn, tid, case, messages, "reply", " ".join(text_parts), cards, did, fallback=True)
+    # קובץ החופשות חוסם את הבדיקה: בלי לדעת אם הייתה שנת שבתון, התוצאה עלולה להטעות
+    blocking = files_missing if not st.get("ready_to_check") else [m for m in files_missing if m["doc_type"] == "vacations"]
+    if blocking:
+        m = blocking[0]
+        _, c, d, _ = tools.execute(ctx, "portal_guide", {"doc_type": m["doc_type"]})
+        cards += c
+        did.append(d)
+        label = c[0]["label"] if c else m["doc_type"]
+        if not text_parts and not case.get("docs"):
+            text_parts.append("שלום. גררי לכאן את הקבצים שיש לך מהפורטל: התלוש, הקורסים שלי וההצטרפות לעוז לתמורה. לא צריך לסמן מה כל קובץ.")
+        else:
+            text_parts.append(f"עכשיו צריך את קובץ {label}. {m['why']} גררי אותו לכאן.")
+        return finish(conn, tid, case, messages, "reply", " ".join(text_parts), cards, did, fallback=True)
 
     # שאלה רק כשהיא משנה את התוצאה, ועד 3 בכל התהליך
     if questions and case.get("questions_asked", 0) < tools.MAX_QUESTIONS:

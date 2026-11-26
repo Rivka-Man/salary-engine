@@ -108,6 +108,29 @@ def test_fallback():
             os.environ["ANTHROPIC_API_KEY"] = saved_key
 
 
+def test_dont_know():
+    print("\n1ב. \"לא יודעת\" ← בקשת קובץ החופשות")
+    reset_status()
+    saved_key = os.environ.pop("ANTHROPIC_API_KEY", None)
+    try:
+        out = run_agent(TID, {"type": "resume"})
+        q = (cards(out, "question") or [{}])[0]
+        check("יש כפתור 'לא יודעת'", "לא יודעת" in (q.get("options") or []), q.get("options"))
+        out = run_agent(TID, {"type": "answer", "value": "לא יודעת"})
+        g = (cards(out, "guide") or [{}])[0]
+        check("כרטיס הדרכה לקובץ החופשות", g.get("doc_type") == "vacations", [c["type"] for c in out["cards"]])
+        check("בלי כרטיס תוצאה (שלא יטעה)", not cards(out, "result"))
+        check("הטקסט אומר איזה עמוד בפורטל", "ושבתון" in out["text"], out["text"])
+        check("כרטיס ההדרכה עם צעדים מפורטים", len(g.get("steps") or []) >= 5, len(g.get("steps") or []))
+        again = run_agent(TID, {"type": "resume"})
+        check("חזרה לקישור: שוב מבקש את הקובץ, לא שואל שוב", cards(again, "guide") and not cards(again, "question"),
+              [c["type"] for c in again["cards"]])
+        print("    טקסט:", out["text"])
+    finally:
+        if saved_key:
+            os.environ["ANTHROPIC_API_KEY"] = saved_key
+
+
 class FakeResp:
     def __init__(self, content, stop="tool_use"):
         self.content, self.stop_reason = content, stop
@@ -202,6 +225,7 @@ if __name__ == "__main__":
     try:
         test_detect()
         test_fallback()
+        test_dont_know()
         test_loop()
     finally:
         cleanup()
