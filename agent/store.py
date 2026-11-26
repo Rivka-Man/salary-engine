@@ -191,6 +191,6 @@ def log_event(conn, teacher_id, kind, name=None, input_=None, output=None):
              json.dumps(input_, ensure_ascii=False, default=str) if input_ is not None else None,
              json.dumps(output, ensure_ascii=False, default=str) if output is not None else None),
         )
-        conn.commit()
+        # בלי commit משלו: נשמר עם הכתיבה הבאה (כל commit ל-Supabase הוא עוד סבב רשת)
     except Exception:  # יומן לא מפיל את השיחה
         conn.rollback()

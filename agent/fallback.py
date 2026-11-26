@@ -119,7 +119,7 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
             text_parts.append("שלום. גררי לכאן את הקבצים שיש לך מהפורטל: התלוש, הקורסים שלי וההצטרפות לעוז לתמורה. לא צריך לסמן מה כל קובץ.")
         else:
             text_parts.append(f"עכשיו צריך את קובץ {label}. {m['why']} גררי אותו לכאן.")
-        return finish(conn, tid, case, messages, "reply", " ".join(text_parts), cards, did, fallback=True)
+        return finish(conn, tid, case, messages, "reply", " ".join(text_parts), cards, did, fallback=True, st=st)
 
     # שאלה רק כשהיא משנה את התוצאה, ועד 3 בכל התהליך
     if questions and case.get("questions_asked", 0) < tools.MAX_QUESTIONS:
@@ -130,7 +130,7 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
         case["questions_asked"] = case.get("questions_asked", 0) + 1
         cards.append(card)
         text_parts.append("קראתי את הקבצים. יש לי שאלה אחת:" if kind == "files" else "יש לי שאלה אחת:")
-        return finish(conn, tid, case, messages, "question", " ".join(text_parts), cards, did, fallback=True)
+        return finish(conn, tid, case, messages, "question", " ".join(text_parts), cards, did, fallback=True, st=st)
 
     # --- 4. בדיקה ---
     res, c, d, is_err = tools.execute(ctx, "run_check", {"what_if": None})

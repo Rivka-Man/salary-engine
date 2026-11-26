@@ -117,8 +117,8 @@ def order_cards(cards):
     return sorted(out, key=lambda c: rank.get(c["type"], 9))
 
 
-def case_view(conn, tid, case):
-    st = case_mod.case_status(conn, tid, case)
+def case_view(conn, tid, case, st=None):
+    st = st or case_mod.case_status(conn, tid, case)
     facts = [{"key": k["key"], "label": k["label"], "value": k["value"], "source": k["source"]}
              for k in st["known"] if k["key"] != "paid_units"]
     sent_info = case.get("sent_info") or {}
@@ -129,12 +129,13 @@ def case_view(conn, tid, case):
             "progress": 100 if case.get("result") else case_mod.progress(st)}
 
 
-def finish(conn, tid, case, messages, status, text, cards, did, fallback=False):
-    store.save_case(conn, tid, case, messages)
+def finish(conn, tid, case, messages, status, text, cards, did, fallback=False, st=None):
+    """st: case_status שכבר חושב בתור הזה, כשלא נכתב כלום מאז. חוסך 5 שאילתות."""
     out = {"status": status, "did": summarize_did(did), "text": text, "cards": order_cards(cards),
-           "case": case_view(conn, tid, case), "fallback": fallback}
+           "case": case_view(conn, tid, case, st), "fallback": fallback}
     store.log_event(conn, tid, "fallback" if fallback else "reply", status, None,
                     {"text": text, "did": out["did"], "cards": [c["type"] for c in out["cards"]]})
+    store.save_case(conn, tid, case, messages)  # ה-commit היחיד בתור, כולל היומן
     return out
 
 

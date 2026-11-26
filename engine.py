@@ -338,7 +338,22 @@ def init_db(reset: bool = True):
     print(f"DB initialized with {len(RULES_METADATA)} rules and {len(PARAMETERS_METADATA)} parameters.")
 
 
+_PARAM_CACHE = {}  # (rule, param, date) -> (value, time). הפרמטרים משתנים רק מהבק-אופיס, לעתים רחוקות
+_PARAM_TTL = 60
+
+
 def get_param(conn, rule_id, param_name, calc_date):
+    import time
+    key = (rule_id, param_name, str(calc_date))
+    hit = _PARAM_CACHE.get(key)
+    if hit and time.monotonic() - hit[1] < _PARAM_TTL:
+        return hit[0]
+    value = _get_param_db(conn, rule_id, param_name, calc_date)
+    _PARAM_CACHE[key] = (value, time.monotonic())
+    return value
+
+
+def _get_param_db(conn, rule_id, param_name, calc_date):
     row = conn.execute("""
         SELECT param_value FROM rule_parameters
         WHERE rule_id=%s AND param_name=%s
