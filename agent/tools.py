@@ -8,6 +8,7 @@ ask_teacher לא רץ כאן עד הסוף: הוא עוצר את הלולאה (�
 ע"י save_answer כשהמורה עונה.
 """
 import json
+import os
 
 import ask
 import payslips
@@ -16,6 +17,7 @@ import rag
 from engine import compute_gimul_hishtalmut, get_courses, get_status_by_year, get_teacher
 
 from agent import case as case_mod
+from agent import send
 from agent.files import read_file as _read_file
 from agent.store import DOC_LABELS, portal_guide as _portal_guide, set_fact
 
@@ -242,15 +244,22 @@ def t_plan_actions(ctx):
     for t in plan["tracks"]:
         tracks.append({"track": t["id"], "cause": t["cause"], "to": t.get("letter_to") or t["who"],
                        "title": t["title"], "has_letter": bool(t.get("letter"))})
+        subject, body = t.get("letter_subject") or "", t.get("letter") or ""
         cards.append({"type": "action", "track": t["id"], "cause": t["cause"], "to": t.get("letter_to") or t["who"],
                       "title": t["title"], "channel": t.get("sub") or t.get("channel"), "link": t.get("link"),
-                      "subject": t.get("letter_subject") or "", "body": t.get("letter") or "",
+                      "subject": subject, "body": body,
                       "attach": t.get("attach") or [], "steps": t.get("step_lines") or [],
+                      "send": send.send_options(t["id"], subject, body, link=t.get("link")),
+                      "sent": t["id"] in (ctx["case"].get("sent") or []),
                       "todo_url": urls["todo_url"]})
     ctx["case"]["plan"] = {"causes": plan["causes"], "tracks": [t["track"] for t in tracks]}
+    # תזכורת לחודש הבא יוצאת יחד עם הפניות, כדי שהמורה תכניס אותה ליומן באותו רגע
+    cards.append(send.reminder_card(_personal_link(conn, tid)))
     res = {"causes": plan["causes"], "parallel": plan["parallel"], "tracks": tracks,
-           "lead": (plan.get("lead") or "").replace("**", "")}
-    return res, cards, f"הכנתי {len(cards)} {'פניות' if len(cards) != 1 else 'פנייה'}"
+           "lead": (plan.get("lead") or "").replace("**", ""),
+           "note": "לכל פנייה יש כפתור שפותח את הפורטל או את המייל עם הנוסח, וכרטיס תזכורת ליומן. אל תחזרי על הנוסחים בטקסט."}
+    n_letters = len([c for c in cards if c["type"] == "action"])
+    return res, cards, f"הכנתי {n_letters} {'פניות' if n_letters != 1 else 'פנייה'}"
 
 
 def t_explain(ctx, rule_id=None):
@@ -280,8 +289,18 @@ def t_search_sources(ctx, query):
 
 
 def t_set_reminder(ctx, note):
-    ctx["case"]["reminder"] = {"note": note}
-    return {"ok": True}, [], "קבעתי תזכורת לתלוש הבא"
+    card = send.reminder_card(_personal_link(ctx["conn"], ctx["teacher_id"]))
+    ctx["case"]["reminder"] = {"note": note, "dates": [i["date"] for i in card["items"]]}
+    return ({"ok": True, "dates": [{"label": i["label"], "date": i["date"]} for i in card["items"]]},
+            [card], "הכנתי תזכורת ליומן")
+
+
+def _personal_link(conn, tid):
+    """הקישור האישי של המורה, לתוך התזכורת ביומן. PUBLIC_URL = כתובת האתר (למשל ב-Render)."""
+    t = conn.execute("SELECT access_token FROM teachers WHERE teacher_id=%s", (tid,)).fetchone()
+    if not t or not t["access_token"]:
+        return ""
+    return os.environ.get("PUBLIC_URL", "").rstrip("/") + f"/my/{t['access_token']}/chat"
 
 
 def question_card(inp, status=None):

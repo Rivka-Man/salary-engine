@@ -72,10 +72,19 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
         return finish(conn, tid, case, messages, "question", "", [pending.get("card") or {}], did, fallback=True)
 
     if kind == "sent":
+        names = {"payroll": "חשבות השכר", "institution": "מוסד ההשתלמות", "ministry": "המשרד", "unique": "יוניק"}
+        ref = (case.get("sent_info") or {}).get(event.get("track"), {}).get("ref")
+        did.append(f"רשמתי: נשלח ל{names.get(event.get('track'), 'הגורם')}" + (f" · פנייה {ref}" if ref else ""))
+        left = [t for t in (case.get("plan") or {}).get("tracks", []) if t not in case.get("sent", [])]
+        if left:
+            return finish(conn, tid, case, messages, "reply",
+                          f"רשמתי. נשארה עוד פנייה אחת, ל{names.get(left[0], 'גורם נוסף')}. כדאי לשלוח אותה עכשיו, במקביל.",
+                          cards, did, fallback=True)
         res, c, d, _ = tools.execute(ctx, "set_reminder", {"note": "תלוש הבא"})
+        cards += c
         did.append(d)
         return finish(conn, tid, case, messages, "reply",
-                      "מעולה. אזכיר לך כשיגיע התלוש הבא. גררי אותו לכאן ואבדוק לבד אם התיקון נכנס.",
+                      "מעולה, הפניות יצאו. הוסיפי את התזכורת ליומן: ב-10 לחודש הבא נבדוק יחד אם התיקון נכנס לתלוש.",
                       cards, did, fallback=True)
 
     if kind == "message":

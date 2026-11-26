@@ -103,6 +103,22 @@ def test_fallback():
         check("שבתון בתיק כ'ידני'", any(f["key"] == 'sabbatical:תשפ"ה' and f["source"] == "manual" for f in out["case"]["facts"]))
         check("did מסוכם", any("שמרתי" in d for d in out["did"]) and any("פניות" in d for d in out["did"]), out["did"])
         print("    טקסט:", out["text"])
+
+        print("\n1א. מה עכשיו: שליחה בלחיצה ותזכורת")
+        by = {a["track"]: a for a in acts}
+        check("חשבות: פנייה מקוונת בפורטל, עם העתקת הנוסח",
+              by.get("payroll", {}).get("send", {}).get("kind") == "portal" and by["payroll"]["send"]["copy_first"])
+        em = by.get("institution", {}).get("send", {})
+        check("מוסד: Gmail ו-Outlook עם הנושא בפנים",
+              em.get("kind") == "email" and "mail.google.com" in em.get("gmail", "") and "outlook" in em.get("outlook", ""))
+        rem = (cards(out, "reminder") or [{}])[0]
+        check("כרטיס תזכורת עם 2 אירועים ליומן", len(rem.get("items") or []) == 2, rem)
+        check("תזכורת ב-10 לחודש", (rem.get("items") or [{}])[0].get("date", "").endswith("-10"))
+        out = run_agent(TID, {"type": "sent", "track": "payroll", "ref": "778812"})
+        check("אחרי חשבות: מזכיר שנשארה פנייה", "נשארה" in out["text"], out["text"])
+        check("מספר הפנייה בתיק", any(s.get("ref") == "778812" for s in out["case"]["sent_info"]), out["case"]["sent_info"])
+        out = run_agent(TID, {"type": "sent", "track": "institution"})
+        check("אחרי שתיהן: תזכורת ליומן", bool(cards(out, "reminder")) and "ליומן" in out["text"], out["text"])
     finally:
         if saved_key:
             os.environ["ANTHROPIC_API_KEY"] = saved_key

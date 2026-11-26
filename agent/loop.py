@@ -73,7 +73,8 @@ def _event_text(conn, tid, case, event):
     if kind == "message":
         return f"המורה כתבה: {(event.get('text') or '')[:500]}"
     if kind == "sent":
-        return f"המורה סימנה שהפנייה ({event.get('track')}) נשלחה."
+        ref = f", מספר פנייה {event['ref']}" if event.get("ref") else ""
+        return f"המורה סימנה שהפנייה ({event.get('track')}) נשלחה{ref}. אם כל הפניות נשלחו: set_reminder."
     if not case.get("result") and not case.get("docs"):
         return "המורה נכנסה לשיחה בפעם הראשונה. תני פתיחה קצרה ובקשי את הקבצים."
     return "המורה חזרה לקישור. אמרי לה במשפט אחד איפה היא עומדת ומה הצעד הבא."
@@ -101,7 +102,7 @@ def summarize_did(did):
 
 
 def order_cards(cards):
-    rank = {"file": 0, "result": 1, "action": 2, "guide": 3, "question": 4}
+    rank = {"file": 0, "result": 1, "action": 2, "reminder": 3, "guide": 4, "question": 5}
     seen, out = set(), []
     for c in cards:
         k = (c["type"], c.get("doc_id"), c.get("track"), c.get("field"), c.get("doc_type") if c["type"] == "guide" else None)
@@ -120,8 +121,12 @@ def case_view(conn, tid, case):
     st = case_mod.case_status(conn, tid, case)
     facts = [{"key": k["key"], "label": k["label"], "value": k["value"], "source": k["source"]}
              for k in st["known"] if k["key"] != "paid_units"]
+    sent_info = case.get("sent_info") or {}
     return {"docs": st["docs"], "facts": facts, "result": case.get("result"),
-            "sent": case.get("sent") or [], "progress": 100 if case.get("result") else case_mod.progress(st)}
+            "sent": case.get("sent") or [],
+            "sent_info": [{"track": t, **sent_info.get(t, {})} for t in case.get("sent") or []],
+            "reminder": case.get("reminder"),
+            "progress": 100 if case.get("result") else case_mod.progress(st)}
 
 
 def finish(conn, tid, case, messages, status, text, cards, did, fallback=False):
@@ -170,8 +175,13 @@ def run_agent(teacher_id, event=None, client=None, extract_payslip=None):
     try:
         case, messages = store.load_case(conn, teacher_id)
         store.log_event(conn, teacher_id, "event", (event or {}).get("type"), event)
-        if (event or {}).get("type") == "sent" and event.get("track") and event["track"] not in case["sent"]:
-            case["sent"].append(event["track"])
+        if (event or {}).get("type") == "sent" and event.get("track"):
+            if event["track"] not in case["sent"]:
+                case["sent"].append(event["track"])
+            # מספר הפנייה (לא חובה) ותאריך השליחה, ל"התיק שלי" ולתזכורת המעקב
+            case.setdefault("sent_info", {})[event["track"]] = {
+                "ref": (str(event.get("ref") or "").strip()[:40] or None),
+                "on": store._now()[:10]}
         client = client or _client()
         if client is None:
             from agent.fallback import run_fallback

@@ -100,6 +100,18 @@ def show_card(c):
                 print(f"     {dim(line)}")
             if len(c["body"].splitlines()) > 6:
                 print(f"     {dim('…')}")
+        s = c.get("send") or {}
+        if s.get("kind") == "portal":
+            print(f"     → {bold(s['label'])}: {s['url']}  {dim('(הנוסח מועתק ללוח)')}")
+        elif s.get("kind") == "email":
+            print(f"     → {bold('Gmail')}: {s['gmail'][:70]}…")
+            print(f"     → {bold('Outlook')}: {s['outlook'][:70]}…")
+        print(dim(f"     /sent {c.get('track')} <מספר פנייה>  ← לסמן שנשלח"))
+    elif t == "reminder":
+        print(f"  ⏰ {bold(c.get('title', ''))}")
+        for i in c.get("items") or []:
+            print(f"     {i['date']} · {i['label']}")
+            print(f"       Google: {i['google'][:70]}…")
 
 
 def show(out, took):
@@ -192,7 +204,9 @@ def main(argv=None):
                 out = call(a.teacher_id, {"type": "files", "doc_ids": ids})
             continue
         if line.startswith("/sent"):
-            out = call(a.teacher_id, {"type": "sent", "track": (line.split()[1:] or ["payroll"])[0]})
+            parts = line.split()[1:]
+            out = call(a.teacher_id, {"type": "sent", "track": (parts or ["payroll"])[0],
+                                      "ref": parts[1] if len(parts) > 1 else None})
             continue
         q = next((c for c in out.get("cards") or [] if c.get("type") == "question"), None)
         if q and line.isdigit() and 1 <= int(line) <= len(q.get("options") or []):

@@ -48,8 +48,27 @@
      "subject": "...", "body": "... ת\"ז [להשלים] ...", "attach": ["צילום התלוש"],
      "todo_url": "/my/<token>/payslip/<id>/todo"}
 
+      + "send": איך שולחים בלחיצה אחת (agent/send.py):
+        {"kind": "portal", "url": "https://pob.education.gov.il", "copy_first": True,
+         "label": "פתיחת פנייה מקוונת", "steps": [...], "followup": "..."}
+            ← הכפתור מעתיק את הנוסח ללוח (navigator.clipboard בתוך ה-click) ופותח את הפורטל בלשונית חדשה
+        {"kind": "email", "to": "", "gmail": "...", "outlook": "...", "mailto": "...", "note": "..."}
+            ← כפתורי "פתיחה ב-Gmail" / "פתיחה ב-Outlook" (target=_blank). mailto רק כגיבוי
+        {"kind": "phone", "phone": "*6552"} | {"kind": "none"}
+      + "sent": True אם המורה כבר סימנה שנשלח
+
     ב-body של פנייה מופיע ID_PLACEHOLDER (playbook.ID_PLACEHOLDER). המסך מחליף אותו
-    בדפדפן בלבד במה שהמורה מקלידה. תעודת הזהות לא נשלחת לשרת.
+    בדפדפן בלבד במה שהמורה מקלידה, ובונה מחדש את קישורי Gmail/Outlook עם הנוסח
+    המעודכן (אותו מבנה כמו agent/send.gmail_url). תעודת הזהות לא נשלחת לשרת.
+
+    {"type": "reminder", "title": "תזכורת לחודש הבא",
+     "items": [{"key": "payslip", "label": "לבדוק את התלוש הבא", "date": "2026-12-10",
+                "google": "https://calendar.google.com/...", "outlook": "https://outlook.office.com/..."},
+               {"key": "followup", "label": "מעקב אם אין מענה", "date": "...", "google": "...", "outlook": "..."}]}
+        ← יוצא יחד עם כרטיסי הפנייה, ושוב אחרי שכל הפניות סומנו כנשלחו
+
+    אירוע "נשלח": {"type": "sent", "track": "payroll", "ref": "12345"}   # ref = מספר פנייה, לא חובה
+    בתיק: case["sent_info"] = [{"track": "payroll", "ref": "12345", "on": "2026-11-26"}]
 
 --- התיק ---
 
