@@ -117,7 +117,18 @@ def plan(cmp, courses, teacher, slip):
         codes = sorted({i["cause"] for i in items}) or ["E"]
 
     tracks = []
+    if "A" in codes and "B" in codes:
+        # חלק מהיחידות כבר במשרד וחלק מקורס שלא דווח: פנייה אחת לחשבות על הכול,
+        # ובמקביל מייל למוסד ההשתלמות על הקורס שלא דווח
+        tracks.append(_track("payroll", "A", items, cmp, courses, name, month, slip))
+        tracks.append(_track("institution", "B", [i for i in items if i["cause"] == "B"],
+                             cmp, courses, name, month, slip))
+        codes_done = {"A", "B"}
+    else:
+        codes_done = set()
     for code in codes:
+        if code in codes_done:
+            continue
         mine = [i for i in items if i["cause"] == code]
         for t in CAUSES[code]["tracks"]:
             tracks.append(_track(t, code, mine, cmp, courses, name, month, slip))
@@ -136,7 +147,12 @@ def plan(cmp, courses, teacher, slip):
 
 def _lead(codes, n_tracks):
     """שורת ההסבר בראש מסך "מה עליי לעשות?" והצעד שאחרי שהגורמים השיבו."""
-    if "B" in codes:
+    if "A" in codes and "B" in codes:
+        lead = ("חלק מהיחידות כבר במשרד ולא הגיעו לתלוש, וקורס אחד שהזנת בעצמך לא דווח. "
+                "לכן פונים לחשבות השכר ולמוסד ההשתלמות **במקביל**, כדי לא לחכות.")
+        follow = {"t": "אחרי ששניהם השיבו",
+                  "d": "כשהקורס מופיע ב\"הקורסים שלי\" וכשמגיע התלוש הבא, מעלים אותם והבדיקה רצה מחדש."}
+    elif "B" in codes:
         lead = "קורס שהזנת בעצמך לא מופיע אצל המשרד. לכן פונים לשני גורמים **במקביל**, כדי לא לחכות."
         follow = {"t": "אחרי ששניהם השיבו",
                   "d": "כשהקורס מופיע ב\"הקורסים שלי\", מעלים את האישור המעודכן והבדיקה רצה מחדש. אם עדיין יש פער, נכין פנייה לחשבות."}
@@ -183,6 +199,9 @@ def _track(t, code, items, cmp, courses, name, month, slip):
     base["letter_to"] = base["letter_subject"] = ""
 
     if t == "payroll":
+        pending = [c.get("description") or "" for c in courses
+                   if c.get("source") == "manual" and any(i["cause"] == "B" for i in items)]
+        sabbatical = any("שבתון" in (i.get("label") or "") or "חל\"ת" in (i.get("label") or "") for i in items)
         base["title"] = "פנייה לחשבות השכר"
         base["sub"] = "פורטל עובדי הוראה · פניות מקוונות"
         base["attach"] = cmp["cause"].get("attach") or ["צילום התלוש"]
@@ -198,7 +217,12 @@ def _track(t, code, items, cmp, courses, name, month, slip):
             hello
             + [f"בתלוש לחודש {month} " + ("לא מופיע גמול השתלמות עוז לתמורה." if cmp["line_missing"] else
                                            f"מוכרות בגמול השתלמות עוז לתמורה {_units(cmp['paid_units'])}."),
-               f"לפי הנתונים שכבר נמצאים במשרד אני זכאית ל-{_units(cmp['expected_units'])}. חסרים: {what}."]
+               (f"לפי ההשתלמויות שלי אני זכאית ל-{_units(cmp['expected_units'])}. חסרים: {what}."
+                if pending else
+                f"לפי הנתונים שכבר נמצאים במשרד אני זכאית ל-{_units(cmp['expected_units'])}. חסרים: {what}.")]
+            + ([f"בשנת השבתון לא חלה תקרת היחידה לשנה, ולכן כל השעות של אותה שנה מוכרות."] if sabbatical else [])
+            + ([f"הקורס {pending[0]} עוד לא מופיע ב\"הקורסים שלי\"; ביקשתי ממוסד ההשתלמות לדווח עליו, ואעביר אישור."]
+               if pending else [])
             + ([f"הבסיס: {cmp['cause']['rule_ref']}."] if cmp["cause"].get("rule_ref") else [])
             + ["אבקש לעדכן את הגמול ולשלם הפרשים."] + sign)
     elif t == "unique":

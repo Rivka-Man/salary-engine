@@ -64,9 +64,21 @@ def facts(cmp, result, rules):
     }
 
 
-def saved_questions(cmp, result, rules):
+def saved_questions(cmp, result, rules, status_by_year=None):
     """2-3 שאלות שמורות שמתאימות לתוצאה הזו, כל אחת עם תשובה מוכנה."""
     out = []
+    # שנת שבתון / חל"ת: השאלה הנפוצה ביותר (מהישיבה), עם התשובה מה-trace של המנוע
+    special = [(y, s) for y, s in sorted((status_by_year or {}).items()) if s != "רגיל"]
+    if special:
+        y, s = special[-1]
+        msg = next((t["message"] for t in result.get("trace") or []
+                    if t.get("rule_id") == "R12_SABBATICAL_EXEMPT" and y in (t.get("message") or "")), "")
+        r = rules.get("R12_SABBATICAL_EXEMPT")
+        a = (f"בשנה רגילה מוכרת לכל היותר יחידת גמול אחת בשנה, גם אם למדת יותר. "
+             f"בשנת {s} התקרה הזו לא חלה, וכל השעות נספרות.")
+        if msg:
+            a += f" אצלך, ב{y}: {msg.split(' - ', 1)[-1]}."
+        out.append({"id": "sabbatical", "q": f"איך ה{s} ב{y} משפיע?", "a": a, "cite": _src(r)})
     flagged = [c for c in cmp["components"] if c.get("flagged")]
     for c in flagged[:1]:
         r = rules.get(c.get("rule_id")) if c.get("rule_id") else None

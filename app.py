@@ -1284,19 +1284,21 @@ def _payslip_bundle(token, slip_id=None):
         "FROM rules").fetchall()}
     doc_types = {r["doc_type"] for r in conn.execute(
         "SELECT DISTINCT doc_type FROM teacher_documents WHERE teacher_id=%s", (tid,)).fetchall()}
+    status_by_year = {r["school_year"]: r["status"] for r in conn.execute(
+        "SELECT school_year, status FROM employment_status_by_year WHERE teacher_id=%s", (tid,)).fetchall()}
     conn.close()
     actions = playbook.plan(cmp, courses, teacher, slip) if cmp else None
     if cmp:
-        _annotate_components(cmp, teacher, courses, doc_types)
+        _annotate_components(cmp, teacher, courses, doc_types, status_by_year)
     return {
         "token": token, "teacher": teacher, "slip": slip, "result": result, "cmp": cmp,
         "actions": actions, "rules": rules, "courses": courses, "all_slips": all_slips,
         "view": payslips.slip_view(slip), "month_label": payslips.month_label,
-        "saved": ask.saved_questions(cmp, result, rules) if cmp else [],
+        "saved": ask.saved_questions(cmp, result, rules, status_by_year) if cmp else [],
     }, None
 
 
-def _annotate_components(cmp, teacher, courses, doc_types):
+def _annotate_components(cmp, teacher, courses, doc_types, status_by_year=None):
     """לכל רכיב: "הנתון שלך" ומאיפה הוא הגיע (מהפורטל / הוזן ידנית) - למסך "איך חושב?"."""
     from_portal = bool(doc_types & {"oz_join", "maktav", "heikef"})
     src_teacher = "מהפורטל" if from_portal else "מהתיק שלך"
@@ -1310,9 +1312,13 @@ def _annotate_components(cmp, teacher, courses, doc_types):
         elif c["key"].startswith("year:"):
             yc = playbook._year_courses(courses, c.get("school_year"))
             manual = any(x.get("source") == "manual" for x in yc)
-            c["data"] = f"{len(yc)} קורסים, {payslips._fmt(sum(x.get('hours') or 0 for x in yc))} שעות"
+            status = (status_by_year or {}).get(c.get("school_year"), "רגיל")
+            c["data"] = (f"{len(yc)} {'קורס' if len(yc) == 1 else 'קורסים'}, "
+                         f"{payslips._fmt(sum(x.get('hours') or 0 for x in yc))} שעות"
+                         + (f" · שנת {status}" if status != "רגיל" else ""))
             c["src"], c["src_manual"] = ("הוזן ידנית" if manual else "מהפורטל"), manual
-            c.setdefault("rule_id", "R11_ANNUAL_CAP")
+            # בשנת שבתון / חל"ת לא חלה תקרת היחידה לשנה (R12), ולכן זה החוק שמסביר את הרכיב
+            c.setdefault("rule_id", "R12_SABBATICAL_EXEMPT" if status != "רגיל" else "R11_ANNUAL_CAP")
         else:
             c["data"], c["src"], c["src_manual"] = "", "", False
 

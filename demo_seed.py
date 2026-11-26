@@ -1,20 +1,32 @@
 """
 נתוני דמו להצגה: שרה כהן, תלוש ספטמבר 2026.
 
-לא מוחק כלום: מוסיף (או מעדכן) את המורה T900 בלבד ומדפיס את הקישור האישי שלה.
-    python demo_seed.py
+לא מוחק כלום מלבד המורה T900: מוסיף (או מעדכן) אותה ומדפיס את הקישור האישי שלה.
+אפשר להריץ שוב ושוב.
 
-הפער בתלוש: 9.75 יחידות = יחידת המעבר (R08, +1) + גמול כפל תואר (R04, +8.75).
-המספרים בתלוש כמו בהדמיה (מסך T2).
-שני הרכיבים מוכרים במשרד ולא הגיעו לתלוש -> סיבה A במאגר הפעולות.
+    python demo_seed.py            # התרחיש העשיר (ברירת המחדל): שבתון + קורס שהוזן ידנית
+    python demo_seed.py --classic  # התרחיש של התסריט המקורי: 9.75 = יחידת מעבר + כפל תואר
+
+התרחיש העשיר:
+  12 יחידות ערב הרפורמה (תשע"ב), גמול כפל תואר מ-2015 (8.75 יח', כבר בתלוש).
+  תשפ"ב, תשפ"ג: קורס של 112 שעות בכל שנה -> יחידה בכל שנה (תקרה של יחידה לשנה).
+  תשפ"ה: שנת שבתון. שלושה קורסים, 336 שעות -> 3 יחידות, כי בשבתון התקרה לא חלה (R12).
+  תשפ"ו: קורס של 112 שעות שהמורה הזינה בעצמה (לא מופיע בפורטל) -> יחידה.
+  מגיע: 12 + 1 + 1 + 3 + 1 + 8.75 = 26.75.  בתלוש: 22.75.  פער: 4 יחידות.
+  הפער = השבתון (3) + הקורס הידני (1): חשבות לא עדכנה את תשפ"ה, והמוסד לא דיווח את תשפ"ו.
+  -> סיבות A + B: פנייה לחשבות השכר ומייל למוסד ההשתלמות, במקביל.
+
+אסור להריץ את example_run.py: הוא מוחק את כל הטבלאות במסד המשותף.
 """
 import json
 import secrets
+import sys
 from datetime import datetime
 
 from db import get_connection
-from engine import compute_gimul_hishtalmut, init_db
+from engine import compute_gimul_hishtalmut, init_db, school_year_of
 
+CLASSIC = "--classic" in sys.argv
 TID = "T900"
 PAY_MONTH = "2026-09"
 
@@ -28,15 +40,35 @@ conn.execute("""
     INSERT INTO teachers (teacher_id, full_name, is_active_teacher, has_seniority_year, is_pensioner,
         in_reform, reform_start_year, reform_start_date, u_pre, h_pre, has_double_degree_gimul,
         double_degree_start_date, has_beinayim_gimul)
-    VALUES (%s, 'שרה כהן', 1, 1, 0, 1, 'תשע"ב', '2011-09-01', 16, 1900, 1, '2015-09-01', 0)
-""", (TID,))
+    VALUES (%s, 'שרה כהן', 1, 1, 0, 1, 'תשע"ב', '2011-09-01', %s, %s, 1, '2015-09-01', 0)
+""", (TID, 16 if CLASSIC else 12, 1900 if CLASSIC else 0))
+
+# (התחלה, סיום, תיאור, מוסד, שעות, מקור)
+COURSES = [] if CLASSIC else [
+    ("2021-10-03", "2022-05-30", "הוראה מותאמת לתלמידים עם לקויות למידה", "מכון מופ\"ת", 112, "portal"),
+    ("2022-10-02", "2023-05-30", "הערכה חלופית בכיתה", "מכללת לוינסקי", 112, "portal"),
+    ("2024-10-06", "2025-01-20", "בינה מלאכותית בהוראה", "מכון מופ\"ת", 112, "portal"),
+    ("2025-01-26", "2025-04-28", "הוראת מתמטיקה בחטיבה העליונה", "האוניברסיטה העברית", 112, "portal"),
+    ("2025-03-02", "2025-06-15", "חינוך מיוחד: הכלה בכיתה רגילה", "מכללת דוד ילין", 112, "portal"),
+    ("2025-10-05", "2026-05-25", "למידה מבוססת פרויקטים", "מכללת אורנים", 112, "manual"),
+]
+for start, end, desc, inst, hours, src in COURSES:
+    conn.execute("""
+        INSERT INTO courses (teacher_id, start_date, end_date, description, school_year, hours,
+            hours_graded, source_type, graded, grade, pre_approved, source)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 'academic', 1, 92, 1, %s)
+    """, (TID, start, end, f"{desc} — {inst}", school_year_of(start), hours, hours, src))
+if not CLASSIC:
+    for sy, status in (('תשפ"ב', "רגיל"), ('תשפ"ג', "רגיל"), ('תשפ"ה', "שבתון"), ('תשפ"ו', "רגיל")):
+        conn.execute("INSERT INTO employment_status_by_year (teacher_id, school_year, status) VALUES (%s, %s, %s)",
+                     (TID, sy, status))
 conn.commit()
 conn.close()
 
-# בלי קורסים בדמו: 16 יחידות ערב הרפורמה + יחידת מעבר (R08) + כפל תואר (R04) = 25.75
 result = compute_gimul_hishtalmut(TID, f"{PAY_MONTH}-01")
 expected = float(result["U_total"])
-paid = round(expected - 9.75, 2)
+GAP = 9.75 if CLASSIC else 4.0
+paid = round(expected - GAP, 2)
 rate = result.get("pct_per_unit") or 1.3
 
 
@@ -89,5 +121,5 @@ conn.execute("UPDATE teachers SET access_token=%s WHERE teacher_id=%s AND access
 token = conn.execute("SELECT access_token FROM teachers WHERE teacher_id=%s", (TID,)).fetchone()["access_token"]
 conn.commit()
 conn.close()
-print(f"שרה כהן ({TID}): מגיע {expected} יח', בתלוש {paid} יח', פער 9.75")
+print(f"שרה כהן ({TID}, {'קלאסי' if CLASSIC else 'שבתון'}): מגיע {expected} יח', בתלוש {paid} יח', פער {GAP}")
 print(f"קישור אישי: /my/{token}/payslip")

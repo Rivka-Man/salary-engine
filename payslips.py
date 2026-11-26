@@ -340,7 +340,7 @@ def compare(conn, result, slip):
         base_units = float(result["U_base_from_transition"])
         # R08: יחידת מעבר (יחידה 17) - מוצגת כרכיב נפרד, כי היא נתון שהמשרד מכיר
         # ובכל זאת לעיתים קרובות לא מגיעה לתלוש
-        transition = any(t.get("rule_id") == "R08_TRANSITION_UNIT" and t.get("value")
+        transition = any(t.get("rule_id") == "R08_TRANSITION_UNIT" and "הוכרה יחידה" in (t.get("message") or "")
                          for t in result.get("trace") or [])
         if transition and base_units >= 1:
             components.append({"key": "base", "label": "יחידות שהוכרו ערב ההצטרפות לעוז לתמורה",
