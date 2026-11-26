@@ -193,3 +193,27 @@ CREATE TABLE IF NOT EXISTS constitution_versions (
     agreement_id    INTEGER REFERENCES agreements(agreement_id),
     snapshot_json   TEXT NOT NULL
 );
+
+-- ============================================================
+-- סוכן הליווי (agent/): התיק של כל מורה והיומן של מה שהסוכן עשה
+-- ============================================================
+
+-- תיק מורה אחד: מה ידוע ומאיזה מקור, השיחה עם Claude, ושאלה שממתינה לתשובה.
+-- נשמר כדי שאפשר יהיה לעצור ולחזור בדיוק לאותה נקודה דרך הקישור האישי.
+CREATE TABLE IF NOT EXISTS agent_cases (
+    teacher_id     TEXT PRIMARY KEY REFERENCES teachers(teacher_id),
+    case_json      TEXT NOT NULL,          -- התיק: קבצים, עובדות עם מקור, תוצאה, פניות, שאלה ממתינה
+    messages_json  TEXT NOT NULL,          -- ההיסטוריה של השיחה עם Claude (כולל tool_use / tool_result)
+    updated_at     TEXT NOT NULL
+);
+
+-- כל קריאה לכלי ומה שחזר ממנה: למסך "מה הסוכן עשה" ולבדיקה אחרי הדמו.
+CREATE TABLE IF NOT EXISTS agent_events (
+    event_id     SERIAL PRIMARY KEY,
+    teacher_id   TEXT NOT NULL,
+    ts           TEXT NOT NULL,
+    kind         TEXT NOT NULL,            -- 'event' (מהמורה) | 'tool' | 'reply' | 'fallback' | 'error'
+    name         TEXT,                     -- שם הכלי / סוג האירוע
+    input_json   TEXT,
+    output_json  TEXT
+);

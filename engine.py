@@ -431,10 +431,31 @@ def _compute_pre_reform_from_courses(conn, pre_courses, H_unit, calc_date, trace
     return U_pre, H_pre, H_pre_graded
 
 
-def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
+def _apply_overrides(teacher, courses, status_by_year, overrides):
+    """
+    "מה אם" לסוכן: שינוי זמני בנתוני הקלט, בלי לגעת ב-DB. מוחל אחרי הקריאה מה-DB.
+    overrides = {"teacher": {שדה: ערך}, "drop_course_ids": [...], "add_courses": [{...}],
+                 "year_status": {"תשפ\"ה": "רגיל"}}
+    """
+    teacher = dict(teacher, **(overrides.get("teacher") or {}))
+    drop = set(overrides.get("drop_course_ids") or [])
+    courses = [c for c in courses if c.get("course_id") not in drop]
+    for i, c in enumerate(overrides.get("add_courses") or []):
+        base = {"course_id": -(i + 1), "teacher_id": teacher["teacher_id"], "end_date": None, "description": "מה אם",
+                "school_year": None, "hours_graded": None, "hours_ungraded": None, "source_type": "institutional",
+                "graded": 0, "grade": None, "pre_approved": 1, "is_advanced_degree_track": 0, "counts_for_oz": 1,
+                "source": "what_if"}
+        courses.append(dict(base, **c))
+    courses.sort(key=lambda c: c.get("start_date") or "")
+    status_by_year = dict(status_by_year, **(overrides.get("year_status") or {}))
+    return teacher, courses, status_by_year
+
+
+def compute_gimul_hishtalmut(teacher_id: str, calc_date: str, overrides: dict = None) -> dict:
     """
     מריץ את מנוע חוקי גמול ההשתלמות על מורה נתון, עד לתאריך calc_date.
     מחזיר dict עם הפלט המלא + trace (audit trail).
+    overrides: חישוב "מה אם" (ראו _apply_overrides). חישוב כזה לא נשמר ב-calculation_runs.
     """
     conn = get_connection()
     trace = Trace()
@@ -445,6 +466,8 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
 
     courses = get_courses(conn, teacher_id)
     status_by_year = get_status_by_year(conn, teacher_id)
+    if overrides:
+        teacher, courses, status_by_year = _apply_overrides(teacher, courses, status_by_year, overrides)
 
     # --- R01/R15: קביעת H_unit ---
     if teacher["is_pensioner"]:
@@ -740,6 +763,11 @@ def compute_gimul_hishtalmut(teacher_id: str, calc_date: str) -> dict:
         "rejected_courses": rejected,
         "trace": trace.steps,
     }
+
+    if overrides:
+        result["what_if"] = overrides
+        conn.close()
+        return result
 
     conn.execute("""
         INSERT INTO calculation_runs
