@@ -16,6 +16,7 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 
 from agreements import bp as agreements_bp
 from backoffice import bp as backoffice_bp
+from chat import bp as chat_bp
 from db import get_connection
 from engine import RULES_METADATA, SCHOOL_YEAR_START, compute_gimul_hishtalmut, init_db, school_year_of
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
@@ -88,6 +89,7 @@ def admin_logout():
 
 app.register_blueprint(backoffice_bp)
 app.register_blueprint(agreements_bp)
+app.register_blueprint(chat_bp)
 
 
 def _rule_texts():

@@ -18,6 +18,7 @@ import payslips
 from engine import school_year_of
 from pdf_import import parse_courses_pdf, parse_maktav_haasaka_pdf, parse_oz_join_pdf
 
+from agent import demo_docs
 from agent.store import DOC_LABELS, get_document, set_doc_type
 
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".webp")
@@ -40,6 +41,8 @@ def detect(filename, data, extract_payslip=None):
     מזהה את סוג הקובץ ומחזיר (doc_type, parsed). parsed הוא מה שהקריאה החזירה.
     extract_payslip ניתן להחלפה בבדיקות.
     """
+    if demo_docs.is_demo(data):  # המסלול הירוק: קובץ דמו בלחיצה (agent/demo_docs.py)
+        return demo_docs.parse(data)
     name = (filename or "").lower()
     is_pdf = name.endswith(".pdf") or data[:5] == b"%PDF-"
     if is_pdf:
@@ -116,6 +119,16 @@ def _save_courses(conn, tid, rows):
     return {"courses": len(rows)}, f"{len(rows)} קורסים{span}"
 
 
+def _save_vacations(conn, tid, by_year):
+    """עמוד "חל"ת ושבתון" בפורטל: {שנת לימודים: סטטוס}."""
+    for sy, st in by_year.items():
+        conn.execute(
+            """INSERT INTO employment_status_by_year (teacher_id, school_year, status) VALUES (%s,%s,%s)
+               ON CONFLICT (teacher_id, school_year) DO UPDATE SET status=EXCLUDED.status""", (tid, sy, st))
+    special = [f"{'שבתון' if st == 'שבתון' else st} {sy}" for sy, st in by_year.items() if st != "רגיל"]
+    return {"years": by_year}, (" · ".join(special) or "בלי שבתון או חל\"ת")
+
+
 def _save_payslip(conn, tid, doc_id, ext):
     month = ext.get("pay_month")
     gimul = ext.get("gimul") or {}
@@ -154,6 +167,8 @@ def read_file(conn, teacher_id, doc_id, extract_payslip=None):
             out["saved"], out["detail"] = _save_maktav(conn, teacher_id, parsed)
         elif kind == "courses":
             out["saved"], out["detail"] = _save_courses(conn, teacher_id, parsed)
+        elif kind == "vacations":
+            out["saved"], out["detail"] = _save_vacations(conn, teacher_id, parsed)
         elif kind == "payslip":
             saved, detail = _save_payslip(conn, teacher_id, doc_id, parsed)
             out["detail"] = detail
