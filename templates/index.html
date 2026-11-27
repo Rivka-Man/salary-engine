@@ -58,7 +58,7 @@
           <td>{{ month_label(st.month) if st.month else '—' }}</td>
           <td>{{ counts.get(t.teacher_id, 0) }}</td>
           <td>{% if t.in_reform %}<span class="chip accent">{{ t.reform_start_year or 'כן' }}</span>{% else %}<span class="chip neutral">לא</span>{% endif %}</td>
-          <td>{% if t.access_token %}<button type="button" class="copy" data-url="{{ url_for('my_dashboard', token=t.access_token, _external=True) }}">העתקת קישור</button>{% endif %}</td>
+          <td>{% if t.access_token %}<button type="button" class="copy" data-url="{{ url_for('chat.chat_page', token=t.access_token, _external=True) }}">העתקת קישור</button>{% endif %}</td>
           <td>
             <form method="post" action="{{ url_for('delete_teacher', teacher_id=t.teacher_id) }}" onsubmit="return confirm('למחוק את המורה וכל הנתונים שלה לצמיתות?');">
               <button type="submit" class="btn-danger">מחיקה</button>

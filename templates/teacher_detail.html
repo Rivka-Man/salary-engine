@@ -17,7 +17,7 @@
 <section class="panel">
   <div class="panel-head"><span class="panel-title">קישור אישי למורה</span></div>
   <div class="panel-body" style="flex-direction:row; align-items:center; flex-wrap:wrap; gap:0.75rem;">
-    <input class="mono" type="text" id="personal-link-input" readonly value="{{ request.host_url.rstrip('/') }}{{ url_for('my_dashboard', token=teacher.access_token) }}"
+    <input class="mono" type="text" id="personal-link-input" readonly value="{{ request.host_url.rstrip('/') }}{{ url_for('chat.chat_page', token=teacher.access_token) }}"
            style="flex:1; min-width:260px; padding:0.5rem 0.65rem; border:1px solid var(--line-strong); border-radius:6px; background:var(--paper); color:var(--ink); font-size:0.85rem;"
            onclick="this.select();">
     <button type="button" class="btn btn-primary" id="copy-link-btn" onclick="copyPersonalLink()">העתקת קישור</button>
