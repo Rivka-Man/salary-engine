@@ -12,7 +12,7 @@ from flask import Blueprint, abort, jsonify, render_template, request
 
 from agent import run_agent
 from agent.demo_docs import make, reset_demo
-from agent.store import DOC_LABELS, portal_guide, save_upload
+from agent.store import DOC_LABELS, portal_guide, reset_case, save_upload
 from db import get_connection
 
 bp = Blueprint("chat", __name__)
@@ -76,6 +76,18 @@ def chat_demo_file(token):
     if not ids:
         abort(400)
     return jsonify(run_agent(t["teacher_id"], {"type": "files", "doc_ids": ids}))
+
+
+@bp.route("/my/<token>/chat/new-check", methods=["POST"])
+def chat_new_check(token):
+    """תלוש חדש: שיחה חדשה. הקבצים, הקורסים והתשובות של המורה נשארים, רק התלוש מתחלף."""
+    t = _teacher(token)
+    conn = get_connection()
+    try:
+        reset_case(conn, t["teacher_id"])
+    finally:
+        conn.close()
+    return jsonify({"ok": True})
 
 
 @bp.route("/my/<token>/chat/reset", methods=["POST"])

@@ -209,6 +209,25 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
 .gs-h{gap:10px!important;font-weight:600;font-size:.95rem;align-items:flex-start!important}
 .gs .num{width:28px!important;height:28px!important;font-size:.9rem!important;font-weight:700;background:#E4E6F0!important;color:#4A4F66!important;margin-top:-2px}
 .gs .scr{margin-inline-start:38px}
+/* clearer guide button and step separators */
+.nd .help{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 45%,#fff)!important;background:#fff!important;color:var(--accent)!important;
+  border-radius:999px;padding:5px 11px!important;font-size:.85rem!important;font-weight:600;text-decoration:none!important;opacity:1}
+.nd .help:hover{background:color-mix(in srgb,var(--accent) 8%,#fff)!important}
+.gs{border-top:2px solid #C9CDE0!important;padding:16px 0!important}
+.gd>.go+.gs{border-top-width:2px}
+.tops{display:flex;gap:6px;align-items:center}
+.newslip{display:inline-flex;align-items:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 45%,#fff);background:#fff;color:var(--accent);border-radius:999px;padding:7px 12px;font-weight:600;font-size:.85rem}
+.resumed{display:flex;align-items:center;gap:8px;color:var(--soft);font-size:.8rem;margin:4px 0}
+.resumed::before,.resumed::after{content:"";flex:1;height:1px;background:var(--line)}
+.old button,.old input,.old a{pointer-events:none;opacity:.55}
+.newslip.reset{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,#fff)}
+.top{flex-wrap:wrap;gap:6px}
+.act .h small.why{display:block;font-weight:400;color:var(--soft);font-size:.8rem}
+.tl{display:flex;flex-direction:column;gap:8px;margin-top:8px;position:relative}
+.tl div{display:flex;align-items:flex-start;gap:8px;font-size:.9rem}
+.tl .dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);margin-top:5px;flex:none}
+.tl .dot.on{background:var(--accent)}
+.dids{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -239,7 +258,8 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
     <path d="M52 71 q8 7 16 0" stroke="#2A2F55" stroke-width="3" fill="none" stroke-linecap="round"/>
     <circle cx="38" cy="68" r="4" fill="#F7B5D6" opacity=".8"/><circle cx="82" cy="68" r="4" fill="#F7B5D6" opacity=".8"/>
     <rect x="10" y="50" width="10" height="22" rx="5" fill="#8C9BE8"/><rect x="100" y="50" width="10" height="22" rx="5" fill="#8C9BE8"/>
-    <rect x="40" y="96" width="40" height="14" rx="7" fill="url(#gb)"/>
+    <rect x="26" y="95" width="68" height="20" rx="10" fill="url(#gb)"/>
+    <text x="60" y="109.5" text-anchor="middle" font-family="Rubik,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" direction="ltr">OptiPay</text>
   </symbol>
 </svg>
 
@@ -248,7 +268,8 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
 <div class="stage" dir="rtl" lang="he">
   <section class="phone" aria-label="OptiPay">
     <div class="top">
-      <button class="round" id="reset" aria-label="התחלה מחדש" title="התחלה מחדש"><span class="ms">refresh</span></button>
+      <span class="tops"><button class="newslip" id="newslip" title="בדיקה של תלוש חדש. הקבצים והתשובות שלך נשמרים"><span class="ms">add</span> תלוש חדש</button>
+      {% if demo %}<button class="newslip reset" id="reset" title="מוחק את כל הקבצים והתשובות של המורה, ומתחילים מאפס"><span class="ms">restart_alt</span> איפוס המורה</button>{% endif %}</span>
       <div class="ttl">OptiPay <span class="dots" aria-label="התקדמות"><i id="d1" class="on"></i><i id="d2"></i><i id="d3"></i></span></div>
       <span class="round" aria-hidden="true"><svg viewBox="0 0 120 120" width="30" height="30"><use href="#bot"/></svg></span>
     </div>
@@ -267,7 +288,7 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
 <input type="file" id="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" hidden>
 <div class="overlay" id="overlay" hidden><div>שחררי כאן</div></div>
 
-<script id="cfg" type="application/json">{{ {"token": token, "name": first_name, "demo": demo, "guides": guides, "portal": "https://pob.education.gov.il"}|tojson }}</script>
+<script id="cfg" type="application/json">{{ {"token": token, "name": first_name, "demo": demo, "guides": guides, "portal": "https://poh.education.gov.il"}|tojson }}</script>
 <script>
 (function(){
   const CFG=JSON.parse(document.getElementById('cfg').textContent);
@@ -281,18 +302,21 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const el=h=>{ const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstChild; };
   const n=x=>{ const f=Number(x); return isNaN(f)?x:(Math.round(f*100)/100).toLocaleString('he-IL'); };
-  const down=()=>{ const last=log.lastElementChild; if(!last) return;
-    if(last.offsetHeight>log.clientHeight-20) log.scrollTop=last.offsetTop-8; else log.scrollTop=log.scrollHeight; };
+  // תור = מההודעה שלה ועד סוף התשובה. אם התשובה ארוכה מהמסך, נשארים בתחילתה ולא קופצים לסוף
+  let anchor=null;
+  const down=()=>{ if(!log.lastElementChild) return;
+    if(anchor&&anchor.isConnected&&log.scrollHeight-anchor.offsetTop>log.clientHeight-8) log.scrollTop=anchor.offsetTop-8;
+    else log.scrollTop=log.scrollHeight; };
   const dots=k=>[1,2,3].forEach(i=>$('#d'+i).classList.toggle('on',i<=k));
   const MONTHS=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   const month=m=>{ const x=/^(\d{4})-(\d{2})/.exec(m||''); return x?MONTHS[+x[2]-1]+' '+x[1]:(m||''); };
   const who=a=>String(a.to||a.title||'').replace(/[\[\]]/g,'');
   const ICON={payslip:'slip',courses:'cap',oz_join:'badge',vacations:'sun',maktav:'mail',gmulim:'cap',unknown:'x'};
-  const CORE=['payslip','courses','oz_join'];
+  const CORE=['payslip','oz_join','courses'];
   let ready=Promise.resolve(), epoch=0, busy=false, lastOut=null, sentAll=false, later=false, nudgeTimer=null;
 
   // ---------- bubbles ----------
-  function me(h){ log.appendChild(el('<div class="row me">'+h+'</div>')); down(); }
+  function me(h){ anchor=el('<div class="row me">'+h+'</div>'); log.appendChild(anchor); down(); }
   function meText(t){ me('<div class="b">'+esc(t)+'</div>'); }
   function meFiles(names){ me('<div class="col" style="align-items:flex-end">'+names.map(x=>'<span class="file">'+I(x[0])+esc(x[1])+'</span>').join('')+'</div>'); }
   // one robot turn = one bubble; sections split by a thin line
@@ -303,7 +327,7 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
     if(secs.filter(Boolean).length>1||b.querySelector('.res,.act,.gd,.need,.list,.slip')) b.classList.add('wide');
     down(); return b;
   }
-  async function say(secs){ const b=bubble(); await wait(380); return fill(b,secs); }
+  async function say(secs){ const b=bubble(); await wait(150); return fill(b,secs); }
   function chips(list){ const c=el('<div class="chips in"></div>'); list.forEach(([lbl,fn,cls])=>{ const x=el('<button class="chip '+(cls||'')+'">'+lbl+'</button>');
     x.addEventListener('click',()=>{ c.querySelectorAll('.chip').forEach(y=>y.disabled=true); x.classList.add('picked'); fn(x); }); c.appendChild(x); }); return c; }
   function textWith(html,chipList){ const d=el('<div class="sec">'+html+'</div>'); if(chipList) d.appendChild(chips(chipList)); return d; }
@@ -327,8 +351,8 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   const demoFiles=(kinds,names)=>{ meFiles(names); return run('/demo-file',{kinds},false,'קוראת את הקבצים…'); };
   const UPLOAD={
     payslip:()=>demoFiles(['payslip'],[['slip','תלוש_09_2026.pdf']]),
-    courses:()=>demoFiles(['courses','oz_join','unknown'],[['cap','הקורסים_שלי.pdf'],['badge','עוז_הצטרפות.pdf'],['slip','תעודת_הוקרה.pdf']]),
-    oz_join:()=>UPLOAD.courses(),
+    courses:()=>demoFiles(['courses'],[['cap','הקורסים_שלי.pdf']]),
+    oz_join:()=>demoFiles(['oz_join'],[['badge','עוז_הצטרפות.pdf']]),
     vacations:()=>demoFiles(['vacations'],[['sun','חלת_ושבתון_תשפה.pdf']])
   };
   function upload(dt){ if(CFG.demo&&UPLOAD[dt]) return UPLOAD[dt](); $('#file').click(); }
@@ -363,7 +387,7 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   // ---------- slots: "תעלי לי" with העלאה + הדרכה ----------
   function slots(docs){
     const d=el('<div class="sec"><div class="need">'+docs.map(x=>'<div class="nd"><div class="nd-h"><span class="ic">'+I(ICON[x.doc_type]||'slip')+'</span><b>'+esc(x.label)+'</b><span class="sp"></span>'+
-      '<button class="help" data-help="'+x.doc_type+'">הדרכה</button><button class="up" data-up="'+x.doc_type+'">'+I('up')+' העלאה</button></div></div>').join('')+'</div></div>');
+      '<button class="help" data-help="'+x.doc_type+'">'+I('menu_book')+' הדרכה</button><button class="up" data-up="'+x.doc_type+'">'+I('up')+' העלאה</button></div></div>').join('')+'</div></div>');
     d.querySelectorAll('[data-up]').forEach(b=>b.addEventListener('click',()=>upload(b.dataset.up)));
     d.querySelectorAll('[data-help]').forEach(b=>b.addEventListener('click',()=>guide(b.dataset.help)));
     return d;
@@ -371,22 +395,30 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
 
   // ---------- render one agent answer ----------
   const by=(out,t)=>(out.cards||[]).filter(c=>c.type===t);
-  function didLine(out){ return (out.did&&out.did.length)?'<div class="did">'+I('check')+'<span>'+out.did.length+' פעולות</span></div>':''; }
+  function didLine(out){ return (out.did&&out.did.length)?'<div class="dids">'+out.did.map(d=>'<div class="did">'+I('check')+'<span>'+esc(d)+'</span></div>').join('')+'</div>':''; }
   async function render(out){
     const files=by(out,'file'), guides=by(out,'guide'), q=by(out,'question')[0], res=by(out,'result')[0], acts=by(out,'action'), rem=by(out,'reminder')[0];
     const docs=(out.case&&out.case.docs)||[];
     const secs=[];
+    if(didLine(out)&&!files.length) secs.push(didLine(out));
     if(files.length) secs.push(didLine(out)+'<div class="list">'+files.map(f=>'<div class="li"><span class="ic">'+I(ICON[f.doc_type]||'slip')+'</span><span>'+esc(f.label)+'<small>'+esc(f.detail||'')+'</small></span><span class="st '+(f.ok?'':'no')+'">'+I(f.ok?'check':'x')+'</span></div>').join('')+'</div>');
-    if(res){ if(secs.length) await say(secs); return result(out,res,acts); }
+    if(res){
+      // מה שימש לבדיקה: גם מסמכים ששמורים מפעם קודמת (למשל אחרי "תלוש חדש"), כדי שיהיה ברור על מה החישוב
+      const used=docs.filter(d=>d.status==='read'&&!files.some(f=>f.doc_type===d.doc_type));
+      if(used.length) secs.push('בדקתי לפי מה ששמור אצלי:<div class="list">'+used.map(d=>'<div class="li"><span class="ic">'+I(ICON[d.doc_type]||'slip')+'</span><span>'+esc(d.label)+'<small>'+esc(d.detail||'')+'</small></span><span class="st">'+I('check')+'</span></div>').join('')+'</div>');
+      if(secs.length) await say(secs); return result(out,res,acts); }
     if(rem){ return finale(rem); }
-    if(q){ dots(2); secs.push(textWith(esc(out.text||q.text).replace(/:$/,':')+'<br><b>'+esc(q.text)+'</b>',q.options.map(o=>[esc(o),()=>answer(o)]))); return say(secs); }
+    if(q){ dots(2);
+      const g=guides.find(x=>!CORE.includes(x.doc_type));
+      if(g){ if(secs.length) await say(secs); await say([guideSec(g.doc_type,out.text||'')]); return say([textWith('<b>'+esc(q.text)+'</b>',q.options.map(o=>[esc(o),()=>answer(o)]))]); }
+      secs.push(textWith(esc(out.text||q.text).replace(/:$/,':')+'<br><b>'+esc(q.text)+'</b>',q.options.map(o=>[esc(o),()=>answer(o)]))); return say(secs); }
     const coreGuide=guides.find(g=>CORE.includes(g.doc_type));
     if(coreGuide){
-      const missing=docs.filter(d=>CORE.includes(d.doc_type)&&d.status==='missing');
-      const have=docs.find(d=>d.doc_type==='payslip'&&d.status==='read');
-      dots(have?2:1);
-      secs.push(have?'התלוש התקבל '+I('check')+'<br>עכשיו תעלי לי עוד <b>'+missing.length+' '+(missing.length===1?'קובץ':'קבצים')+'</b>':'שלחי לי את <b>'+esc(missing[0]?missing[0].label:'הקובץ')+'</b>');
-      secs.push(slots(missing.length?missing:[{doc_type:coreGuide.doc_type,label:coreGuide.label}]));
+      const got=docs.filter(d=>CORE.includes(d.doc_type)&&d.status==='read').length;
+      const label=coreGuide.label||((CFG.guides[coreGuide.doc_type]||{}).label);
+      dots(got?2:1);
+      secs.push(got?'קיבלתי '+I('check')+' ('+got+' מתוך 3), עכשיו: <b>'+esc(label)+'</b>':'שלחי לי את <b>'+esc(label)+'</b>');
+      secs.push(slots([{doc_type:coreGuide.doc_type,label:label}]));
       return say(secs);
     }
     if(guides.length){ if(secs.length) await say(secs); return guide(guides[0].doc_type,out.text||'אין בעיה, נבדוק ביחד. ככה מגיעים לזה בפורטל:'); }
@@ -400,7 +432,7 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
     if(res.ok){ return say(['בדקתי '+I('check')+'<br>'+esc(out.text||'')]); }
     const gap=Number(res.gap_units), per=gap?Number(res.gap_ils)/gap:0;
     await say(['מצאתי',
-      '<div class="res"><div class="r1"><span class="n">+'+n(gap)+'</span><div><b>יחידות חסרות בתלוש</b><span>≈ ₪'+n(Math.round(res.gap_ils))+' בכל חודש</span></div></div>'+
+      '<div class="res"><div class="r1"><span class="n">+'+n(gap)+'</span><div><b>יחידות חסרות בתלוש</b><span>מגיע '+n(res.expected)+' · בתלוש '+n(res.paid)+' · כ-₪'+n(Math.round(res.gap_ils))+' בחודש</span></div></div>'+
       '<div class="track"><i style="width:'+Math.max(5,Math.min(100,100*res.paid/res.expected))+'%"></i></div>'+
       '<div class="pills">'+(res.parts||[]).map(p=>'<span class="pill">+'+n(p.units)+' '+esc(p.label)+'</span>').join('')+'</div></div>']);
     await say(['ככה זה נראה בתלוש שלך:',
@@ -409,10 +441,10 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
       '<div class="slip-r bad"><span>249</span><span>גמול השתלמות</span><span><s>'+n(res.paid)+'</s> <b>'+n(res.expected)+'</b></span><span><s>'+n(res.paid*per)+'</s> <b>'+n(res.expected*per)+'</b></span></div>'+
       '<div class="slip-note">'+I('x')+' שורה 249: חסרות <b>'+n(gap)+' יחידות</b></div></div>']);
     if(acts.length){
-      const b=await say([textWith('הכנתי '+acts.length+' פניות. שולחים במקביל',[[I('schedule')+' אשלח אחר כך',()=>sendLater()]]),acts.map(actHtml).join('')]);
+      const b=await say([textWith('הכנתי '+acts.length+' פניות. <b>המטרה: שה-'+n(gap)+' יחידות ייכנסו לתלוש שלך, כולל הפרשים.</b> שולחים במקביל',[[I('schedule')+' אשלח אחר כך',()=>sendLater()]]),acts.map(actHtml).join('')]);
       wireActs(b,acts);
       sentAll=false; later=false; clearTimeout(nudgeTimer); const my=epoch;
-      nudgeTimer=setTimeout(()=>{ if(my===epoch&&!sentAll&&!later&&!document.querySelector('.done-ok')) nudge(); },reduce?2000:35000);
+
     }
     const sg=$('#sugg'); sg.innerHTML='';
     (res.parts||[]).forEach(p=>{ const c=el('<button class="chip">למה +'+n(p.units)+'?</button>');
@@ -421,13 +453,14 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
       sg.appendChild(c); });
   }
   const ID_PH='[ת"ז — להשלים]';
+  const PURPOSE={payroll:'שיעדכנו את הגמול בתלוש',ministry:'שיעדכנו את הגמול בתלוש',institution:'שידווחו על הקורס שחסר, כדי שייספר',unique:'שידווחו על הקורס שחסר, כדי שייספר'};
   function actHtml(a){
     const s=a.send||{}, id=a.track;
     const go=s.kind==='portal'
       ? '<a class="go" data-go="'+id+'" href="'+esc(s.url||CFG.portal)+'" target="_blank" rel="noopener">פתיחת פנייה '+I('open_in_new')+'</a>'
       : s.kind==='email' ? '<a class="go" data-gmail="'+id+'" target="_blank" rel="noopener">Gmail '+I('open_in_new')+'</a><a class="go2" data-outlook="'+id+'" target="_blank" rel="noopener">Outlook '+I('open_in_new')+'</a>' : '';
-    return '<div class="act" data-card="'+id+'"><div class="h"><span class="ic">'+I(s.kind==='email'?'mail':'bank')+'</span>'+esc(who(a))+'</div>'+
-      '<div class="btns">'+go+'<button class="go2" data-sent="'+id+'">'+I('check')+' שלחתי</button></div>'+
+    return '<div class="act" data-card="'+id+'"><div class="h"><span class="ic">'+I(s.kind==='email'?'mail':'bank')+'</span><span>'+esc(who(a))+(PURPOSE[a.track]?'<small class="why">'+PURPOSE[a.track]+'</small>':'')+'</span></div>'+
+      '<div class="btns">'+go+(a.sent?'<span class="done-ok">'+I('check')+' נשלח</span>':'<button class="go2" data-sent="'+id+'">'+I('check')+' שלחתי</button>')+'</div>'+
       '<span class="toast" data-toast="'+id+'" hidden></span>'+
       '<details class="more"><summary>הנוסח · ת"ז</summary><label class="idf">'+I('lock')+'<input data-id="'+id+'" inputmode="numeric" placeholder="ת&quot;ז (נשאר אצלך)"></label>'+
       '<div class="ltxt" data-txt="'+id+'"></div></details></div>';
@@ -443,9 +476,9 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
       refresh(); inp.addEventListener('input',refresh);
       const toast=m=>{ const t=b.querySelector('[data-toast="'+id+'"]'); t.textContent=m; t.hidden=false; };
       const go=b.querySelector('[data-go="'+id+'"]');
-      if(go) go.addEventListener('click',()=>{ try{ navigator.clipboard.writeText(body()).then(()=>toast('הנוסח הועתק · "שירות ותמיכה" ← "פתיחת פנייה" ← הדביקי'),()=>toast('פתחי "הנוסח" והעתיקי אותו')); }catch(_){ toast('פתחי "הנוסח" והעתיקי אותו'); } });
+      if(go) go.addEventListener('click',()=>{ try{ navigator.clipboard.writeText(body()).then(()=>toast('הנוסח הועתק · אחרי הכניסה, פותחים פנייה ומדביקים בתיאור (Ctrl+V)'),()=>toast('פתחי "הנוסח" והעתיקי אותו')); }catch(_){ toast('פתחי "הנוסח" והעתיקי אותו'); } });
       b.querySelectorAll('[data-gmail="'+id+'"],[data-outlook="'+id+'"]').forEach(x=>x.addEventListener('click',()=>toast('נפתח מייל מוכן')));
-      b.querySelector('[data-sent="'+id+'"]').addEventListener('click',e=>{
+      const sb=b.querySelector('[data-sent="'+id+'"]'); if(sb) sb.addEventListener('click',e=>{
         e.currentTarget.outerHTML='<span class="done-ok">'+I('check')+' נשלח</span>';
         meText('שלחתי ל'+who(a)); run('/event',{type:'sent',track:id},false,'רושמת…');
       });
@@ -455,13 +488,22 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
 
   // ---------- end, later, nudge ----------
   async function finale(rem){
-    sentAll=true; clearTimeout(nudgeTimer); $('#sugg').innerHTML='';
-    const it=(rem.items||[])[0]||{}, d=it.date?new Date(it.date):null;
-    await say(['כל הכבוד'+(CFG.name?', '+esc(CFG.name):'')+'! סיימנו להיום.',
-      '<div class="sum"><div>'+I('check')+' התלוש נבדק מול ההסכם</div><div>'+I('check')+' הפניות יצאו</div><div>'+I('check')+' התיק שלך שמור אצלי</div></div>',
-      '<b>מה הלאה?</b><br>'+(d?'ב-<b>'+d.getDate()+'.'+(d.getMonth()+1)+'</b> ':'בחודש הבא ')+'יגיע התלוש הבא. שלחי לי אותו, ואבדוק שהתיקון נכנס, כולל הפרשים.',
-      '<div class="act">'+(rem.items||[]).map(x=>'<div class="h"><span class="ic">'+I('cal')+'</span>'+esc(x.label)+'</div><div class="btns"><a class="go" target="_blank" rel="noopener" href="'+esc(x.google)+'">Google '+I('open_in_new')+'</a><a class="go2" target="_blank" rel="noopener" href="'+esc(x.outlook)+'">Outlook '+I('open_in_new')+'</a></div>').join('')+'</div>']);
+    // סגירה ברורה: מה עשינו, מה יקרה ומתי, תזכורת, ופרידה. אחרי זה הסוכן לא שואל עוד
+    sentAll=true; closed=true; clearTimeout(nudgeTimer); $('#sugg').innerHTML=''; dots(3);
+    const items=rem.items||[], dt=x=>{ const d=x&&x.date?new Date(x.date):null; return d?d.getDate()+'.'+(d.getMonth()+1):''; };
+    const res=lastOut&&by(lastOut,'result')[0];
+    await say(['<b>כל הכבוד'+(CFG.name?', '+esc(CFG.name):'')+'! סיימנו להיום.</b>',
+      '<div class="sum"><div>'+I('check')+' התלוש נבדק מול ההסכם</div><div>'+I('check')+' הפניות נשלחו</div><div>'+I('check')+' התיק שלך שמור אצלי</div></div>',
+      '<b>מה יקרה עכשיו</b><div class="tl">'+
+        '<div><span class="dot on"></span><b>היום</b> · הפניות נשלחו</div>'+
+        '<div><span class="dot"></span><b>'+(dt(items[0])||'בחודש הבא')+'</b> · התלוש הבא. תעלי אותו, ואבדוק שה'+(res?'-'+n(res.gap_units)+' ':'')+'יחידות נכנסו, כולל הפרשים</div>'+
+        (items[1]?'<div><span class="dot"></span><b>'+dt(items[1])+'</b> · אם אין תשובה מחשבות השכר, מוקד ‎*6552</div>':'')+'</div>',
+      '<div class="act">'+items.map(x=>'<div class="h"><span class="ic">'+I('cal')+'</span>'+esc(x.label)+'</div><div class="btns"><a class="go" target="_blank" rel="noopener" href="'+esc(x.google)+'">Google '+I('open_in_new')+'</a><a class="go2" target="_blank" rel="noopener" href="'+esc(x.outlook)+'">Outlook '+I('open_in_new')+'</a></div>').join('')+'</div>',
+      'אני כאן כשהתלוש הבא יגיע. להתראות!']);
+    log.appendChild(el('<div class="resumed">הבדיקה הסתיימה</div>')); down();
+    $('#msg').placeholder='אפשר לשאול אותי כל שאלה';
   }
+
   async function sendLater(){
     if(later) return; later=true; clearTimeout(nudgeTimer);
     const t=new Date(); t.setDate(t.getDate()+1); const ymd=t.getFullYear()+String(t.getMonth()+1).padStart(2,'0')+String(t.getDate()).padStart(2,'0');
@@ -477,14 +519,38 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   }
 
   // ---------- start ----------
+  // ---------- history: the chat stays when she leaves and comes back ----------
+  const KEY='optipay-chat-'+CFG.token;
+  const save=()=>{ try{ localStorage.setItem(KEY,log.innerHTML); }catch(e){} };
+  const forget=()=>{ try{ localStorage.removeItem(KEY); }catch(e){} };
+  let saveT=null; new MutationObserver(()=>{ clearTimeout(saveT); saveT=setTimeout(save,300); }).observe(log,{childList:true,subtree:true,characterData:true});
+  function hello(sub){ log.appendChild(el('<div class="hello"><div class="bot-hero"><svg viewBox="0 0 120 120"><use href="#bot"/></svg></div><h1>היי'+(CFG.name?' '+esc(CFG.name):'')+'</h1><p>'+sub+'</p></div>')); }
+
   async function start(){
-    log.innerHTML=''; $('#sugg').innerHTML=''; dots(1);
-    log.appendChild(el('<div class="hello"><div class="bot-hero"><svg viewBox="0 0 120 120"><use href="#bot"/></svg></div><h1>היי'+(CFG.name?' '+esc(CFG.name):'')+'</h1><p>נבדוק יחד את הגמול שלך</p></div>'));
-    // בדמו פותחים תמיד מאפס, מיד (resume מול המסד לוקח כמה שניות). מורה אמיתית ממשיכה מאיפה שעצרה
-    let out=null; if(!CFG.demo){ try{ out=await post('/event',{type:'resume'}); }catch(e){} }
+    closed=false; $('#sugg').innerHTML=''; dots(1);
+    if(CFG.demo){ forget(); try{ await post('/reset'); }catch(e){} }
+    let saved=null; try{ saved=localStorage.getItem(KEY); }catch(e){}
+    let out=null; try{ out=await post('/event',{type:'resume'}); }catch(e){}
     const docs=(out&&out.case&&out.case.docs)||[];
-    if(out&&docs.some(d=>d.status==='read')){ lastOut=out; return render(out); }
-    await say([textWith('שלחי לי את <b>התלוש האחרון</b>',[[I('up')+' העלאת תלוש',()=>upload('payslip'),'main'],['איפה מוצאים?',()=>guide('payslip')]])]);
+    const started=docs.some(d=>d.status==='read');
+    if(saved&&started){
+      // השיחה הקודמת נשארת לקריאה, והכפתורים שלה כבויים. ממשיכים מהנקודה ששמורה בשרת
+      log.innerHTML=saved; log.querySelectorAll('.row,.hello').forEach(r=>r.classList.add('old'));
+      log.querySelectorAll('.typing,.spin').forEach(x=>x.closest('.row')&&x.closest('.row').remove());
+      log.appendChild(el('<div class="resumed">ממשיכים מאיפה שעצרנו</div>'));
+      anchor=log.lastElementChild; lastOut=out; return render(out);
+    }
+    log.innerHTML=''; hello('נבדוק את התלוש שלך');
+    if(started){ lastOut=out; anchor=log.lastElementChild; return render(out); }
+    await say([textWith('שלחי לי <b>תלוש לבדיקה</b>',[[I('up')+' העלאת תלוש',()=>upload('payslip'),'main'],['איפה מוצאים?',()=>guide('payslip')]])]);
+  }
+
+  // ---------- new payslip: same teacher, files and answers kept, new check ----------
+  async function newPayslip(){
+    closed=false; epoch++; busy=false; clearTimeout(nudgeTimer); forget();
+    try{ await post('/new-check'); }catch(e){}
+    log.innerHTML=''; $('#sugg').innerHTML=''; dots(1); hello('בדיקה של תלוש חדש');
+    await say([textWith('הקבצים מהפורטל והתשובות שלך שמורים אצלי. תעלי לי רק את <b>התלוש לבדיקה</b>',[[I('up')+' העלאת תלוש',()=>upload('payslip'),'main'],['איפה מוצאים?',()=>guide('payslip')]])]);
   }
   async function send(){ const v=$('#msg').value.trim(); if(!v) return; $('#msg').value=''; meText(v);
     const q=lastOut&&by(lastOut,'question')[0];
@@ -494,7 +560,8 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   $('#plus').addEventListener('click',()=>$('#file').click());
   async function realFiles(list){ if(!list.length) return; meFiles([...list].map(f=>['slip',f.name])); const fd=new FormData(); [...list].forEach(f=>fd.append('files',f)); await run('/upload',fd,true,'קוראת את הקבצים…'); }
   $('#file').addEventListener('change',e=>{ realFiles(e.target.files); e.target.value=''; });
-  $('#reset').addEventListener('click',async()=>{ epoch++; busy=false; clearTimeout(nudgeTimer);
+  $('#newslip').addEventListener('click',newPayslip);
+  if($('#reset')) $('#reset').addEventListener('click',async()=>{ if(!confirm('לאפס את המורה? כל הקבצים והתשובות יימחקו.')) return; epoch++; busy=false; clearTimeout(nudgeTimer); forget(); log.innerHTML='';
     if(CFG.demo){ try{ await post('/reset'); }catch(e){} } start(); });
   const ov=$('#overlay'); let depth=0;
   const hasFiles=ev=>ev.dataTransfer&&Array.from(ev.dataTransfer.types||[]).includes('Files');
@@ -503,7 +570,33 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
   document.addEventListener('dragleave',ev=>{ if(!hasFiles(ev))return; if(--depth<=0){ depth=0; ov.hidden=true; } });
   document.addEventListener('drop',ev=>{ if(!hasFiles(ev))return; ev.preventDefault(); depth=0; ov.hidden=true; realFiles(ev.dataTransfer.files); });
   // דמו: כל טעינה של הדף מתחילה נקי, כמו ↻
-  if(CFG.demo){ ready=post('/reset').catch(()=>{}); }
+  // ---------- idle: 5 seconds without a click or typing -> the robot asks something that fits the stage ----------
+  // פעם אחת בכל שלב (אחרי כל תשובה של הסוכן השלב מתחדש), כדי לא להציק
+  const IDLE_MS=7000; let idleT=null, idleDone=false, idleStage='', nudging=false, closed=false;
+  function poke(){ clearTimeout(idleT); idleT=setTimeout(idle,IDLE_MS); }
+  ['click','keydown','input','scroll'].forEach(e=>document.addEventListener(e,poke,true));
+  new MutationObserver(()=>{ if(nudging) return; const k=String(log.querySelectorAll('.row:not(.me):not(.nudge)').length); if(k!==idleStage){ idleStage=k; idleDone=false; poke(); } }).observe(log,{childList:true});
+  async function idle(){
+    if(busy||idleDone||nudging||closed||!log.querySelector('.row')) return;
+    if(document.activeElement&&document.activeElement.id==='msg'&&$('#msg').value) return;
+    idleDone=true; nudging=true;
+    try{ await idleAsk(); }finally{ const r=[...log.querySelectorAll('.row:not(.me)')].pop(); if(r) r.classList.add('nudge'); nudging=false; }
+  }
+  async function idleAsk(){
+    const q=lastOut&&by(lastOut,'question')[0];
+    const lastBot=[...log.querySelectorAll('.row:not(.me):not(.old):not(.nudge)')].pop();
+    const slot=lastBot&&lastBot.querySelector('[data-up]:not(:disabled)');
+    const opening=lastBot&&!slot&&lastBot.textContent.includes('תלוש לבדיקה');
+    if(sentAll) return;
+    if(document.querySelector('.act[data-card] [data-sent]')&&!later){ return nudge(); }
+    if(q&&lastOut.status==='question'){
+      return say([textWith('צריכה עוד רגע לחשוב? אם לא בטוחה, זה בסדר גמור. אגיד לך איפה בודקים.',[['לא יודעת',()=>answer('לא יודעת'),'main']])]);
+    }
+    if(slot||opening){
+      const dt=slot?slot.dataset.up:'payslip', name=(CFG.guides[dt]||{}).label||'הקובץ';
+      return say([textWith('נתקעת? אני יכולה להראות לך בדיוק איפה מוצאים את <b>'+esc(name)+'</b>.',[[I('menu_book')+' כן, תראי לי',()=>guide(dt),'main'],['אעלה אחר כך',()=>{ meText('אעלה אחר כך'); say(['אין בעיה. הכול נשמר אצלי. כשתחזרי לאותו קישור, נמשיך בדיוק מכאן.']); }]])]);
+    }
+  }
   start();
 })();
 </script>

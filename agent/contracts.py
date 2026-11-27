@@ -44,12 +44,12 @@
                 "source": "הסכם עוז לתמורה, סעיף 18(ה)", "quote": "..." | None}],
      "slip_url": "/my/<token>/payslip", "how_url": "/my/<token>/payslip?open=how"}
     {"type": "action", "track": "payroll", "to": "חשבות השכר", "title": "פנייה לחשבות השכר",
-     "channel": "פורטל עובדי הוראה · פניות מקוונות", "link": "https://pob.education.gov.il",
+     "channel": "פורטל עובדי הוראה · פניות מקוונות", "link": "https://poh.education.gov.il",
      "subject": "...", "body": "... ת\"ז [להשלים] ...", "attach": ["צילום התלוש"],
      "todo_url": "/my/<token>/payslip/<id>/todo"}
 
       + "send": איך שולחים בלחיצה אחת (agent/send.py):
-        {"kind": "portal", "url": "https://pob.education.gov.il", "copy_first": True,
+        {"kind": "portal", "url": "https://poh.education.gov.il", "copy_first": True,
          "label": "פתיחת פנייה מקוונת", "steps": [...], "followup": "..."}
             ← הכפתור מעתיק את הנוסח ללוח (navigator.clipboard בתוך ה-click) ופותח את הפורטל בלשונית חדשה
         {"kind": "email", "to": "", "gmail": "...", "outlook": "...", "mailto": "...", "note": "..."}
@@ -154,7 +154,7 @@ def demo_run_agent(teacher_id, event):
                             "source": "הסכם עוז לתמורה, סעיף 18(ד)", "quote": None}],
                  "slip_url": "", "how_url": ""},
                 {"type": "action", "track": "payroll", "to": "חשבות השכר", "title": "פנייה לחשבות השכר",
-                 "channel": "פורטל עובדי הוראה · פניות מקוונות", "link": "https://pob.education.gov.il",
+                 "channel": "פורטל עובדי הוראה · פניות מקוונות", "link": "https://poh.education.gov.il",
                  "subject": "גמול השתלמות עוז לתמורה לא עודכן בתלוש ספטמבר 2026",
                  "body": f"שלום רב,\nשמי שרה כהן, ת\"ז {ID_PLACEHOLDER}.\n...", "attach": ["צילום התלוש"], "todo_url": ""},
                 {"type": "action", "track": "institution", "to": "[מוסד ההשתלמות]", "title": "מייל למוסד ההשתלמות",

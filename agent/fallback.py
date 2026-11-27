@@ -14,6 +14,43 @@ from agent import case as case_mod
 from agent import tools
 from agent.loop import finish
 
+# שלושת הקבצים שבלעדיהם אין חישוב, בסדר שבו מבקשים אותם (קובץ אחד בכל שלב)
+CORE_FILES = ["payslip", "oz_join", "courses"]
+
+OUT_OF_SCOPE = "זה מחוץ למה שאני בודקת. אפשר לפנות למוקד חשבות השכר \u200e*6552."
+DONT_KNOW_TEXT = "אני לא יודעת את זה. כדאי לשאול את מוקד חשבות השכר \u200e*6552."
+# נושאים שמחוץ לגמול ההשתלמות בעוז לתמורה
+_OFF_TOPIC = ("מס הכנסה", "נקודות זיכוי", "פנסיה", "קרן השתלמות", "אופק חדש", "הבראה", "ביטוח לאומי",
+              "ביגוד", "נסיעות", "חופשת לידה", "פיטורים", "פרישה", "ותק")
+# מילים שמסמנות שהשאלה בתחום
+_ON_TOPIC = ("גמול", "השתלמות", "קורס", "שבתון", "חל\"ת", "חלת", "עוז", "יחיד", "תלוש", "249", "פנייה", "פניה", "שעות")
+
+
+def _words(t):
+    return {w for w in "".join(ch if ch.isalnum() or ch in '"' else " " for ch in (t or "")).split() if len(w) >= 3}
+
+
+def answer_message(text, saved_questions):
+    """
+    תשובה לשאלה חופשית בלי AI. רק מתוך השאלות השמורות, עם הסעיף. אין התאמה: "לא יודעת".
+    מחזיר טקסט.
+    """
+    t = text or ""
+    if any(k in t for k in _OFF_TOPIC) and not any(k in t for k in ("גמול", "השתלמות", "קורס", "שבתון")):
+        return OUT_OF_SCOPE
+    if not any(k in t for k in _ON_TOPIC):
+        return OUT_OF_SCOPE
+    words = _words(t)
+    best, score = None, 0
+    for q in saved_questions or []:
+        sc = len(words & _words(q.get("q", "")))
+        if sc > score:
+            best, score = q, sc
+    if best and score >= 2 and best.get("cite"):
+        return f"{best['a']} ({best['cite']})"
+    return DONT_KNOW_TEXT
+
+
 REASON_NOTE = {
     "no_api_key": None,
     "api_error": "השירות של ה-AI לא זמין כרגע, אז המשכתי בלעדיו.",
@@ -53,8 +90,19 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
     pending = case.get("pending")
     if pending and kind == "answer":
         res = tools.save_answer(conn, tid, case, pending, event.get("value"))
+        if res.get("unclear"):  # לא מנחשים: שואלים שוב, עם הכפתורים
+            return finish(conn, tid, case, messages, "question", "לא הייתי בטוחה שהבנתי. אפשר לבחור אחת מהאפשרויות:",
+                          [pending.get("card") or {}], did, fallback=True)
         if res.get("saved"):
             did.append("שמרתי: " + (res.get("label") or "התשובה"))
+        if res.get("need_file") == "vacations":
+            # "לא יודעת": הדרכה איפה בודקים, ואותה שאלה שוב (לא תוצאה)
+            _, c, d, _ = tools.execute(ctx, "portal_guide", {"doc_type": "vacations"})
+            cards += c + [pending.get("card") or {}]
+            did.append(d)
+            return finish(conn, tid, case, messages, "question",
+                          f"אין בעיה. זה כתוב בפורטל, בעמוד \"חל\"ת ושבתון\". אחרי שבדקת, ענייני כאן:",
+                          cards, did, fallback=True)
         case["pending"] = None
         case.pop("pending_results", None)
         if res.get("need_file"):
@@ -88,15 +136,10 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
                       cards, did, fallback=True)
 
     if kind == "message":
-        # בלי AI אין שאלה חופשית. מפנים לתשובות המוכנות
+        # בלי AI: עונים רק מתוך השאלות השמורות, עם סעיף. אחרת "לא יודעת" או "מחוץ לתחום"
         res, c, d, is_err = tools.execute(ctx, "explain", {"rule_id": None})
-        qs = (res or {}).get("saved_questions") or []
-        if qs and not is_err:
-            q = qs[0]
-            return finish(conn, tid, case, messages, "reply",
-                          f"{q['a']}" + (f" ({q['cite']})" if q.get("cite") else ""), cards, did, fallback=True)
-        return finish(conn, tid, case, messages, "reply",
-                      "על השאלה הזו אני לא יכולה לענות כרגע. אפשר לברר במוקד חשבות השכר ‎*6552.",
+        qs = (res or {}).get("saved_questions") or [] if not is_err else []
+        return finish(conn, tid, case, messages, "reply", answer_message(event.get("text"), qs),
                       cards, did, fallback=True)
 
     # --- 3. מה חסר ---
@@ -107,8 +150,8 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
     files_missing = [m for m in missing if m["kind"] == "file"]
     questions = [m for m in missing if m["kind"] == "question"]
 
-    # קובץ החופשות חוסם את הבדיקה: בלי לדעת אם הייתה שנת שבתון, התוצאה עלולה להטעות
-    blocking = files_missing if not st.get("ready_to_check") else [m for m in files_missing if m["doc_type"] == "vacations"]
+    # כל קובץ חסר עוצר את הבדיקה: בלי "הקורסים שלי" (או עוז, או החופשות) התוצאה עלולה להטעות
+    blocking = sorted(files_missing, key=lambda m: CORE_FILES.index(m["doc_type"]) if m["doc_type"] in CORE_FILES else 9)
     if blocking:
         m = blocking[0]
         _, c, d, _ = tools.execute(ctx, "portal_guide", {"doc_type": m["doc_type"]})
@@ -157,7 +200,7 @@ def run_fallback(conn, tid, case, messages, event, extract_payslip=None, reason=
         text_parts.append(line + ".")
     else:
         text_parts.append(f"בתלוש מוכרות {_u(-gap)} יחידות יותר ממה שחישבנו. כנראה חסרים אצלנו נתונים.")
-    n = len(c)
+    n = len([x for x in c if x.get("type") == "action"])  # בלי כרטיס התזכורת
     if n == 2:
         text_parts.append("הכנתי שתי פניות. כדאי לשלוח את שתיהן עכשיו, במקביל.")
     elif n > 2:

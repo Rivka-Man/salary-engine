@@ -7,7 +7,7 @@ set "PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
 if not exist "%PY%" set "PY=python"
 
 set "DATABASE_URL=local"
-set "PORT=5060"
+set "PORT=5080"
 set "PYTHONIOENCODING=utf-8"
 
 "%PY%" -c "import pgserver" 2>nul || "%PY%" -m pip install pgserver

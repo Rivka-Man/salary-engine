@@ -7,6 +7,7 @@
 ask_teacher לא רץ כאן עד הסוף: הוא עוצר את הלולאה (ראו loop.py), והתשובה נשמרת
 ע"י save_answer כשהמורה עונה.
 """
+import re
 import json
 import os
 
@@ -328,18 +329,44 @@ def _status_from_answer(value):
     return "רגיל"
 
 
+# תשובה בטקסט חופשי (ולא בכפתור): "לא יודע", "לא בטוחה", "לא זוכרת", "אין לי מושג"
+_DONT_KNOW = re.compile(r"יודע|בטוח|זוכר|מושג|אין לי מידע|\?")
+
+
+def sabbatical_answer(value):
+    """
+    מתרגם תשובה לשאלת השבתון. מחזיר "dont_know", סטטוס (שבתון / חצי-שבתון / חלת / רגיל),
+    או None כשלא ברור (למשל "כן" בלי לומר מה). None: שואלים שוב, לא מנחשים.
+    """
+    v = (value or "").strip()
+    if not v or _DONT_KNOW.search(v):
+        return "dont_know" if v else None
+    if "חצי" in v:
+        return "חצי-שבתון"
+    if "שבתון" in v:
+        return "שבתון"
+    if re.search(r'חל"?ת|חופשה ללא', v):
+        return "חלת"
+    if re.fullmatch(r"(לא|ממש לא|לא היי?תי|רגיל[הה]?|שנה רגילה|לא,? .*רגיל.*)[.!]?", v):
+        return "רגיל"
+    return None
+
+
 def save_answer(conn, tid, case, pending, value):
     """שומר את תשובת המורה לשאלה ממתינה. מחזיר מה נשמר, לתוצאת הכלי ask_teacher."""
     field, sy = pending.get("field"), pending.get("school_year")
     v = (value or "").strip()
-    if field == "sabbatical" and sy and "לא יודעת" in v:
+    if field == "sabbatical" and sy and sabbatical_answer(v) is None:
+        return {"saved": None, "answer": v, "unclear": True,
+                "note": "התשובה לא ברורה. שאלי שוב, עם האפשרויות."}
+    if field == "sabbatical" and sy and sabbatical_answer(v) == "dont_know":
         # לא שומרים סטטוס. מסמנים "לא ידוע", ו-case_status יבקש את קובץ החופשות
         set_fact(case, f"sabbatical:{sy}", f"שבתון {sy}", case_mod.DONT_KNOW, "manual")
         conn.commit()
         return {"saved": None, "answer": v, "need_file": "vacations", "school_year": sy,
                 "note": f"המורה לא יודעת אם {sy} הייתה שנת שבתון. בקשי את קובץ החופשות והשבתונים (portal_guide vacations)."}
     if field == "sabbatical" and sy:
-        st = _status_from_answer(v)
+        st = sabbatical_answer(v)
         conn.execute(
             """INSERT INTO employment_status_by_year (teacher_id, school_year, status) VALUES (%s,%s,%s)
                ON CONFLICT (teacher_id, school_year) DO UPDATE SET status=EXCLUDED.status""", (tid, sy, st))

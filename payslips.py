@@ -27,7 +27,7 @@ GIMUL_CODE = "249"
 
 # פנייה לחשבות השכר - כפי שמופיע בהודעות לעובד/ת בתלוש עצמו
 CONTACT = {
-    "portal": "https://pob.education.gov.il",
+    "portal": "https://poh.education.gov.il",
     "portal_label": "פורטל עובדי הוראה ← פניות מקוונות",
     "phone": "‎*6552",
 }

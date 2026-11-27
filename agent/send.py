@@ -11,10 +11,14 @@
 שהמורה מקלידה, ובונה מחדש את הקישורים עם build_* בצד הלקוח (ראו contracts.py).
 תעודת הזהות לא נשלחת לשרת.
 """
+import os
 from datetime import date, timedelta
 from urllib.parse import quote, urlencode
 
-PORTAL_URL = "https://pob.education.gov.il"
+PORTAL_URL = "https://poh.education.gov.il"
+# הכתובת של עמוד "פתיחת פנייה" בפורטל (מאחורי ההתחברות). כשמישהי עם כניסה לפורטל מעתיקה אותה
+# משורת הכתובת, שמים אותה כאן או במשתנה הסביבה, והכפתור יגיע ישר לטופס.
+PORTAL_REQUEST_URL = os.environ.get("PORTAL_REQUEST_URL") or "https://pny.education.gov.il"  # מערכת הפניות; מפנה להתחברות ומשם לטופס
 HOTLINE = "*6552"
 
 # איך מגיעים לטופס פנייה מקוונת (פס "שירות ותמיכה" בפורטל)
@@ -46,7 +50,7 @@ def send_options(track, subject, body, to_email=None, link=None):
     track: payroll | ministry | institution | unique | hotline | document | fix_data
     """
     if track in ("payroll", "ministry"):
-        return {"kind": "portal", "url": link or PORTAL_URL, "copy_first": True,
+        return {"kind": "portal", "url": link or PORTAL_REQUEST_URL or PORTAL_URL, "copy_first": True,
                 "label": "פתיחת פנייה מקוונת", "steps": PORTAL_REQUEST_STEPS,
                 "followup_days": 30,
                 "followup": f"אם אין מענה תוך 30 יום, מתקשרים למוקד חשבות השכר {HOTLINE} עם מספר הפנייה."}
