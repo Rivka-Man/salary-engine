@@ -449,8 +449,26 @@ ol.steps{margin:6px 0 0;padding-inline-start:18px;font-size:.88rem;display:flex;
     const sg=$('#sugg'); sg.innerHTML='';
     (res.parts||[]).forEach(p=>{ const c=el('<button class="chip">למה +'+n(p.units)+'?</button>');
       c.addEventListener('click',async()=>{ c.disabled=true; meText(c.textContent);
-        await say([esc(p.label)+': <b>+'+n(p.units)+'</b> יחידות.'+(p.quote?'<br>«'+esc(p.quote)+'»':'')+(p.source?'<br><small style="color:var(--soft)">'+esc(p.source)+'</small>':'')]); });
+        await say([textWith(esc(p.label)+': <b>+'+n(p.units)+'</b> יחידות.'+(p.quote?'<br>«'+esc(p.quote)+'»':'')+(p.source?'<br><small style="color:var(--soft)">'+esc(p.source)+'</small>':''),
+          [[I('help')+' תסביר לי',()=>explainPart(p)]])]); });
       sg.appendChild(c); });
+  }
+  // "תסביר לי": הסבר פשוט מתבנית. כל מספר ושם מגיעים מהמנוע ומה-DB, הכלל מהחוקה, הסעיף מהמאגר
+  async function explainPart(p){
+    meText('תסביר לי');
+    const secs=[];
+    if(p.school_year&&p.courses&&p.courses.length){
+      secs.push('ב<b>'+esc(p.school_year)+'</b> למדת '+p.courses.length+' '+(p.courses.length===1?'קורס':'קורסים')+', '+n(p.hours)+' שעות:'+
+        '<div class="list">'+p.courses.map(c=>'<div class="li"><span class="ic">'+I('cap')+'</span><span>'+esc(c.name)+'<small>'+n(c.hours)+' שעות'+(c.manual?' · הזנת בעצמך':' · מהפורטל')+'</small></span></div>').join('')+'</div>');
+    }
+    if(p.rule_desc) secs.push('<b>הכלל:</b> '+esc(p.rule_desc.replace(/\s*\([A-Za-z][^)]*\)/g,''))+(p.source?'<br><small style="color:var(--soft)">'+esc(p.source)+'</small>':''));
+    const manual=(p.courses||[]).filter(c=>c.manual);
+    let why;
+    if(manual.length) why='הקורס "'+esc(manual[0].name)+'" לא מופיע ב"הקורסים שלי" בפורטל, כלומר מוסד ההשתלמות לא דיווח עליו. בלי הדיווח הזה הוא לא נספר בתלוש.';
+    else if(p.year_status&&p.year_status!=='רגיל') why=esc(p.school_year||'השנה')+' הייתה שנת '+esc(p.year_status==='חלת'?'חל"ת':p.year_status)+', ולכן התקרה של יחידה בשנה לא חלה עליה. בתלוש היא לא נספרה כך.';
+    else why='בתלוש היחידות האלה לא מופיעות.';
+    secs.push('<b>לכן</b> מגיעות לך עוד <b>'+n(p.units)+'</b> '+(Number(p.units)===1?'יחידה':'יחידות')+'. '+why+'<br>הפנייה בעניין הזה כבר מוכנה למעלה.');
+    await say(secs);
   }
   const ID_PH='[ת"ז — להשלים]';
   const PURPOSE={payroll:'שיעדכנו את הגמול בתלוש',ministry:'שיעדכנו את הגמול בתלוש',institution:'שידווחו על הקורס שחסר, כדי שייספר',unique:'שידווחו על הקורס שחסר, כדי שייספר'};

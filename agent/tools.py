@@ -12,6 +12,7 @@ import json
 import os
 
 import ask
+from engine import RULES_METADATA
 import payslips
 import playbook
 import rag
@@ -109,6 +110,28 @@ def _component_rule(c, status_by_year):
 def _source(rule_id):
     s = rag.first_source(rule_id) if rule_id else None
     return (s["source"], s["quote"]) if s else ("", None)
+
+
+_RULE_INFO = {r["rule_id"]: r for r in RULES_METADATA}
+
+
+def _part_facts(conn, tid, comp, status_by_year):
+    """
+    הנתונים מאחורי רכיב בפער, ל"תסביר לי": הכלל (מהחוקה), השנה, מצב השנה, והקורסים
+    של אותה שנה (מה-DB). בלי ניסוח חופשי: המסך בונה מזה הסבר מתבנית.
+    """
+    m = re.search(r'תש[א-ת"״]+', comp.get("label") or "")
+    sy = m.group(0).replace("״", '"') if m else None
+    rule = _RULE_INFO.get(comp.get("rule_id")) or {}
+    courses = []
+    if sy:
+        for r in conn.execute("SELECT description, hours, source FROM courses WHERE teacher_id=%s AND school_year=%s "
+                              "ORDER BY start_date", (tid, sy)).fetchall():
+            courses.append({"name": (r["description"] or "").split(" — ")[0], "hours": float(r["hours"] or 0),
+                            "manual": r["source"] == "manual"})
+    return {"school_year": sy, "year_status": status_by_year.get(sy) if sy else None,
+            "courses": courses, "hours": sum(c["hours"] for c in courses),
+            "rule_title": rule.get("title"), "rule_desc": rule.get("description")}
 
 
 def _summary(cmp, status_by_year):
@@ -217,7 +240,8 @@ def t_run_check(ctx, what_if=None):
             if not c["missing_in_payslip"]:
                 continue
             src, quote = _source(c["rule_id"])
-            parts.append({"units": c["units"], "label": c["label"], "rule_id": c["rule_id"], "source": src, "quote": quote})
+            parts.append({"units": c["units"], "label": c["label"], "rule_id": c["rule_id"], "source": src, "quote": quote,
+                          **_part_facts(conn, tid, c, status_by_year)})
         urls = _teacher_urls(conn, tid, slip["payslip_id"])
         cards.append({"type": "result", "ok": False, "expected": cmp["expected_units"], "paid": cmp["paid_units"],
                       "gap_units": cmp["gap_units"], "gap_ils": summary["gap_ils_monthly"],
